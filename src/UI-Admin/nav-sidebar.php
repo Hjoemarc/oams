@@ -17,7 +17,7 @@
                 <a href="index.php?page=contents/program" class="nav-item nav-program my-1 rounded-2">
                     <span class=""><i class="fa-solid fa-graduation-cap"></i></span> Program Management
                 </a>
-                <a href="index.php?page=contents/accreditation_framework" class="nav-item nav-framework my-1 rounded-2">
+                <a href="index.php?page=contents/accreditation_framework" class="nav-item nav-accreditation_framework my-1 rounded-2">
                     <span class=""><i class="fa-solid fa-clipboard-list"></i></span> Accreditation Framework
                 </a>
             </div>

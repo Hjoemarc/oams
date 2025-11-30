@@ -65,10 +65,16 @@ function db_connect()
                 area_id INT NOT NULL,
                 indicator_code VARCHAR(20) NOT NULL,
                 indicator_description TEXT NOT NULL,
-                required_evidence TEXT,
                 FOREIGN KEY (area_id) REFERENCES accreditation_areas(area_id)
             )",
-
+            "CREATE TABLE IF NOT EXISTS accreditation_criteria (
+                criteria_id INT AUTO_INCREMENT PRIMARY KEY,
+                indicator_id INT NOT NULL,
+                criteria_number VARCHAR(20),
+                criteria_description TEXT NOT NULL,
+                required_evidence TEXT,
+                FOREIGN KEY (indicator_id) REFERENCES accreditation_indicators(indicator_id)
+            );",
             "CREATE TABLE IF NOT EXISTS accreditation_cycles (
                 cycle_id INT AUTO_INCREMENT PRIMARY KEY,
                 cycle_name VARCHAR(100) NOT NULL,

@@ -23,8 +23,8 @@
 <section>
     <div class="d-flex justify-content-between align-items-center mb-2">
         <div class="mx-2">
-            <h4 class=""><i class="fa-solid fa-building-user me-2"></i>Departments & Job Titles Management</h4>
-            <small class="text-muted ">Manage Puericultures departments and Job Titles</small>
+            <h4 class=""><i class="fa-solid fa-building-user me-2"></i>Departments & Programs Management</h4>
+            <small class="text-muted ">Manage departments and Programs</small>
         </div>
     </div>
 
@@ -157,11 +157,7 @@
                     <div class="modal fade" id="deleteDepartmentModal" tabindex="-1"
                         aria-labelledby="deleteJobModalLabel" aria-hidden="true">
                         <div class="modal-dialog">
-                            <form method="post" action="../../authentication/hrAuth.php" class="modal-content">
-                                <?php $csrf = $_SESSION["csrf_token"] ?? ''?>
-                                <input type="hidden" name="csrf_token" value="<?php echo $csrf; ?>">
-                                <input type="hidden" name="deprtament_auth" value="true">
-                                <input type="hidden" name="dept_auth_type" value="delete">
+                            <form id="delete-department" class="modal-content">
                                 <div class="modal-header bg-gradient-primary text-white">
                                     <h5 class="modal-title text-white" id="deleteJobModalLabel">Confirmation Delete</h5>
                                     <button type="button" class="btn-close" data-bs-dismiss="modal"
@@ -195,7 +191,6 @@
                                     <th><?= $counts++ ?></th>
                                     <th><?= htmlspecialchars($dept["Department_name"]) ?></th>
                                     <th><?= htmlspecialchars($dept["Department_code"]) ?></th>
-                                    <th><?= htmlspecialchars($dept["addAt"]) ?></th>
                                     <th>
                                         <button type="button" class="btn px-3 btn-sm btn-danger" onclick="edit_department(
                                                 <?= $dept['Department_id'] ?>,
@@ -245,14 +240,25 @@
                                         aria-label="Close" onclick="location.reload()"></button>
                                 </div>
                                 <div class="modal-body">
-                                    <form class="row g-3" id="jobtitle-form">
+                                    <form class="row g-3" id="programs-form">
                                         <div class="m-2">
-                                            <label class="form-label">Job Title</label>
-                                            <input type="text" class="form-control" name="jobTitle">
+                                            <label class="form-label">Program name</label>
+                                            <input type="text" class="form-control" name="program_name">
                                         </div>
                                         <div class="m-2">
-                                            <label class="form-label">Official Salary</label>
-                                            <input type="number" class="form-control" name="salary">
+                                            <label class="form-label">Program code</label>
+                                            <input type="text" class="form-control" name="program_code">
+                                        </div>
+                                        <div class="m-2">
+                                            <label class="form-label">Department</label>
+                                            <select name="department_id" id="" class="form-select">
+                                                <option value="">Select Departments</option>
+                                                <?php foreach($Departments as $dept) : ?>
+                                                    <option value="<?= htmlspecialchars($dept["Department_id"]) ?>">
+                                                        <?= htmlspecialchars($dept["Department_name"]) . '(' . htmlspecialchars($dept["Department_code"]) . ')' ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </select>
                                         </div>
                                         <div class="col-12 text-center mt-3">
                                             <button type="submit" class="btn btn-danger px-5">
@@ -268,7 +274,7 @@
                     <div class="modal fade" id="editJobTitlesModal" tabindex="-1"
                         aria-labelledby="editJobTitlesModalLabel" aria-hidden="true">
                         <div class="modal-dialog">
-                            <form id="update-jobInfo">
+                            <form id="update-programs">
                                 <div class="modal-content">
                                     <div class="modal-header bg-gradient-primary text-white">
                                         <h5 class="modal-title text-white" id="editJobTitlesModalLabel">Edit Job
@@ -278,17 +284,27 @@
                                     </div>
 
                                     <div class="modal-body">
-                                        <input type="hidden" name="jobTitles_id" id="editUserIdEdit">
+                                        <input type="hidden" name="program_id" id="editProgram_id">
 
                                         <div class="mb-3">
                                             <label for="jobTitle" class="form-label">Job Title</label>
-                                            <input type="text" class="form-control" id="jobTitle" value=""
-                                                name="jobTitle">
+                                            <input type="text" class="form-control" id="program_name" value=""
+                                                name="program_name">
                                         </div>
-
                                         <div class="mb-3">
                                             <label for="salary" class="form-label">Official Salary</label>
-                                            <input type="text" class="form-control" id="salary" value="" name="salary">
+                                            <input type="text" class="form-control" id="program_code" value="" name="program_code">
+                                        </div>
+                                        <div class="mb-2">
+                                            <label class="form-label">Department</label>
+                                            <select name="department_id" id="department_ids" class="form-select">
+                                                <option value="">Select Departments</option>
+                                                <?php foreach($Departments as $dept) : ?>
+                                                    <option value="<?= htmlspecialchars($dept["Department_id"]) ?>">
+                                                        <?= htmlspecialchars($dept["Department_name"]) . '(' . htmlspecialchars($dept["Department_code"]) . ')' ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </select>
                                         </div>
                                     </div>
 
@@ -305,19 +321,15 @@
                     <div class="modal fade" id="deleteJobModal" tabindex="-1" aria-labelledby="deleteJobModalLabel"
                         aria-hidden="true">
                         <div class="modal-dialog">
-                            <form method="post" action="../../authentication/hrAuth.php" class="modal-content">
-                                <?php $csrf = $_SESSION["csrf_token"] ?? ''?>
-                                <input type="hidden" name="csrf_token" value="<?php echo $csrf; ?>">
-                                <input type="hidden" name="jobTitle_auth" value="true">
-                                <input type="hidden" name="job_auth_type" value="delete">
+                            <form id="delete-program" class="modal-content">
                                 <div class="modal-header bg-gradient-primary text-white">
                                     <h5 class="modal-title text-white" id="deleteJobModalLabel">Confirmation Delete</h5>
                                     <button type="button" class="btn-close" data-bs-dismiss="modal"
                                         aria-label="Close"></button>
                                 </div>
                                 <div class="modal-body">
-                                    Are you sure you want to delete this job title?
-                                    <input type="hidden" name="jobTitles_id" id="deleteJobTitleId">
+                                    Are you sure you want to delete this program?
+                                    <input type="hidden" name="program_id" id="deleteJobTitleId">
                                 </div>
                                 <div class="modal-footer">
                                     <button type="submit" class="btn btn-danger">Yes, Delete</button>
@@ -342,22 +354,23 @@
                                 <?php foreach($programsData as $job) : ?>
                                     <tr>
                                         <th><?= $counts++ ?></th>
-                                        <th><?= htmlspecialchars($job["jobTitle"]) ?></th>
-                                        <th><?= htmlspecialchars($job["salary"]) ?></th>
-                                        <th><?= htmlspecialchars($job["addAt"]) ?></th>
+                                        <th><?= htmlspecialchars($job["program_name"]) ?></th>
+                                        <th><?= htmlspecialchars($job["program_code"]) ?></th>
+                                        <th><?= htmlspecialchars($job["Department_code"]) ?></th>
                                         <th>
                                             <button type="button" class="btn px-3 btn-sm btn-danger" 
                                                 onclick="edit_jobTitle(
-                                                    <?= $job['jobTitles_id'] ?>,
-                                                    '<?= addslashes($job['jobTitle']) ?>',
-                                                    '<?= $job['salary'] ?>'
+                                                    <?= $job['program_id'] ?>,
+                                                    '<?= addslashes($job['program_name']) ?>',
+                                                    '<?= addslashes($job['program_code']) ?>',
+                                                    '<?= $job['department_id'] ?>'
                                                 )">
                                                 <i class="fas fa-eye"></i> Edit
                                             </button>
 
                                             <button type="button" class="btn px-3 btn-sm btn-dark" 
                                                 data-bs-toggle="modal" data-bs-target="#deleteJobModal" 
-                                                onclick="setDeletejobtTitleId(<?= $job['jobTitles_id'] ?>)">
+                                                onclick="setDeletejobtTitleId(<?= $job['program_id'] ?>)">
                                                 <i class="fas fa-eye"></i> Delete
                                             </button>
                                         </th>

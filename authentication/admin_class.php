@@ -525,5 +525,186 @@ class Action
         }
     }
     
-  
+    // DEPARTMENTS AND PROGRAMS ======================================
+    function department_form()
+    {
+        $department_name = htmlspecialchars(trim($_POST["department_name"]));
+        $department_code = htmlspecialchars(trim($_POST["department_code"]));
+        // Validation code remains the same...
+
+        try {
+            // Check if username exists using prepared statement
+            $stmt = $this->db->prepare("SELECT department_name FROM departments WHERE department_name = ?");
+            $stmt->execute([$department_name]);
+            $department_nameTaken = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($department_nameTaken) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'department_name ' . $department_nameTaken["department_name"] . ' already taken please try another department_name'
+                ]);
+            }
+
+            $stmt = $this->db->prepare("INSERT INTO departments (department_name, department_code) VALUES ('$department_name', '$department_code')");
+            $stmt->execute();
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'department created successfully!'
+            ]);
+        } catch (PDOException $e) {
+            error_log("Database error: " . $e->getMessage());
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred. Please try again later.'
+            ]);
+        }
+    }
+    function edit_department()
+    {
+        $department_id = htmlspecialchars($_POST["department_id"] ?? '');
+        $department_name = htmlspecialchars($_POST["department_name"] ?? '');
+        $department_code = htmlspecialchars($_POST["department_code"] ?? '');
+
+        try {
+
+            $stmt = $this->db->prepare("UPDATE departments SET Department_name = :Department_name, Department_code = :Department_code WHERE Department_id = :Department_id ");
+            $stmt->execute(['Department_name' => $department_name, 'Department_code' => $department_code, 'Department_id' => $department_id]);
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Department Edited successfully!'
+            ]);
+        } catch (PDOException $e) {
+            error_log("Database error: " . $e->getMessage());
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred. Please try again later.'
+            ]);
+        }
+    }
+    function delete_department(){
+        try {
+           $department_id = $_POST["department_id"];
+           $stmt = $this->db->prepare("DELETE FROM departments WHERE Department_id = :Department_id");
+           $stmt->execute([
+            'Department_id' => $department_id
+           ]);
+
+           return json_encode([
+                'status' => 1,
+                'message' => 'department Deleted successfully!'
+            ]);
+       } catch (PDOException $e) {
+            error_log("Database error: " . $e->getMessage());
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred. Please try again later.'
+            ]);
+        }
+    }
+
+    function programs_form(){
+        try {
+            $program_name = $_POST["program_name"];
+            $program_code = $_POST["program_code"];
+            $department_id = $_POST["department_id"];
+
+            $stmt = $this->db->prepare("INSERT INTO programs (program_name, program_code, department_id)
+                VALUES (:program_name, :program_code, :department_id)");
+            $stmt->execute([
+                'program_name' => $program_name,
+                'program_code' => $program_code,
+                'department_id' => $department_id
+            ]);
+
+             return json_encode([
+                'status' => 1,
+                'message' => 'program created successfully!'
+            ]);
+        } catch (PDOException $e) {
+            error_log("Database error: " . $e->getMessage());
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred. Please try again later.'
+            ]);
+        }
+    }
+    function update_programs(){
+        try{
+            $program_id = $_POST["program_id"];
+            $program_name = $_POST["program_name"];
+            $program_code = $_POST["program_code"];
+            $department_id = $_POST["department_id"];
+
+            $stmt = $this->db->prepare("UPDATE programs SET program_name = :program_name,
+                program_code = :program_code, department_id = :department_id WHERE program_id = :program_id");
+            $stmt->execute([
+                'program_id' => $program_id,
+                'program_name' => $program_name,
+                'program_code' => $program_code,
+                'department_id' => $department_id
+            ]);
+
+             return json_encode([
+                'status' => 1,
+                'message' => 'program updated successfully!'
+            ]);
+
+        } catch (PDOException $e) {
+                error_log("Database error: " . $e->getMessage());
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'An error occurred. Please try again later.'
+                ]);
+            }  
+    }
+    function delete_program(){
+        try {
+           $program_id = $_POST["program_id"];
+           $stmt = $this->db->prepare("DELETE FROM programs WHERE program_id = :program_id");
+           $stmt->execute([
+            'program_id' => $program_id
+           ]);
+
+           return json_encode([
+                'status' => 1,
+                'message' => 'Program Deleted successfully!'
+            ]);
+       } catch (PDOException $e) {
+            error_log("Database error: " . $e->getMessage());
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred. Please try again later.'
+            ]);
+        }
+    }
+
+    // Accreditation Framework ================================
+    function area_form(){
+        try {
+            $area_number = $_POST["area_number"];
+            $area_name = $_POST["area_name"];
+            $description = $_POST["description"] ?? '';
+
+            $stmt = $this->db->prepare("INSERT INTO accreditation_areas (area_number, area_name, description)
+                VALUES (:area_number, :area_name, :description)");
+            $stmt->execute([
+                'area_number' => $area_number,
+                'area_name' => $area_name,
+                'description' => $description
+            ]);
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Area created successfully!'
+            ]);
+        } catch (PDOException $e) {
+            error_log("Database error: " . $e->getMessage());
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred. Please try again later.'
+            ]);
+        }
+    }
 }
