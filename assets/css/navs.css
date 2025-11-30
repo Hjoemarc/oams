@@ -1,0 +1,81 @@
+
+    .sidebar-list a.active {
+        background: linear-gradient(40deg, #E32126, #E53935, #e3212797, #e5383518);
+        font-weight: bold;
+        color: snow;
+    }
+    .sidebar-list a {
+        font-weight: 500;
+        padding: .5rem;
+        border: 1px solid #ddd;
+        display: block;
+        text-decoration: none;
+        transition: all 0.3s ease;
+    }
+    .sidebar-list a:hover {
+        background-color: #f5f5f5;
+    }
+    
+    .toggle-section {
+        max-height: 0;
+        overflow: hidden;
+        padding-left: 15px;
+        transition: max-height 0.4s ease, padding 0.3s ease;
+    }
+    
+    .toggle-section.show {
+        max-height: 500px; 
+        padding-top: 5px;
+        padding-bottom: 5px;
+    }
+    
+    .toggle-btn {
+        width: 100%;
+        text-align: left;
+        padding: 8px 10px;
+        margin: 5px 0;
+        border: solid 1px #ddd;
+        background: none;
+        cursor: pointer;
+        font-weight: 500 !important;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-radius: 4px;
+        transition: background-color 0.3s ease;
+    }
+    
+    .toggle-btn:hover {
+        background-color: #f0f0f0;
+    }
+    
+    .toggle-btn .toggle-icon {
+        transition: transform 0.3s ease;
+    }
+    
+    .toggle-btn.collapsed .toggle-icon {
+        transform: rotate(-270deg);
+    }
+    
+    /* Smooth transition for nav items */
+    .toggle-section a {
+        opacity: 0;
+        transform: translateX(-10px);
+        transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    
+    .toggle-section.show a {
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+    .image-header{
+        height: 60px !important;
+        width: 60px !important;
+    }
+    
+    /* Delay the animation for each nav item */
+    .toggle-section.show a:nth-child(1) { transition-delay: 0.1s; }
+    .toggle-section.show a:nth-child(2) { transition-delay: 0.15s; }
+    .toggle-section.show a:nth-child(3) { transition-delay: 0.2s; }
+    .toggle-section.show a:nth-child(4) { transition-delay: 0.25s; }

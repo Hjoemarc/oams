@@ -1,0 +1,279 @@
+/* Login Animation */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    color: white;
+}
+@keyframes progressAnimation {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.custom-swal {
+    width: 350px !important;
+    padding-left: 25px !important;
+    padding-right: 25px !important;
+    padding-bottom: 35px !important;
+    padding-top: 35px !important;
+}
+h2{
+  padding: 0 !important;
+}
+.custom-html-container {
+    padding: 0 !important;
+    margin: 0 !important;
+}
+/* end of login animation */
+
+html{
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    height: 100vh !important;
+    width: 100vw !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+}
+/* LOGOUT BUTTON */
+#logoutDomain {
+    transition: all 0.5s ease-out;
+    left: 67rem !important;
+    opacity: 1;
+    z-index: 99;
+}
+#logoutBtn{
+  background: none !important;
+  border: none !important;
+  color: #fff !important;
+}
+.desc {
+  width: 100%;
+}
+
+.login-page {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: left;
+  height: 100% !important;
+  width: 100% !important;
+}
+.fontHeader, .fontRegister{
+  font-family: 'Jomhuria', cursive !important;
+  margin: -20px;
+  margin-top: 0 !important;
+  color: #fff !important;
+}
+.fontHeader{
+  font-size: 5rem;
+}
+.fontRegister{
+  font-size: 3rem !important;
+}
+.card-title img{
+  width: 60px; height: 60px;
+}
+.header{
+  z-index: 99 !important;
+}
+@media(max-width: 576px){
+  .fontHeader{
+    font-size: 4rem;
+  }
+  .card-title img{
+    width: 40px !important; height: 40px !important;
+  }
+}
+
+#register-form {
+  background-color: #ffffff;
+  width: 100%;
+  min-width: 300px;
+
+}
+
+.tab {
+  display: none;
+}
+
+.tab input {
+  width: 100%;
+  padding: 5px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.tab input:active,
+.tab input:focus {
+  outline: none;
+  border-color: rgb(207, 207, 207);
+}
+
+
+input.invalid {
+  background-color: #ffdddd;
+}
+
+.step {
+  height: 10px;
+  width: 10px;
+  background-color: #bbbbbb;
+  border: none;
+  border-radius: 50%;
+  display: inline-block;
+  opacity: 0.5;
+}
+
+.step.active {
+  opacity: 1;
+}
+
+.step.finish {
+  background-color: rgb(126, 126, 126);
+}
+
+
+.container {
+  width: 100%;
+  margin: 1.5rem;
+  border-radius: 8px;
+}
+
+#tables {
+  background-color: #fff;
+  color: #333;
+}
+
+table.dataTable thead {
+  background-color: var(--bs-secondary);
+  color: rgb(255, 255, 255);
+  font-size: .9rem;
+  padding: 2px;
+
+}
+
+table.dataTable tbody tr:nth-child(even) {
+  background-color: #f2f2f2;
+}
+
+table.dataTable tbody tr:hover {
+  background-color: #dee2e6;
+}
+
+.dataTables_wrapper .dataTables_filter input {
+  border-radius: 4px;
+  border: 1px solid #ced4da;
+}
+
+label {
+  font-size: 1rem;
+}
+
+/* .dashboard{
+  width: 100%;
+  height: 100vh;
+  margin-right: 10rem;
+} */
+
+
+#sidebar {
+        background-color: #fff;
+        color: #000;
+        height: 100%;
+        width: 250px;
+        transition: all 1s ease-in-out;
+    }
+
+    .sidebar-list a {
+        display: flex;
+        align-items: center;
+        padding: 5px 10px;
+        color: #010101;
+        text-decoration: none;
+        font-weight: 400;
+        transition: all 0.5s ease-in-out;
+        background-color: #fff;
+    }
+
+    .sub-section{
+      overflow-y: scroll;
+    }
+
+    .sidebar-list a.active {
+        color: #fff;
+    }
+
+    .sidebar-list {
+        background-color: #fff;
+        font-size: .9rem;
+    }
+
+    .sidebar-list .icon-field {
+        margin-right: 10px;
+        font-size: 1.2rem;
+    }
+
+    .collapse a {
+        padding-left: 15px;
+        background-color: #f8f9fa;
+    }
+
+    #sidebar::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .sidebar-list a.active {
+        background-color: var(--bs-secondary);
+        font-weight: bold;
+        color: #ffffff !important;
+    }
+    
+
+@media(max-width:768px) {
+    .navbarHide {
+        background-color: #fff !important;
+        position: absolute;
+        transform: translateX(-50rem);
+        transition: ease-in;
+        z-index: 1000; /* Added z-index */
+    }
+    
+    /* Add this new class to show the sidebar */
+    .navbarShow {
+        transform: translateX(0) !important;
+        transition: .5s ease-in;
+    }
+
+    .image-header {
+        width: 40px !important;
+        height: auto !important;
+    }
+    
+    /* Add overlay styles */
+    .sidebar-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 999;
+        display: none;
+    }
+    
+    .sidebar-overlay.active {
+        display: block;
+    }
+}
