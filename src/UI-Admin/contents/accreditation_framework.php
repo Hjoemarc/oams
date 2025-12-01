@@ -20,22 +20,6 @@
     $stmtIndicators->execute();
     $indicatorsData = $stmtIndicators->fetchAll(PDO::FETCH_ASSOC);
 
-    // Fetch Criteria with Indicator information
-    $stmtCriteria = $pdo->prepare("SELECT 
-                c.criteria_id,
-                c.criteria_number,
-                c.criteria_description,
-                c.required_evidence,
-                c.indicator_id,
-                i.indicator_code,
-                a.area_name
-            FROM accreditation_criteria AS c
-            LEFT JOIN accreditation_indicators AS i ON c.indicator_id = i.indicator_id
-            LEFT JOIN accreditation_areas AS a ON i.area_id = a.area_id
-            ORDER BY c.criteria_number ASC");
-    $stmtCriteria->execute();
-    $criteriaData = $stmtCriteria->fetchAll(PDO::FETCH_ASSOC);
-
     // Fetch Cycles
     $stmtCycles = $pdo->prepare("SELECT cycle_id, cycle_name, academic_year, status, deadline, created_at
                 FROM accreditation_cycles
@@ -58,25 +42,17 @@
         <?php
             $areasCount = $pdo->query("SELECT COUNT(*) FROM accreditation_areas")->fetchColumn();
             $indicatorsCount = $pdo->query("SELECT COUNT(*) FROM accreditation_indicators")->fetchColumn();
-            $criteriaCount = $pdo->query("SELECT COUNT(*) FROM accreditation_criteria")->fetchColumn();
-            $cyclesCount = $pdo->query("SELECT COUNT(*) FROM accreditation_cycles")->fetchColumn();
         ?>
-        <div class="col-md-3">
+        <div class="col-md-6">
             <div class="card-header shadow bg-white text-center p-4 ">
                 <h5 id="totalAreas"><?= $areasCount ?></h5>
                 <small>Areas</small>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-6">
             <div class="card-header shadow bg-white text-center p-4 ">
                 <h5 id="totalIndicators"><?= $indicatorsCount ?></h5>
                 <small>Indicators</small>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card-header shadow bg-white text-center p-4 ">
-                <h5 id="totalCriteria"><?= $criteriaCount ?></h5>
-                <small>Criteria</small>
             </div>
         </div>
     </div>
@@ -90,10 +66,6 @@
                 <li class="nav-item col-md-2">
                     <a class="nav-link" data-bs-toggle="tab" data-bs-target="#indicatorsInfo"><i
                             class="fa-solid me-2 fa-list-check"></i>Indicators</a>
-                </li>
-                <li class="nav-item col-md-2">
-                    <a class="nav-link" data-bs-toggle="tab" data-bs-target="#criteriaInfo"><i
-                            class="fa-solid me-2 fa-square-check"></i>Criteria</a>
                 </li>
             </ul>
         </div>
@@ -214,39 +186,56 @@
                         </div>
                     </div>
 
-                    <!-- AREAS TABLE -->
-                    <div class="table-responsive table-body">
-                        <table class="table table-bordered table-sm text-center">
+                    <!-- AREAS TABLE - COMPACT VERSION -->
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover" style="font-size: 0.875rem;">
                             <thead class="table-light">
-                                <tr style="color: #555;">
-                                    <th>#</th>
-                                    <th>Area Number</th>
-                                    <th>Area Name</th>
-                                    <th>Description</th>
-                                    <th>Actions</th>
+                                <tr>
+                                    <th width="5%">#</th>
+                                    <th width="15%">Area #</th>
+                                    <th width="30%">Area Name</th>
+                                    <th width="30%">Description</th>
+                                    <th width="20%">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody class="text-center" id="areasTable" style="color: #666;">
-                                <?php foreach($areas as $area) : ?>
+                            <tbody id="areasTable">
+                                <?php 
+                                $areaCount = 1;
+                                foreach($areas as $area) : 
+                                    // Truncate long descriptions
+                                    $shortDesc = isset($area["description"]) && strlen($area["description"]) > 60 
+                                        ? substr($area["description"], 0, 60) . '...' 
+                                        : ($area["description"] ?? 'N/A');
+                                ?>
                                 <tr>
-                                    <td><?= $counts++ ?></td>
-                                    <td><?= htmlspecialchars($area["area_number"]) ?></td>
-                                    <td><?= htmlspecialchars($area["area_name"]) ?></td>
-                                    <td><?= htmlspecialchars($area["description"] ?? 'N/A') ?></td>
+                                    <td><?= $areaCount++ ?></td>
+                                    <td><span
+                                            class="badge bg-secondary"><?= htmlspecialchars($area["area_number"]) ?></span>
+                                    </td>
+                                    <td><strong><?= htmlspecialchars($area["area_name"]) ?></strong></td>
                                     <td>
-                                        <button type="button" class="btn btn-sm btn-primary" onclick="editArea(
+                                        <div class="area-desc"
+                                            data-full="<?= htmlspecialchars($area["description"] ?? '') ?>"
+                                            title="<?= htmlspecialchars($area["description"] ?? '') ?>">
+                                            <?= htmlspecialchars($shortDesc) ?>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <button type="button" class="btn btn-sm btn-primary" onclick="editArea(
                                                     <?= $area['area_id'] ?>,
                                                     '<?= addslashes($area['area_number']) ?>',
                                                     '<?= addslashes($area['area_name']) ?>',
                                                     '<?= addslashes($area['description'] ?? '') ?>'
                                                 )">
-                                            <i class="fas fa-edit"></i> Edit
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal"
-                                            data-bs-target="#deleteAreaModal"
-                                            onclick="setDeleteAreaId(<?= $area['area_id'] ?>)">
-                                            <i class="fas fa-trash"></i> Delete
-                                        </button>
+                                                <i class="fas fa-edit"></i> Edit
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal"
+                                                data-bs-target="#deleteAreaModal"
+                                                onclick="setDeleteAreaId(<?= $area['area_id'] ?>)">
+                                                <i class="fas fa-trash"></i> Delete
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                                 <?php endforeach ?>
@@ -386,249 +375,59 @@
                         </div>
                     </div>
 
-                    <!-- INDICATORS TABLE -->
-                    <div class="table-responsive table-body">
-                        <table class="table table-bordered table-sm text-center">
+                    <!-- INDICATORS TABLE - COMPACT VERSION -->
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover" style="font-size: 0.875rem;">
                             <thead class="table-light">
                                 <tr>
-                                    <th>#</th>
-                                    <th>Indicator Code</th>
-                                    <th>Description</th>
-                                    <th>Area</th>
-                                    <th>Actions</th>
+                                    <th width="5%">#</th>
+                                    <th width="15%">Code</th>
+                                    <th width="40%">Description</th>
+                                    <th width="20%">Area</th>
+                                    <th width="20%">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody class="text-center" id="indicatorsTable" style="color: #666;">
+                            <tbody id="indicatorsTable">
                                 <?php 
-                                $indicatorCount = 1;
-                                foreach($indicatorsData as $indicator) : ?>
+            $indicatorCount = 1;
+            foreach($indicatorsData as $indicator) : 
+                // Truncate long descriptions
+                $shortDesc = strlen($indicator["indicator_description"]) > 80 
+                    ? substr($indicator["indicator_description"], 0, 80) . '...' 
+                    : $indicator["indicator_description"];
+            ?>
                                 <tr>
                                     <td><?= $indicatorCount++ ?></td>
-                                    <td><?= htmlspecialchars($indicator["indicator_code"]) ?></td>
-                                    <td><?= htmlspecialchars($indicator["indicator_description"]) ?></td>
-                                    <td><?= htmlspecialchars($indicator["area_number"] . '. ' . $indicator["area_name"]) ?>
+                                    <td><span
+                                            class="badge bg-primary"><?= htmlspecialchars($indicator["indicator_code"]) ?></span>
                                     </td>
                                     <td>
-                                        <button type="button" class="btn btn-sm btn-primary" onclick="editIndicator('<?= $indicator['indicator_id'] ?>',
+                                        <div class="indicator-desc"
+                                            data-full="<?= htmlspecialchars($indicator["indicator_description"]) ?>"
+                                            title="<?= htmlspecialchars($indicator["indicator_description"]) ?>">
+                                            <?= htmlspecialchars($shortDesc) ?>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <small
+                                            class="text-muted"><?= htmlspecialchars($indicator["area_number"]) ?></small><br>
+                                        <strong><?= htmlspecialchars($indicator["area_name"]) ?></strong>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <button type="button" class="btn btn-sm btn-primary" onclick="editIndicator('<?= $indicator['indicator_id'] ?>',
                                             '<?= $indicator['area_id'] ?>',
                                             '<?= htmlspecialchars($indicator['indicator_code']) ?>',
                                             '<?= htmlspecialchars($indicator['indicator_description']) ?>')">
-                                            <i class="fas fa-edit"></i> Edit
-                                        </button>
+                                                <i class="fas fa-edit"></i> Edit
+                                            </button>
 
-                                        <button type="button" class="btn btn-sm btn-danger"
-                                            onclick="setDeleteIndicatorId('<?= $indicator['indicator_id'] ?>')"
-                                            data-bs-toggle="modal" data-bs-target="#deleteIndicatorModal">
-                                            <i class="fas fa-trash"></i> Delete
-                                        </button>
-
-                                    </td>
-                                </tr>
-                                <?php endforeach ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- Criteria -->
-                <div class="tab-pane fade" id="criteriaInfo" role="tabpanel">
-                    <!-- CRITERIA ADD AND SEARCH -->
-                    <div class="col-md-12 col-12 d-flex justify-content-between mb-3">
-                        <div class="col-md-4 col-12">
-                            <input type="text" placeholder="Search by criteria number or description"
-                                id="searchCriteria" class="form-control">
-                        </div>
-                        <div class="col-md-3 d-flex justify-content-end">
-                            <button type="button" class="btn btn-danger" data-bs-toggle="modal"
-                                data-bs-target="#addCriterionModal" id="add_new">
-                                <i class="fa fa-plus"></i> Add New Criterion
-                            </button>
-                        </div>
-                    </div>
-                    <!-- ADD Criterion Modal -->
-                    <div class="modal fade" id="addCriterionModal" tabindex="-1"
-                        aria-labelledby="addCriterionModalLabel" aria-hidden="true">
-                        <div class="modal-dialog modal-lg">
-                            <div class="modal-content">
-                                <div class="modal-header bg-danger text-white">
-                                    <h5 class="modal-title text-white" id="addCriterionModalLabel">Add New Criterion
-                                    </h5>
-                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                                        aria-label="Close" onclick="location.reload()"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <form class="row g-3" id="criterion-form">
-                                        <div class="col-md-6">
-                                            <label class="form-label">Area</label>
-                                            <select name="area_id" class="form-select" id="criterionArea" required>
-                                                <option value="">Select Area</option>
-                                                <?php foreach($areas as $area) : ?>
-                                                <option value="<?= htmlspecialchars($area["area_id"]) ?>">
-                                                    <?= htmlspecialchars($area["area_number"]) . '. ' . htmlspecialchars($area["area_name"]) ?>
-                                                </option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label">Indicator</label>
-                                            <select name="indicator_id" class="form-select" id="criterionIndicator"
-                                                required>
-                                                <option value="">Select Indicator</option>
-                                                <?php foreach ($indicatorsData as $indicator): ?>
-                                                <option value="<?= $indicator['indicator_id'] ?>">
-                                                    <?= htmlspecialchars($indicator['indicator_code']) . ' — ' . htmlspecialchars($indicator['indicator_description']) ?>
-                                                </option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                        </div>
-
-                                        <div class="col-md-6">
-                                            <label class="form-label">Criteria Number</label>
-                                            <input type="text" class="form-control" name="criteria_number" required
-                                                placeholder="e.g., 1.1.1">
-                                        </div>
-                                        <div class="col-12">
-                                            <label class="form-label">Criteria Description</label>
-                                            <textarea class="form-control" name="criteria_description" rows="4" required
-                                                placeholder="Enter the detailed criteria description"></textarea>
-                                        </div>
-                                        <div class="col-12">
-                                            <label class="form-label">Required Evidence</label>
-                                            <textarea class="form-control" name="required_evidence" rows="3"
-                                                placeholder="List the required evidence or documentation"></textarea>
-                                        </div>
-                                        <div class="col-12 text-center mt-3">
-                                            <button type="submit" class="btn btn-danger px-5">
-                                                <i class="bi bi-plus-circle me-1"></i> Add Criterion
+                                            <button type="button" class="btn btn-sm btn-danger"
+                                                onclick="setDeleteIndicatorId('<?= $indicator['indicator_id'] ?>')"
+                                                data-bs-toggle="modal" data-bs-target="#deleteIndicatorModal">
+                                                <i class="fas fa-trash"></i> Delete
                                             </button>
                                         </div>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Edit Criterion Modal -->
-                    <div class="modal fade" id="editCriterionModal" tabindex="-1"
-                        aria-labelledby="editCriterionModalLabel" aria-hidden="true">
-                        <div class="modal-dialog modal-lg">
-                            <form id="edit-criterion-form" class="modal-content">
-                                <div class="modal-header bg-primary text-white">
-                                    <h5 class="modal-title text-white" id="editCriterionModalLabel">Edit Criterion</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                </div>
-
-                                <div class="modal-body">
-                                    <input type="hidden" name="criteria_id" id="editCriteriaId">
-
-                                    <div class="row g-3">
-
-                                        <div class="col-md-6">
-                                            <label class="form-label">Indicator</label>
-                                            <select name="indicator_id" id="editIndicatorIdSelect" class="form-select"
-                                                required>
-                                                <option value="">Select Indicator</option>
-                                                <?php foreach($indicatorsData as $indicator) : ?>
-                                                <option value="<?= $indicator['indicator_id'] ?>">
-                                                    <?= htmlspecialchars($indicator['indicator_code']) . ' — ' . htmlspecialchars($indicator['indicator_description']) ?>
-                                                </option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                        </div>
-
-                                        <div class="col-md-6">
-                                            <label class="form-label">Criteria Number</label>
-                                            <input type="text" class="form-control" id="editCriteriaNumber"
-                                                name="criteria_number" required>
-                                        </div>
-
-                                        <div class="col-12">
-                                            <label class="form-label">Criteria Description</label>
-                                            <textarea class="form-control" id="editCriteriaDescription"
-                                                name="criteria_description" rows="4" required></textarea>
-                                        </div>
-
-                                        <div class="col-12">
-                                            <label class="form-label">Required Evidence</label>
-                                            <textarea class="form-control" id="editRequiredEvidence"
-                                                name="required_evidence" rows="3"></textarea>
-                                        </div>
-
-                                    </div>
-                                </div>
-
-                                <div class="modal-footer">
-                                    <button type="submit" class="btn btn-primary">Update Criterion</button>
-                                    <button type="button" class="btn btn-secondary"
-                                        data-bs-dismiss="modal">Cancel</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-
-                    <!-- Delete Criterion Modal -->
-                    <div class="modal fade" id="deleteCriterionModal" tabindex="-1"
-                        aria-labelledby="deleteCriterionModalLabel" aria-hidden="true">
-                        <div class="modal-dialog">
-                            <form id="delete-criterion-form" class="modal-content">
-                                <div class="modal-header bg-danger text-white">
-                                    <h5 class="modal-title" id="deleteCriterionModalLabel">Confirm Delete</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                </div>
-
-                                <div class="modal-body">
-                                    Are you sure you want to delete this criterion?
-                                    <input type="hidden" name="criteria_id" id="deleteCriteriaId">
-                                </div>
-
-                                <div class="modal-footer">
-                                    <button type="submit" class="btn btn-danger">Yes, Delete</button>
-                                    <button type="button" class="btn btn-secondary"
-                                        data-bs-dismiss="modal">Cancel</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-
-                    <!-- CRITERIA TABLE -->
-                    <div class="table-responsive table-body">
-                        <table class="table table-bordered table-sm text-center">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>#</th>
-                                    <th>Criteria Number</th>
-                                    <th>Description</th>
-                                    <th>Required Evidence</th>
-                                    <th>Indicator</th>
-                                    <th>Area</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody class="text-center" id="criteriaTable" style="color: #666;">
-                                <?php 
-                                $criteriaCount = 1;
-                                foreach($criteriaData as $criterion) : ?>
-                                <tr>
-                                    <td><?= $criteriaCount++ ?></td>
-                                    <td><?= htmlspecialchars($criterion["criteria_number"]) ?></td>
-                                    <td><?= htmlspecialchars($criterion["criteria_description"]) ?></td>
-                                    <td><?= htmlspecialchars($criterion["required_evidence"] ?? 'N/A') ?></td>
-                                    <td><?= htmlspecialchars($criterion["indicator_code"]) ?></td>
-                                    <td><?= htmlspecialchars($criterion["area_name"]) ?></td>
-                                    <td>
-                                        <button type="button" class="btn btn-sm btn-primary edit-criterion-btn"
-                                            data-criteria-id="<?= htmlspecialchars($criterion['criteria_id']) ?>"
-                                            data-indicator-id="<?= htmlspecialchars($criterion['indicator_id']) ?>"
-                                            data-criteria-number="<?= htmlspecialchars($criterion['criteria_number']) ?>"
-                                            data-criteria-description="<?= htmlspecialchars($criterion['criteria_description']) ?>"
-                                            data-required-evidence="<?= htmlspecialchars($criterion['required_evidence']) ?>">
-                                            <i class="fas fa-edit"></i> Edit
-                                        </button>
-
-                                        <button type="button" class="btn btn-sm btn-danger delete-criterion-btn"
-                                            data-criteria-id="<?= htmlspecialchars($criterion['criteria_id']) ?>"
-                                            data-bs-toggle="modal" data-bs-target="#deleteCriterionModal">
-                                            <i class="fas fa-trash"></i> Delete
-                                        </button>
                                     </td>
                                 </tr>
                                 <?php endforeach ?>
@@ -640,6 +439,45 @@
         </div>
     </div>
 </section>
+<style>
+/* Compact table styling */
+.table {
+    margin-bottom: 0;
+}
+
+.table-sm td,
+.table-sm th {
+    padding: 0.5rem;
+}
+
+.indicator-desc,
+.area-desc {
+    cursor: pointer;
+    max-height: 40px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.btn-group-sm>.btn {
+    padding: 0.25rem 0.5rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.8rem;
+    }
+
+    .btn-group-sm>.btn {
+        padding: 0.2rem 0.3rem;
+    }
+
+    .table-sm td,
+    .table-sm th {
+        padding: 0.3rem;
+    }
+}
+</style>
 
 <script>
 // JavaScript functions for Areas

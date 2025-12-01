@@ -110,24 +110,30 @@ $inactiveEmployees = $stmtInactive->fetchAll(PDO::FETCH_ASSOC);
                         </div>
                         <input type="hidden" name="is_active" value="Active">
                         <div class="col-md-4">
+                            <label class="form-label">Department <span class="text-danger">*</span></label>
+                            <select required class="form-select" name="department_id" id="Department">
+                                <option value="">Select Department</option>
+                                <?php 
+                                        $stmt = $pdo->prepare("SELECT * FROM departments");
+                                        $stmt->execute();
+                                        $departments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                                        foreach($departments as $dept) :
+                                    ?>
+                                <option value="<?= htmlspecialchars($dept["department_id"]) ?>">
+                                    <?= htmlspecialchars($dept["department_name"] . '(' . $dept["department_code"] . ')') ?>
+                                </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
                             <label class="form-label">Account Role <span class="text-danger">*</span></label>
                             <select required class="form-select" name="user_role">
                                 <option value="">Select account role</option>
-                                <option value="QA">QA Officer</option>
+                                <option value="qa">QA Officer</option>
                                 <option value="head">Program Head</option>
                                 <option value="faculty">Faculty/Accreditor</option>
                             </select>
                         </div>
-                        <!-- Gender -->
-                        <div class="col-md-4">
-                            <label class="form-label">Sex <span class="text-danger">*</span></label>
-                            <select required class="form-select" name="gender" id="gender">
-                                <option value="">Select</option>
-                                <option value="Male">Male</option>
-                                <option value="Female">Female</option>
-                            </select>
-                        </div>
-
                         <!-- Contact Information -->
                         <div class="col-md-4">
                             <label class="form-label">Email <span class="text-danger">*</span></label>
@@ -272,9 +278,9 @@ $inactiveEmployees = $stmtInactive->fetchAll(PDO::FETCH_ASSOC);
                 <!-- Approved Employees -->
                 <div class="tab-pane fade show active" id="Approved_Employees" role="tabpanel"
                     aria-labelledby="approved-tab" tabindex="0">
-                    <div class="table-responsive table-body">
-                        <table class="text-center table table-bordered text-center table-sm">
-                            <thead class="table-light col-md-12">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover text-center" style="font-size: 0.875rem;">
+                            <thead class="table-light">
                                 <tr class="col-md-12">
                                     <th>#</th>
                                     <th>Complete Name</th>
@@ -307,7 +313,8 @@ $inactiveEmployees = $stmtInactive->fetchAll(PDO::FETCH_ASSOC);
                                             <select class="form-select m-0 p-2 select_status" name="is_active">
                                                 <option value="" disabled>Select Status</option>
                                                 <option value="Active"
-                                                    <?= ($officials['is_active'] === 'Active') ? 'selected' : '' ?>>Active
+                                                    <?= ($officials['is_active'] === 'Active') ? 'selected' : '' ?>>
+                                                    Active
                                                 </option>
                                                 <option value="Inactive"
                                                     <?= ($officials['is_active'] === 'Inactive') ? 'selected' : '' ?>>
@@ -330,8 +337,8 @@ $inactiveEmployees = $stmtInactive->fetchAll(PDO::FETCH_ASSOC);
                 <!-- Pending Accounts -->
                 <div class="tab-pane fade" id="Pending_Accounts" role="tabpanel" aria-labelledby="pending-tab"
                     tabindex="0">
-                    <div class="table-responsive table-body">
-                        <table class="text-center text-center table table-bordered table-sm">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover text-center" style="font-size: 0.875rem;">
                             <thead class="table-light">
                                 <tr style="color: #555;">
                                     <th>#</th>
@@ -384,8 +391,8 @@ $inactiveEmployees = $stmtInactive->fetchAll(PDO::FETCH_ASSOC);
                 <!-- Rejected Accounts -->
                 <div class="tab-pane fade" id="Rejected_Accounts" role="tabpanel" aria-labelledby="rejected-tab"
                     tabindex="0">
-                    <div class="table-responsive table-body">
-                        <table class="text-center table table-bordered table-sm">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover text-center" style="font-size: 0.875rem;">
                             <thead class="table-light">
                                 <tr style="color: #555;">
                                     <th>#</th>

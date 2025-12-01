@@ -1,7 +1,7 @@
 <?php
-    $stmtDepartments = $pdo->prepare("SELECT Department_id, Department_name, Department_code, addAt
+    $stmtDepartments = $pdo->prepare("SELECT *
                 FROM departments
-                ORDER BY Department_name ASC");
+                ORDER BY department_name ASC");
     $stmtDepartments->execute();
     $Departments = $stmtDepartments->fetchAll(PDO::FETCH_ASSOC);
 
@@ -10,10 +10,10 @@
                 p.program_code,
                 p.program_name,
                 p.department_id, 
-                d.Department_name, 
-                d.Department_code
+                d.department_name, 
+                d.department_code
             FROM programs AS p
-            LEFT JOIN departments AS d ON p.department_id = d.Department_id
+            LEFT JOIN departments AS d ON p.department_id = d.department_id
             ORDER BY p.program_name ASC;");
     $stmtPrograms->execute();
     $programsData = $stmtPrograms->fetchAll(PDO::FETCH_ASSOC);
@@ -175,8 +175,8 @@
                         </div>
                     </div>
                     <!-- DEPARTMENTS TABLE -->
-                    <div class="table-responsive table-body">
-                        <table class="table table-bordered table-sm text-center">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover text-center" style="font-size: 0.875rem;">
                             <thead class="table-light">
                                 <tr style="color: #555;">
                                     <th>#</th>
@@ -189,20 +189,20 @@
                                 <?php foreach($Departments as $dept) : ?>
                                 <tr>
                                     <th><?= $counts++ ?></th>
-                                    <th><?= htmlspecialchars($dept["Department_name"]) ?></th>
-                                    <th><?= htmlspecialchars($dept["Department_code"]) ?></th>
+                                    <th><?= htmlspecialchars($dept["department_name"]) ?></th>
+                                    <th><?= htmlspecialchars($dept["department_code"]) ?></th>
                                     <th>
                                         <button type="button" class="btn px-3 btn-sm btn-danger" onclick="edit_department(
-                                                <?= $dept['Department_id'] ?>,
-                                                '<?= addslashes($dept['Department_name']) ?>',
-                                                '<?= addslashes($dept['Department_code']) ?>'
+                                                <?= $dept['department_id'] ?>,
+                                                '<?= addslashes($dept['department_name']) ?>',
+                                                '<?= addslashes($dept['department_code']) ?>'
                                             )">
                                             <i class="fas fa-eye"></i> Edit
                                         </button>
 
                                         <button type="button" class="btn px-3 btn-sm btn-dark" data-bs-toggle="modal"
                                             data-bs-target="#deleteDepartmentModal"
-                                            onclick="setDeleteDepartmentId(<?= $dept['Department_id'] ?>)">
+                                            onclick="setDeleteDepartmentId(<?= $dept['department_id'] ?>)">
                                             <i class="fas fa-eye"></i> Delete
                                         </button>
                                     </th>
@@ -254,8 +254,8 @@
                                             <select name="department_id" id="" class="form-select">
                                                 <option value="">Select Departments</option>
                                                 <?php foreach($Departments as $dept) : ?>
-                                                    <option value="<?= htmlspecialchars($dept["Department_id"]) ?>">
-                                                        <?= htmlspecialchars($dept["Department_name"]) . '(' . htmlspecialchars($dept["Department_code"]) . ')' ?>
+                                                    <option value="<?= htmlspecialchars($dept["department_id"]) ?>">
+                                                        <?= htmlspecialchars($dept["department_name"]) . '(' . htmlspecialchars($dept["department_code"]) . ')' ?>
                                                     </option>
                                                 <?php endforeach; ?>
                                             </select>
@@ -300,8 +300,8 @@
                                             <select name="department_id" id="department_ids" class="form-select">
                                                 <option value="">Select Departments</option>
                                                 <?php foreach($Departments as $dept) : ?>
-                                                    <option value="<?= htmlspecialchars($dept["Department_id"]) ?>">
-                                                        <?= htmlspecialchars($dept["Department_name"]) . '(' . htmlspecialchars($dept["Department_code"]) . ')' ?>
+                                                    <option value="<?= htmlspecialchars($dept["department_id"]) ?>">
+                                                        <?= htmlspecialchars($dept["department_name"]) . '(' . htmlspecialchars($dept["department_code"]) . ')' ?>
                                                     </option>
                                                 <?php endforeach; ?>
                                             </select>
@@ -339,8 +339,8 @@
                         </div>
                     </div>
                     <!-- PROGRAMS TABLE -->
-                    <div class="table-responsive table-body">
-                        <table class="table table-bordered table-sm text-center">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover text-center" style="font-size: 0.875rem;">
                             <thead class="table-light">
                                 <tr>
                                     <th>#</th>
@@ -356,7 +356,7 @@
                                         <th><?= $counts++ ?></th>
                                         <th><?= htmlspecialchars($job["program_name"]) ?></th>
                                         <th><?= htmlspecialchars($job["program_code"]) ?></th>
-                                        <th><?= htmlspecialchars($job["Department_code"]) ?></th>
+                                        <th><?= htmlspecialchars($job["department_code"]) ?></th>
                                         <th>
                                             <button type="button" class="btn px-3 btn-sm btn-danger" 
                                                 onclick="edit_jobTitle(

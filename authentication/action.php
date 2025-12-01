@@ -142,25 +142,6 @@ if ($action === 'delete_indicator_form') {
 	}
 }
 
-if ($action === 'criterion_form') {
-	$validation = $crud->criterion_form();
-	if ($validation) {
-		echo $validation;
-	}
-}
-if ($action === 'edit_criterion_form') {
-	$validation = $crud->edit_criterion_form();
-	if ($validation) {
-		echo $validation;
-	}
-}
-if ($action === 'delete_criterion_form') {
-	$validation = $crud->delete_criterion_form();
-	if ($validation) {
-		echo $validation;
-	}
-}
-
 // Accreditation Cycles  =================================================
 if ($action === 'cycle_form') {
 	$validation = $crud->cycle_form();
@@ -222,6 +203,20 @@ if ($action === 'delete_compliance_form') {
 }
 if ($action === 'get_compliance_details') {
     $validation = $crud->get_compliance_details();
+    if ($validation) {
+        echo $validation;
+    }
+}
+
+// Notifications ===================================================   
+if ($action === 'notification_form') {
+    $validation = $crud->notification_form();
+    if ($validation) {
+        echo $validation;
+    }
+}
+if ($action === 'delete_notification_form') {
+    $validation = $crud->delete_notification_form();
     if ($validation) {
         echo $validation;
     }

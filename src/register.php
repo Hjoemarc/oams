@@ -76,13 +76,20 @@
                             </div>
                             <input type="hidden" name="is_active" value="Pending">
                             <input type="hidden" name="user_role" value="faculty">
-                            <!-- Gender -->
                             <div class="col-md-6">
-                                <label class="form-label">Sex <span class="text-danger">*</span></label>
-                                <select required class="form-select" name="gender" id="gender">
-                                    <option value="">Select</option>
-                                    <option value="Male">Male</option>
-                                    <option value="Female">Female</option>
+                                <label class="form-label">Department <span class="text-danger">*</span></label>
+                                <select required class="form-select" name="department_id" id="Department">
+                                    <option value="">Select Department</option>
+                                    <?php 
+                                            $stmt = $pdo->prepare("SELECT * FROM departments");
+                                            $stmt->execute();
+                                            $departments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                                            foreach($departments as $dept) :
+                                        ?>
+                                    <option value="<?= htmlspecialchars($dept["department_id"]) ?>">
+                                        <?= htmlspecialchars($dept["department_name"] . '(' . $dept["department_code"] . ')') ?>
+                                    </option>
+                                    <?php endforeach; ?>
                                 </select>
                             </div>
 

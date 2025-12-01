@@ -148,8 +148,8 @@
         </div>
     </div>
     <!-- CYCLES TABLE -->
-    <div class="table-responsive table-body">
-        <table class="table table-bordered table-sm text-center">
+    <div class="table-responsive">
+        <table class="table table-sm table-hover text-center" style="font-size: 0.875rem;">
             <thead class="table-light">
                 <tr>
                     <th>#</th>
@@ -203,7 +203,6 @@
     </div>
 </section>
 <script>
-    
 // Cycle Edit and Delete Functions
 function editCycle(cycleId, cycleName, academicYear, status, deadline) {
     document.getElementById('editCycleId').value = cycleId;

@@ -50,10 +50,10 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
                 class="form-control">
         </div>
         <div class="col-md-3 d-flex justify-content-end">
-            <button type="button" class="btn bg-gradient-primary" data-bs-toggle="modal"
-                data-bs-target="#addDocumentModal" id="add_new_document">
-                <i class="fa fa-upload"></i> Upload Document
-            </button>
+                <button type="button" class="btn bg-gradient-primary" data-bs-toggle="modal"
+                    data-bs-target="#addDocumentModal" id="add_new_document">
+                    <i class="fa fa-upload"></i> Upload Document
+                </button>
         </div>
     </div>
 
@@ -71,8 +71,9 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
                     <form class="row g-3" id="document-form" enctype="multipart/form-data">
                         <div class="col-md-6">
                             <label class="form-label">Document File</label>
-                            <input type="file" class="form-control" name="document_file"
-                                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" required>
+                           <input type="file" class="form-control" name="document_file"
+       accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/zip,application/x-zip-compressed" 
+       required />
                             <small class="text-muted">Accepted formats: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX</small>
                         </div>
                         <input type="hidden" name="user_id" value="<?= htmlspecialchars($admin_id) ?>">
