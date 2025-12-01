@@ -27,16 +27,16 @@
                 Accreditation Operations <i class="toggle-icon"><i class="fa-solid fa-caret-down"></i></i>
             </button>
             <div id="accreditation-operations-section" class="toggle-section">
-                <a href="index.php?page=contents/accreditation_cycles" class="nav-item nav-cycles my-1 rounded-2">
+                <a href="index.php?page=contents/accreditation_cycles" class="nav-item nav-accreditation_cycles my-1 rounded-2">
                     <span class=""><i class="fa-solid fa-calendar-alt"></i></span> Accreditation Cycles
                 </a>
-                <a href="index.php?page=contents/document_management" class="nav-item nav-documents my-1 rounded-2">
+                <a href="index.php?page=contents/document_management" class="nav-item nav-document_management my-1 rounded-2">
                     <span class=""><i class="fa-solid fa-folder-open"></i></span> Document Management
                 </a>
-                <a href="index.php?page=contents/compliance_tracking" class="nav-item nav-compliance my-1 rounded-2">
+                <a href="index.php?page=contents/compliance_tracking" class="nav-item nav-compliance_tracking my-1 rounded-2">
                     <span class=""><i class="fa-solid fa-chart-line"></i></span> Compliance Tracking
                 </a>
-                <a href="index.php?page=contents/review_management" class="nav-item nav-reviews my-1 rounded-2">
+                <a href="index.php?page=contents/review_management" class="nav-item nav-review_management my-1 rounded-2">
                     <span class=""><i class="fa-solid fa-magnifying-glass"></i></span> Review Management
                 </a>
                 <a href="index.php?page=contents/notifications" class="nav-item nav-notifications my-1 rounded-2">

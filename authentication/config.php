@@ -139,6 +139,24 @@ function db_connect()
                 FOREIGN KEY (document_id) REFERENCES documents(document_id),
                 FOREIGN KEY (reviewer_id) REFERENCES users(user_id)
             )",
+            "CREATE TABLE IF NOT EXISTS compliance_tracking (
+                compliance_id INT AUTO_INCREMENT PRIMARY KEY,
+                program_id INT NOT NULL,
+                cycle_id INT NOT NULL,
+                indicator_id INT NOT NULL,
+                criteria_id INT,
+                status ENUM('compliant', 'non_compliant', 'partial', 'not_assessed') DEFAULT 'not_assessed',
+                compliance_score DECIMAL(5,2),
+                evidence_count INT DEFAULT 0,
+                reviewer_id INT,
+                review_date DATE,
+                comments TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (program_id) REFERENCES programs(program_id),
+                FOREIGN KEY (cycle_id) REFERENCES accreditation_cycles(cycle_id),
+                FOREIGN KEY (indicator_id) REFERENCES accreditation_indicators(indicator_id)
+            );",
 
             // NOTIFICATION & LOGGING TABLES =======================================
             "CREATE TABLE IF NOT EXISTS notifications (

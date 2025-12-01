@@ -984,4 +984,1049 @@ $(document).ready(function () {
           }
       });
     });
+    $(document).on("submit", "#edit-area-form", function (e) { 
+      e.preventDefault();
+      const $form = $(this);
+      if ($form.data("isSubmitted")) return;
+      $form.data("isSubmitted", true);
+      
+      const formData = new FormData(this);
+      const $btn = $form.find("button[type='submit']");
+      $btn.prop("disabled", true);
+      $btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Processing...');
+      
+      $.ajax({
+          url: base_url + "authentication/action.php?action=edit_area_form",
+          type: "POST",
+          data: formData,
+          processData: false,
+          contentType: false,
+          dataType: "json",
+          success: function (response) {
+              if (response.status === 1) {
+                  Swal.fire({
+                      title: "Success!",
+                      text: response.message,
+                      icon: "success",
+                      toast: true,
+                      position: "top-end",
+                      timer: 1000,
+                      showConfirmButton: false,
+                  }).then(() => {
+                      location.reload();
+                  });
+              } else {
+                  Swal.fire({
+                      title: "Error",
+                      text: response.message,
+                      icon: "error",
+                      toast: true,
+                      position: "top-end",
+                      timer: 1000,
+                      showConfirmButton: false,
+                  });
+              }
+          },
+          error: function (jqXHR, textStatus, err) {
+              console.error("AJAX error:", textStatus, err);
+              Swal.fire({
+                  title: "Connection Error",
+                  text: "Please check your connection and try again.",
+                  icon: "error",
+                  toast: true,
+                  position: "top-end",
+                  timer: 1000,
+                  showConfirmButton: false,
+              });
+          },
+          complete: function () {
+              $form.data("isSubmitted", false);
+              $btn.prop("disabled", false).html('Create Account');
+          }
+      });
+    });
+    $(document).on("submit", "#delete-area-form", function (e) { 
+      e.preventDefault();
+      const $form = $(this);
+      if ($form.data("isSubmitted")) return;
+      $form.data("isSubmitted", true);
+      
+      const formData = new FormData(this);
+      const $btn = $form.find("button[type='submit']");
+      $btn.prop("disabled", true);
+      $btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Processing...');
+      
+      $.ajax({
+          url: base_url + "authentication/action.php?action=delete_area_form",
+          type: "POST",
+          data: formData,
+          processData: false,
+          contentType: false,
+          dataType: "json",
+          success: function (response) {
+              if (response.status === 1) {
+                  Swal.fire({
+                      title: "Success!",
+                      text: response.message,
+                      icon: "success",
+                      toast: true,
+                      position: "top-end",
+                      timer: 1000,
+                      showConfirmButton: false,
+                  }).then(() => {
+                      location.reload();
+                  });
+              } else {
+                  Swal.fire({
+                      title: "Error",
+                      text: response.message,
+                      icon: "error",
+                      toast: true,
+                      position: "top-end",
+                      timer: 1000,
+                      showConfirmButton: false,
+                  });
+              }
+          },
+          error: function (jqXHR, textStatus, err) {
+              console.error("AJAX error:", textStatus, err);
+              Swal.fire({
+                  title: "Connection Error",
+                  text: "Please check your connection and try again.",
+                  icon: "error",
+                  toast: true,
+                  position: "top-end",
+                  timer: 1000,
+                  showConfirmButton: false,
+              });
+          },
+          complete: function () {
+              $form.data("isSubmitted", false);
+              $btn.prop("disabled", false).html('Create Account');
+          }
+      });
+    }); 
+
+    $(document).on("submit", "#indicator-form", function (e) { 
+      e.preventDefault();
+      const $form = $(this);
+      if ($form.data("isSubmitted")) return;
+      $form.data("isSubmitted", true);
+      
+      const formData = new FormData(this);
+      const $btn = $form.find("button[type='submit']");
+      $btn.prop("disabled", true);
+      $btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Processing...');
+      
+      $.ajax({
+          url: base_url + "authentication/action.php?action=indicator_form",
+          type: "POST",
+          data: formData,
+          processData: false,
+          contentType: false,
+          dataType: "json",
+          success: function (response) {
+              if (response.status === 1) {
+                  Swal.fire({
+                      title: "Success!",
+                      text: response.message,
+                      icon: "success",
+                      toast: true,
+                      position: "top-end",
+                      timer: 3000,
+                      showConfirmButton: false,
+                  }).then(() => {
+                      $form[0].reset(); // Reset form on success
+                  });
+              } else {
+                  Swal.fire({
+                      title: "Error",
+                      text: response.message,
+                      icon: "error",
+                      toast: true,
+                      position: "top-end",
+                      timer: 3000,
+                      showConfirmButton: false,
+                  });
+              }
+          },
+          error: function (jqXHR, textStatus, err) {
+              console.error("AJAX error:", textStatus, err);
+              Swal.fire({
+                  title: "Connection Error",
+                  text: "Please check your connection and try again.",
+                  icon: "error",
+                  toast: true,
+                  position: "top-end",
+                  timer: 3000,
+                  showConfirmButton: false,
+              });
+          },
+          complete: function () {
+              $form.data("isSubmitted", false);
+              $btn.prop("disabled", false).html('Create Account');
+          }
+      });
+    }); 
+    $(document).on("submit", "#edit-indicator-form", function (e) { 
+      e.preventDefault();
+      const $form = $(this);
+      if ($form.data("isSubmitted")) return;
+      $form.data("isSubmitted", true);
+      
+      const formData = new FormData(this);
+      const $btn = $form.find("button[type='submit']");
+      $btn.prop("disabled", true);
+      $btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Processing...');
+      
+      $.ajax({
+          url: base_url + "authentication/action.php?action=edit_indicator_form",
+          type: "POST",
+          data: formData,
+          processData: false,
+          contentType: false,
+          dataType: "json",
+          success: function (response) {
+              if (response.status === 1) {
+                  Swal.fire({
+                      title: "Success!",
+                      text: response.message,
+                      icon: "success",
+                      toast: true,
+                      position: "top-end",
+                      timer: 1000,
+                      showConfirmButton: false,
+                  }).then(() => {
+                      location.reload();
+                  });
+              } else {
+                  Swal.fire({
+                      title: "Error",
+                      text: response.message,
+                      icon: "error",
+                      toast: true,
+                      position: "top-end",
+                      timer: 1000,
+                      showConfirmButton: false,
+                  });
+              }
+          },
+          error: function (jqXHR, textStatus, err) {
+              console.error("AJAX error:", textStatus, err);
+              Swal.fire({
+                  title: "Connection Error",
+                  text: "Please check your connection and try again.",
+                  icon: "error",
+                  toast: true,
+                  position: "top-end",
+                  timer: 1000,
+                  showConfirmButton: false,
+              });
+          },
+          complete: function () {
+              $form.data("isSubmitted", false);
+              $btn.prop("disabled", false).html('Create Account');
+          }
+      });
+    });
+    $(document).on("submit", "#delete-indicator-form", function (e) { 
+      e.preventDefault();
+      const $form = $(this);
+      if ($form.data("isSubmitted")) return;
+      $form.data("isSubmitted", true);
+      
+      const formData = new FormData(this);
+      const $btn = $form.find("button[type='submit']");
+      $btn.prop("disabled", true);
+      $btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Processing...');
+      
+      $.ajax({
+          url: base_url + "authentication/action.php?action=delete_indicator_form",
+          type: "POST",
+          data: formData,
+          processData: false,
+          contentType: false,
+          dataType: "json",
+          success: function (response) {
+              if (response.status === 1) {
+                  Swal.fire({
+                      title: "Success!",
+                      text: response.message,
+                      icon: "success",
+                      toast: true,
+                      position: "top-end",
+                      timer: 1000,
+                      showConfirmButton: false,
+                  }).then(() => {
+                      location.reload();
+                  });
+              } else {
+                  Swal.fire({
+                      title: "Error",
+                      text: response.message,
+                      icon: "error",
+                      toast: true,
+                      position: "top-end",
+                      timer: 1000,
+                      showConfirmButton: false,
+                  });
+              }
+          },
+          error: function (jqXHR, textStatus, err) {
+              console.error("AJAX error:", textStatus, err);
+              Swal.fire({
+                  title: "Connection Error",
+                  text: "Please check your connection and try again.",
+                  icon: "error",
+                  toast: true,
+                  position: "top-end",
+                  timer: 1000,
+                  showConfirmButton: false,
+              });
+          },
+          complete: function () {
+              $form.data("isSubmitted", false);
+              $btn.prop("disabled", false).html('Create Account');
+          }
+      });
+    });  
+
+    $(document).on("submit", "#criterion-form", function (e) { 
+      e.preventDefault();
+      const $form = $(this);
+      if ($form.data("isSubmitted")) return;
+      $form.data("isSubmitted", true);
+      
+      const formData = new FormData(this);
+      const $btn = $form.find("button[type='submit']");
+      $btn.prop("disabled", true);
+      $btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Processing...');
+      
+      $.ajax({
+          url: base_url + "authentication/action.php?action=criterion_form",
+          type: "POST",
+          data: formData,
+          processData: false,
+          contentType: false,
+          dataType: "json",
+          success: function (response) {
+              if (response.status === 1) {
+                  Swal.fire({
+                      title: "Success!",
+                      text: response.message,
+                      icon: "success",
+                      toast: true,
+                      position: "top-end",
+                      timer: 3000,
+                      showConfirmButton: false,
+                  }).then(() => {
+                      $form[0].reset(); // Reset form on success
+                  });
+              } else {
+                  Swal.fire({
+                      title: "Error",
+                      text: response.message,
+                      icon: "error",
+                      toast: true,
+                      position: "top-end",
+                      timer: 3000,
+                      showConfirmButton: false,
+                  });
+              }
+          },
+          error: function (jqXHR, textStatus, err) {
+              console.error("AJAX error:", textStatus, err);
+              Swal.fire({
+                  title: "Connection Error",
+                  text: "Please check your connection and try again.",
+                  icon: "error",
+                  toast: true,
+                  position: "top-end",
+                  timer: 3000,
+                  showConfirmButton: false,
+              });
+          },
+          complete: function () {
+              $form.data("isSubmitted", false);
+              $btn.prop("disabled", false).html('Create Account');
+          }
+      });
+    });
+    $(document).on("submit", "#edit-criterion-form", function (e) { 
+      e.preventDefault();
+      const $form = $(this);
+      if ($form.data("isSubmitted")) return;
+      $form.data("isSubmitted", true);
+      
+      const formData = new FormData(this);
+      const $btn = $form.find("button[type='submit']");
+      $btn.prop("disabled", true);
+      $btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Processing...');
+      
+      $.ajax({
+          url: base_url + "authentication/action.php?action=edit_criterion_form",
+          type: "POST",
+          data: formData,
+          processData: false,
+          contentType: false,
+          dataType: "json",
+          success: function (response) {
+              if (response.status === 1) {
+                  Swal.fire({
+                      title: "Success!",
+                      text: response.message,
+                      icon: "success",
+                      toast: true,
+                      position: "top-end",
+                      timer: 1000,
+                      showConfirmButton: false,
+                  }).then(() => {
+                      location.reload();
+                  });
+              } else {
+                  Swal.fire({
+                      title: "Error",
+                      text: response.message,
+                      icon: "error",
+                      toast: true,
+                      position: "top-end",
+                      timer: 1000,
+                      showConfirmButton: false,
+                  });
+              }
+          },
+          error: function (jqXHR, textStatus, err) {
+              console.error("AJAX error:", textStatus, err);
+              Swal.fire({
+                  title: "Connection Error",
+                  text: "Please check your connection and try again.",
+                  icon: "error",
+                  toast: true,
+                  position: "top-end",
+                  timer: 1000,
+                  showConfirmButton: false,
+              });
+          },
+          complete: function () {
+              $form.data("isSubmitted", false);
+              $btn.prop("disabled", false).html('Create Account');
+          }
+      });
+    });
+    $(document).on("submit", "#delete-criterion-form", function (e) { 
+      e.preventDefault();
+      const $form = $(this);
+      if ($form.data("isSubmitted")) return;
+      $form.data("isSubmitted", true);
+      
+      const formData = new FormData(this);
+      const $btn = $form.find("button[type='submit']");
+      $btn.prop("disabled", true);
+      $btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Processing...');
+      
+      $.ajax({
+          url: base_url + "authentication/action.php?action=delete_criterion_form",
+          type: "POST",
+          data: formData,
+          processData: false,
+          contentType: false,
+          dataType: "json",
+          success: function (response) {
+              if (response.status === 1) {
+                  Swal.fire({
+                      title: "Success!",
+                      text: response.message,
+                      icon: "success",
+                      toast: true,
+                      position: "top-end",
+                      timer: 1000,
+                      showConfirmButton: false,
+                  }).then(() => {
+                      location.reload();
+                  });
+              } else {
+                  Swal.fire({
+                      title: "Error",
+                      text: response.message,
+                      icon: "error",
+                      toast: true,
+                      position: "top-end",
+                      timer: 1000,
+                      showConfirmButton: false,
+                  });
+              }
+          },
+          error: function (jqXHR, textStatus, err) {
+              console.error("AJAX error:", textStatus, err);
+              Swal.fire({
+                  title: "Connection Error",
+                  text: "Please check your connection and try again.",
+                  icon: "error",
+                  toast: true,
+                  position: "top-end",
+                  timer: 1000,
+                  showConfirmButton: false,
+              });
+          },
+          complete: function () {
+              $form.data("isSubmitted", false);
+              $btn.prop("disabled", false).html('Create Account');
+          }
+      });
+    }); 
+
+// Accreditation Cycles  =================================================
+    $(document).on("submit", "#cycle-form", function (e) { 
+      e.preventDefault();
+      const $form = $(this);
+      if ($form.data("isSubmitted")) return;
+      $form.data("isSubmitted", true);
+      
+      const formData = new FormData(this);
+      const $btn = $form.find("button[type='submit']");
+      $btn.prop("disabled", true);
+      $btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Processing...');
+      
+      $.ajax({
+          url: base_url + "authentication/action.php?action=cycle_form",
+          type: "POST",
+          data: formData,
+          processData: false,
+          contentType: false,
+          dataType: "json",
+          success: function (response) {
+              if (response.status === 1) {
+                  Swal.fire({
+                      title: "Success!",
+                      text: response.message,
+                      icon: "success",
+                      toast: true,
+                      position: "top-end",
+                      timer: 3000,
+                      showConfirmButton: false,
+                  }).then(() => {
+                      $form[0].reset(); // Reset form on success
+                  });
+              } else {
+                  Swal.fire({
+                      title: "Error",
+                      text: response.message,
+                      icon: "error",
+                      toast: true,
+                      position: "top-end",
+                      timer: 3000,
+                      showConfirmButton: false,
+                  });
+              }
+          },
+          error: function (jqXHR, textStatus, err) {
+              console.error("AJAX error:", textStatus, err);
+              Swal.fire({
+                  title: "Connection Error",
+                  text: "Please check your connection and try again.",
+                  icon: "error",
+                  toast: true,
+                  position: "top-end",
+                  timer: 3000,
+                  showConfirmButton: false,
+              });
+          },
+          complete: function () {
+              $form.data("isSubmitted", false);
+              $btn.prop("disabled", false).html('Create Account');
+          }
+      });
+    });
+    $(document).on("submit", "#edit-cycle-form", function (e) { 
+      e.preventDefault();
+      const $form = $(this);
+      if ($form.data("isSubmitted")) return;
+      $form.data("isSubmitted", true);
+      
+      const formData = new FormData(this);
+      const $btn = $form.find("button[type='submit']");
+      $btn.prop("disabled", true);
+      $btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Processing...');
+      
+      $.ajax({
+          url: base_url + "authentication/action.php?action=edit_cycle_form",
+          type: "POST",
+          data: formData,
+          processData: false,
+          contentType: false,
+          dataType: "json",
+          success: function (response) {
+              if (response.status === 1) {
+                  Swal.fire({
+                      title: "Success!",
+                      text: response.message,
+                      icon: "success",
+                      toast: true,
+                      position: "top-end",
+                      timer: 1000,
+                      showConfirmButton: false,
+                  }).then(() => {
+                      location.reload();
+                  });
+              } else {
+                  Swal.fire({
+                      title: "Error",
+                      text: response.message,
+                      icon: "error",
+                      toast: true,
+                      position: "top-end",
+                      timer: 1000,
+                      showConfirmButton: false,
+                  });
+              }
+          },
+          error: function (jqXHR, textStatus, err) {
+              console.error("AJAX error:", textStatus, err);
+              Swal.fire({
+                  title: "Connection Error",
+                  text: "Please check your connection and try again.",
+                  icon: "error",
+                  toast: true,
+                  position: "top-end",
+                  timer: 1000,
+                  showConfirmButton: false,
+              });
+          },
+          complete: function () {
+              $form.data("isSubmitted", false);
+              $btn.prop("disabled", false).html('Create Account');
+          }
+      });
+    });
+    $(document).on("submit", "#delete-cycle-form", function (e) { 
+      e.preventDefault();
+      const $form = $(this);
+      if ($form.data("isSubmitted")) return;
+      $form.data("isSubmitted", true);
+      
+      const formData = new FormData(this);
+      const $btn = $form.find("button[type='submit']");
+      $btn.prop("disabled", true);
+      $btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Processing...');
+      
+      $.ajax({
+          url: base_url + "authentication/action.php?action=delete_cycle_form",
+          type: "POST",
+          data: formData,
+          processData: false,
+          contentType: false,
+          dataType: "json",
+          success: function (response) {
+              if (response.status === 1) {
+                  Swal.fire({
+                      title: "Success!",
+                      text: response.message,
+                      icon: "success",
+                      toast: true,
+                      position: "top-end",
+                      timer: 1000,
+                      showConfirmButton: false,
+                  }).then(() => {
+                      location.reload();
+                  });
+              } else {
+                  Swal.fire({
+                      title: "Error",
+                      text: response.message,
+                      icon: "error",
+                      toast: true,
+                      position: "top-end",
+                      timer: 1000,
+                      showConfirmButton: false,
+                  });
+              }
+          },
+          error: function (jqXHR, textStatus, err) {
+              console.error("AJAX error:", textStatus, err);
+              Swal.fire({
+                  title: "Connection Error",
+                  text: "Please check your connection and try again.",
+                  icon: "error",
+                  toast: true,
+                  position: "top-end",
+                  timer: 1000,
+                  showConfirmButton: false,
+              });
+          },
+          complete: function () {
+              $form.data("isSubmitted", false);
+              $btn.prop("disabled", false).html('Create Account');
+          }
+      });
+    }); 
+
+// Document Management ==================================================
+    $(document).on("submit", "#document-form", function (e) { 
+      e.preventDefault();
+      const $form = $(this);
+      if ($form.data("isSubmitted")) return;
+      $form.data("isSubmitted", true);
+      
+      const formData = new FormData(this);
+      const $btn = $form.find("button[type='submit']");
+      $btn.prop("disabled", true);
+      $btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Processing...');
+      
+      $.ajax({
+          url: base_url + "authentication/action.php?action=document_form",
+          type: "POST",
+          data: formData,
+          processData: false,
+          contentType: false,
+          dataType: "json",
+          success: function (response) {
+              if (response.status === 1) {
+                  Swal.fire({
+                      title: "Success!",
+                      text: response.message,
+                      icon: "success",
+                      toast: true,
+                      position: "top-end",
+                      timer: 3000,
+                      showConfirmButton: false,
+                  }).then(() => {
+                      $form[0].reset(); // Reset form on success
+                  });
+              } else {
+                  Swal.fire({
+                      title: "Error",
+                      text: response.message,
+                      icon: "error",
+                      toast: true,
+                      position: "top-end",
+                      timer: 3000,
+                      showConfirmButton: false,
+                  });
+              }
+          },
+          error: function (jqXHR, textStatus, err) {
+              console.error("AJAX error:", textStatus, err);
+              Swal.fire({
+                  title: "Connection Error",
+                  text: "Please check your connection and try again.",
+                  icon: "error",
+                  toast: true,
+                  position: "top-end",
+                  timer: 3000,
+                  showConfirmButton: false,
+              });
+          },
+          complete: function () {
+              $form.data("isSubmitted", false);
+              $btn.prop("disabled", false).html('Create Account');
+          }
+      });
+    });
+    $(document).on("submit", "#edit-document-form", function (e) { 
+      e.preventDefault();
+      const $form = $(this);
+      if ($form.data("isSubmitted")) return;
+      $form.data("isSubmitted", true);
+      
+      const formData = new FormData(this);
+      const $btn = $form.find("button[type='submit']");
+      $btn.prop("disabled", true);
+      $btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Processing...');
+      
+      $.ajax({
+          url: base_url + "authentication/action.php?action=edit_document_form",
+          type: "POST",
+          data: formData,
+          processData: false,
+          contentType: false,
+          dataType: "json",
+          success: function (response) {
+              if (response.status === 1) {
+                  Swal.fire({
+                      title: "Success!",
+                      text: response.message,
+                      icon: "success",
+                      toast: true,
+                      position: "top-end",
+                      timer: 1000,
+                      showConfirmButton: false,
+                  }).then(() => {
+                      location.reload();
+                  });
+              } else {
+                  Swal.fire({
+                      title: "Error",
+                      text: response.message,
+                      icon: "error",
+                      toast: true,
+                      position: "top-end",
+                      timer: 1000,
+                      showConfirmButton: false,
+                  });
+              }
+          },
+          error: function (jqXHR, textStatus, err) {
+              console.error("AJAX error:", textStatus, err);
+              Swal.fire({
+                  title: "Connection Error",
+                  text: "Please check your connection and try again.",
+                  icon: "error",
+                  toast: true,
+                  position: "top-end",
+                  timer: 1000,
+                  showConfirmButton: false,
+              });
+          },
+          complete: function () {
+              $form.data("isSubmitted", false);
+              $btn.prop("disabled", false).html('Create Account');
+          }
+      });
+    });
+    $(document).on("submit", "#delete-document-form", function (e) { 
+      e.preventDefault();
+      const $form = $(this);
+      if ($form.data("isSubmitted")) return;
+      $form.data("isSubmitted", true);
+      
+      const formData = new FormData(this);
+      const $btn = $form.find("button[type='submit']");
+      $btn.prop("disabled", true);
+      $btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Processing...');
+      
+      $.ajax({
+          url: base_url + "authentication/action.php?action=delete_document_form",
+          type: "POST",
+          data: formData,
+          processData: false,
+          contentType: false,
+          dataType: "json",
+          success: function (response) {
+              if (response.status === 1) {
+                  Swal.fire({
+                      title: "Success!",
+                      text: response.message,
+                      icon: "success",
+                      toast: true,
+                      position: "top-end",
+                      timer: 1000,
+                      showConfirmButton: false,
+                  }).then(() => {
+                      location.reload();
+                  });
+              } else {
+                  Swal.fire({
+                      title: "Error",
+                      text: response.message,
+                      icon: "error",
+                      toast: true,
+                      position: "top-end",
+                      timer: 1000,
+                      showConfirmButton: false,
+                  });
+              }
+          },
+          error: function (jqXHR, textStatus, err) {
+              console.error("AJAX error:", textStatus, err);
+              Swal.fire({
+                  title: "Connection Error",
+                  text: "Please check your connection and try again.",
+                  icon: "error",
+                  toast: true,
+                  position: "top-end",
+                  timer: 1000,
+                  showConfirmButton: false,
+              });
+          },
+          complete: function () {
+              $form.data("isSubmitted", false);
+              $btn.prop("disabled", false).html('Create Account');
+          }
+      });
+    }); 
+
+// Compliance Tracking ===================================================
+    $(document).on("submit", "#add-compliance-form", function (e) { 
+      e.preventDefault();
+      const $form = $(this);
+      if ($form.data("isSubmitted")) return;
+      $form.data("isSubmitted", true);
+      
+      const formData = new FormData(this);
+      const $btn = $form.find("button[type='submit']");
+      $btn.prop("disabled", true);
+      $btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Processing...');
+      
+      $.ajax({
+          url: base_url + "authentication/action.php?action=add_compliance_form",
+          type: "POST",
+          data: formData,
+          processData: false,
+          contentType: false,
+          dataType: "json",
+          success: function (response) {
+              if (response.status === 1) {
+                  Swal.fire({
+                      title: "Success!",
+                      text: response.message,
+                      icon: "success",
+                      toast: true,
+                      position: "top-end",
+                      timer: 3000,
+                      showConfirmButton: false,
+                  }).then(() => {
+                      $form[0].reset(); // Reset form on success
+                  });
+              } else {
+                  Swal.fire({
+                      title: "Error",
+                      text: response.message,
+                      icon: "error",
+                      toast: true,
+                      position: "top-end",
+                      timer: 3000,
+                      showConfirmButton: false,
+                  });
+              }
+          },
+          error: function (jqXHR, textStatus, err) {
+              console.error("AJAX error:", textStatus, err);
+              Swal.fire({
+                  title: "Connection Error",
+                  text: "Please check your connection and try again.",
+                  icon: "error",
+                  toast: true,
+                  position: "top-end",
+                  timer: 3000,
+                  showConfirmButton: false,
+              });
+          },
+          complete: function () {
+              $form.data("isSubmitted", false);
+              $btn.prop("disabled", false).html('Create Account');
+          }
+      });
+    });
+    $(document).on("submit", "#edit-compliance-form", function (e) { 
+      e.preventDefault();
+      const $form = $(this);
+      if ($form.data("isSubmitted")) return;
+      $form.data("isSubmitted", true);
+      
+      const formData = new FormData(this);
+      const $btn = $form.find("button[type='submit']");
+      $btn.prop("disabled", true);
+      $btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Processing...');
+      
+      $.ajax({
+          url: base_url + "authentication/action.php?action=edit_compliance_form",
+          type: "POST",
+          data: formData,
+          processData: false,
+          contentType: false,
+          dataType: "json",
+          success: function (response) {
+              if (response.status === 1) {
+                  Swal.fire({
+                      title: "Success!",
+                      text: response.message,
+                      icon: "success",
+                      toast: true,
+                      position: "top-end",
+                      timer: 1000,
+                      showConfirmButton: false,
+                  }).then(() => {
+                      location.reload();
+                  });
+              } else {
+                  Swal.fire({
+                      title: "Error",
+                      text: response.message,
+                      icon: "error",
+                      toast: true,
+                      position: "top-end",
+                      timer: 1000,
+                      showConfirmButton: false,
+                  });
+              }
+          },
+          error: function (jqXHR, textStatus, err) {
+              console.error("AJAX error:", textStatus, err);
+              Swal.fire({
+                  title: "Connection Error",
+                  text: "Please check your connection and try again.",
+                  icon: "error",
+                  toast: true,
+                  position: "top-end",
+                  timer: 1000,
+                  showConfirmButton: false,
+              });
+          },
+          complete: function () {
+              $form.data("isSubmitted", false);
+              $btn.prop("disabled", false).html('Create Account');
+          }
+      });
+    }); 
+    $(document).on("submit", "#delete-compliance-form", function (e) { 
+      e.preventDefault();
+      const $form = $(this);
+      if ($form.data("isSubmitted")) return;
+      $form.data("isSubmitted", true);
+      
+      const formData = new FormData(this);
+      const $btn = $form.find("button[type='submit']");
+      $btn.prop("disabled", true);
+      $btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Processing...');
+      
+      $.ajax({
+          url: base_url + "authentication/action.php?action=get_related_documents",
+          type: "POST",
+          data: formData,
+          processData: false,
+          contentType: false,
+          dataType: "json",
+          success: function (response) {
+              if (response.status === 1) {
+                  Swal.fire({
+                      title: "Success!",
+                      text: response.message,
+                      icon: "success",
+                      toast: true,
+                      position: "top-end",
+                      timer: 1000,
+                      showConfirmButton: false,
+                  }).then(() => {
+                      location.reload();
+                  });
+              } else {
+                  Swal.fire({
+                      title: "Error",
+                      text: response.message,
+                      icon: "error",
+                      toast: true,
+                      position: "top-end",
+                      timer: 1000,
+                      showConfirmButton: false,
+                  });
+              }
+          },
+          error: function (jqXHR, textStatus, err) {
+              console.error("AJAX error:", textStatus, err);
+              Swal.fire({
+                  title: "Connection Error",
+                  text: "Please check your connection and try again.",
+                  icon: "error",
+                  toast: true,
+                  position: "top-end",
+                  timer: 1000,
+                  showConfirmButton: false,
+              });
+          },
+          complete: function () {
+              $form.data("isSubmitted", false);
+              $btn.prop("disabled", false).html('Create Account');
+          }
+      });
+    }); 
 });

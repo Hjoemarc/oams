@@ -79,12 +79,6 @@
                 <small>Criteria</small>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card-header shadow bg-white text-center p-4 ">
-                <h5 id="totalCycles"><?= $cyclesCount ?></h5>
-                <small>Cycles</small>
-            </div>
-        </div>
     </div>
     <div class="card">
         <div class="card-body col-md-12 col-12 d-flex justify-content-between">
@@ -100,10 +94,6 @@
                 <li class="nav-item col-md-2">
                     <a class="nav-link" data-bs-toggle="tab" data-bs-target="#criteriaInfo"><i
                             class="fa-solid me-2 fa-square-check"></i>Criteria</a>
-                </li>
-                <li class="nav-item col-md-2">
-                    <a class="nav-link" data-bs-toggle="tab" data-bs-target="#cyclesInfo"><i
-                            class="fa-solid me-2 fa-rotate"></i>Cycles</a>
                 </li>
             </ul>
         </div>
@@ -324,6 +314,77 @@
                             </div>
                         </div>
                     </div>
+                    <!-- Edit Indicator Modal -->
+                    <div class="modal fade" id="editIndicatorModal" tabindex="-1"
+                        aria-labelledby="editIndicatorModalLabel" aria-hidden="true">
+                        <div class="modal-dialog modal-lg">
+                            <form id="edit-indicator-form" class="modal-content">
+                                <div class="modal-header bg-primary text-white">
+                                    <h5 class="modal-title text-white" id="editIndicatorModalLabel">Edit Indicator</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+
+                                <div class="modal-body">
+                                    <input type="hidden" name="indicator_id" id="editIndicatorId">
+
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label">Area</label>
+                                            <select name="area_id" id="editAreaIds" class="form-select" required>
+                                                <option value="">Select Area</option>
+                                                <?php foreach($areas as $area) : ?>
+                                                <option value="<?= $area['area_id'] ?>">
+                                                    <?= $area['area_number'] . '. ' . $area['area_name'] ?>
+                                                </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <label class="form-label">Indicator Code</label>
+                                            <input type="text" class="form-control" id="editIndicatorCode"
+                                                name="indicator_code" required>
+                                        </div>
+
+                                        <div class="col-12">
+                                            <label class="form-label">Indicator Description</label>
+                                            <textarea class="form-control" id="editIndicatorDescription"
+                                                name="indicator_description" rows="4" required></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="modal-footer">
+                                    <button type="submit" class="btn btn-primary">Update Indicator</button>
+                                    <button type="button" class="btn btn-secondary"
+                                        data-bs-dismiss="modal">Cancel</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    <!-- Delete Indicator Modal -->
+                    <div class="modal fade" id="deleteIndicatorModal" tabindex="-1"
+                        aria-labelledby="deleteIndicatorModalLabel" aria-hidden="true">
+                        <div class="modal-dialog">
+                            <form id="delete-indicator-form" class="modal-content">
+                                <div class="modal-header bg-danger text-white">
+                                    <h5 class="modal-title" id="deleteIndicatorModalLabel">Confirm Delete</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+
+                                <div class="modal-body">
+                                    Are you sure you want to delete this indicator?
+                                    <input type="hidden" name="indicator_id" id="deleteIndicatorId">
+                                </div>
+
+                                <div class="modal-footer">
+                                    <button type="submit" class="btn btn-danger">Yes, Delete</button>
+                                    <button type="button" class="btn btn-secondary"
+                                        data-bs-dismiss="modal">Cancel</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
 
                     <!-- INDICATORS TABLE -->
                     <div class="table-responsive table-body">
@@ -348,12 +409,19 @@
                                     <td><?= htmlspecialchars($indicator["area_number"] . '. ' . $indicator["area_name"]) ?>
                                     </td>
                                     <td>
-                                        <button type="button" class="btn btn-sm btn-primary">
+                                        <button type="button" class="btn btn-sm btn-primary" onclick="editIndicator('<?= $indicator['indicator_id'] ?>',
+                                            '<?= $indicator['area_id'] ?>',
+                                            '<?= htmlspecialchars($indicator['indicator_code']) ?>',
+                                            '<?= htmlspecialchars($indicator['indicator_description']) ?>')">
                                             <i class="fas fa-edit"></i> Edit
                                         </button>
-                                        <button type="button" class="btn btn-sm btn-danger">
+
+                                        <button type="button" class="btn btn-sm btn-danger"
+                                            onclick="setDeleteIndicatorId('<?= $indicator['indicator_id'] ?>')"
+                                            data-bs-toggle="modal" data-bs-target="#deleteIndicatorModal">
                                             <i class="fas fa-trash"></i> Delete
                                         </button>
+
                                     </td>
                                 </tr>
                                 <?php endforeach ?>
@@ -406,9 +474,14 @@
                                             <select name="indicator_id" class="form-select" id="criterionIndicator"
                                                 required>
                                                 <option value="">Select Indicator</option>
-                                                <!-- Indicators will be loaded dynamically based on area selection -->
+                                                <?php foreach ($indicatorsData as $indicator): ?>
+                                                <option value="<?= $indicator['indicator_id'] ?>">
+                                                    <?= htmlspecialchars($indicator['indicator_code']) . ' — ' . htmlspecialchars($indicator['indicator_description']) ?>
+                                                </option>
+                                                <?php endforeach; ?>
                                             </select>
                                         </div>
+
                                         <div class="col-md-6">
                                             <label class="form-label">Criteria Number</label>
                                             <input type="text" class="form-control" name="criteria_number" required
@@ -434,6 +507,88 @@
                             </div>
                         </div>
                     </div>
+                    <!-- Edit Criterion Modal -->
+                    <div class="modal fade" id="editCriterionModal" tabindex="-1"
+                        aria-labelledby="editCriterionModalLabel" aria-hidden="true">
+                        <div class="modal-dialog modal-lg">
+                            <form id="edit-criterion-form" class="modal-content">
+                                <div class="modal-header bg-primary text-white">
+                                    <h5 class="modal-title text-white" id="editCriterionModalLabel">Edit Criterion</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+
+                                <div class="modal-body">
+                                    <input type="hidden" name="criteria_id" id="editCriteriaId">
+
+                                    <div class="row g-3">
+
+                                        <div class="col-md-6">
+                                            <label class="form-label">Indicator</label>
+                                            <select name="indicator_id" id="editIndicatorIdSelect" class="form-select"
+                                                required>
+                                                <option value="">Select Indicator</option>
+                                                <?php foreach($indicatorsData as $indicator) : ?>
+                                                <option value="<?= $indicator['indicator_id'] ?>">
+                                                    <?= htmlspecialchars($indicator['indicator_code']) . ' — ' . htmlspecialchars($indicator['indicator_description']) ?>
+                                                </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <label class="form-label">Criteria Number</label>
+                                            <input type="text" class="form-control" id="editCriteriaNumber"
+                                                name="criteria_number" required>
+                                        </div>
+
+                                        <div class="col-12">
+                                            <label class="form-label">Criteria Description</label>
+                                            <textarea class="form-control" id="editCriteriaDescription"
+                                                name="criteria_description" rows="4" required></textarea>
+                                        </div>
+
+                                        <div class="col-12">
+                                            <label class="form-label">Required Evidence</label>
+                                            <textarea class="form-control" id="editRequiredEvidence"
+                                                name="required_evidence" rows="3"></textarea>
+                                        </div>
+
+                                    </div>
+                                </div>
+
+                                <div class="modal-footer">
+                                    <button type="submit" class="btn btn-primary">Update Criterion</button>
+                                    <button type="button" class="btn btn-secondary"
+                                        data-bs-dismiss="modal">Cancel</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Delete Criterion Modal -->
+                    <div class="modal fade" id="deleteCriterionModal" tabindex="-1"
+                        aria-labelledby="deleteCriterionModalLabel" aria-hidden="true">
+                        <div class="modal-dialog">
+                            <form id="delete-criterion-form" class="modal-content">
+                                <div class="modal-header bg-danger text-white">
+                                    <h5 class="modal-title" id="deleteCriterionModalLabel">Confirm Delete</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+
+                                <div class="modal-body">
+                                    Are you sure you want to delete this criterion?
+                                    <input type="hidden" name="criteria_id" id="deleteCriteriaId">
+                                </div>
+
+                                <div class="modal-footer">
+                                    <button type="submit" class="btn btn-danger">Yes, Delete</button>
+                                    <button type="button" class="btn btn-secondary"
+                                        data-bs-dismiss="modal">Cancel</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
                     <!-- CRITERIA TABLE -->
                     <div class="table-responsive table-body">
                         <table class="table table-bordered table-sm text-center">
@@ -460,117 +615,18 @@
                                     <td><?= htmlspecialchars($criterion["indicator_code"]) ?></td>
                                     <td><?= htmlspecialchars($criterion["area_name"]) ?></td>
                                     <td>
-                                        <button type="button" class="btn btn-sm btn-primary">
+                                        <button type="button" class="btn btn-sm btn-primary edit-criterion-btn"
+                                            data-criteria-id="<?= htmlspecialchars($criterion['criteria_id']) ?>"
+                                            data-indicator-id="<?= htmlspecialchars($criterion['indicator_id']) ?>"
+                                            data-criteria-number="<?= htmlspecialchars($criterion['criteria_number']) ?>"
+                                            data-criteria-description="<?= htmlspecialchars($criterion['criteria_description']) ?>"
+                                            data-required-evidence="<?= htmlspecialchars($criterion['required_evidence']) ?>">
                                             <i class="fas fa-edit"></i> Edit
                                         </button>
-                                        <button type="button" class="btn btn-sm btn-danger">
-                                            <i class="fas fa-trash"></i> Delete
-                                        </button>
-                                    </td>
-                                </tr>
-                                <?php endforeach ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
 
-                <!-- Cycles -->
-                <div class="tab-pane fade" id="cyclesInfo" role="tabpanel">
-                    <!-- CYCLES ADD AND SEARCH -->
-                    <div class="col-md-12 col-12 d-flex justify-content-between mb-3">
-                        <div class="col-md-4 col-12">
-                            <input type="text" placeholder="Search by cycle name or academic year" id="searchCycles"
-                                class="form-control">
-                        </div>
-                        <div class="col-md-3 d-flex justify-content-end">
-                            <button type="button" class="btn btn-danger" data-bs-toggle="modal"
-                                data-bs-target="#addCycleModal" id="add_new">
-                                <i class="fa fa-plus"></i> Add New Cycle
-                            </button>
-                        </div>
-                    </div>
-                    <!-- ADD Cycle Modal -->
-                    <div class="modal fade" id="addCycleModal" tabindex="-1" aria-labelledby="addCycleModalLabel"
-                        aria-hidden="true">
-                        <div class="modal-dialog modal-lg">
-                            <div class="modal-content">
-                                <div class="modal-header bg-danger text-white">
-                                    <h5 class="modal-title text-white" id="addCycleModalLabel">Add New Cycle</h5>
-                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                                        aria-label="Close" onclick="location.reload()"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <form class="row g-3" id="cycle-form">
-                                        <div class="col-md-6">
-                                            <label class="form-label">Cycle Name</label>
-                                            <input type="text" class="form-control" name="cycle_name" required
-                                                placeholder="e.g., Cycle 2024, Accreditation Round 1">
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label">Academic Year</label>
-                                            <input type="text" class="form-control" name="academic_year" required
-                                                placeholder="e.g., 2024-2025">
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label">Status</label>
-                                            <select name="status" class="form-select" required>
-                                                <option value="">Select Status</option>
-                                                <option value="upcoming">Upcoming</option>
-                                                <option value="active">Active</option>
-                                                <option value="closed">Closed</option>
-                                            </select>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label">Deadline</label>
-                                            <input type="date" class="form-control" name="deadline">
-                                        </div>
-                                        <div class="col-12 text-center mt-3">
-                                            <button type="submit" class="btn btn-danger px-5">
-                                                <i class="bi bi-plus-circle me-1"></i> Add Cycle
-                                            </button>
-                                        </div>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- CYCLES TABLE -->
-                    <div class="table-responsive table-body">
-                        <table class="table table-bordered table-sm text-center">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>#</th>
-                                    <th>Cycle Name</th>
-                                    <th>Academic Year</th>
-                                    <th>Status</th>
-                                    <th>Deadline</th>
-                                    <th>Created At</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody class="text-center" id="cyclesTable" style="color: #666;">
-                                <?php 
-                                $cycleCount = 1;
-                                foreach($cycles as $cycle) : 
-                                    $statusClass = '';
-                                    switch($cycle['status']) {
-                                        case 'active': $statusClass = 'badge bg-success'; break;
-                                        case 'upcoming': $statusClass = 'badge bg-warning'; break;
-                                        case 'closed': $statusClass = 'badge bg-secondary'; break;
-                                    }
-                                ?>
-                                <tr>
-                                    <td><?= $cycleCount++ ?></td>
-                                    <td><?= htmlspecialchars($cycle["cycle_name"]) ?></td>
-                                    <td><?= htmlspecialchars($cycle["academic_year"]) ?></td>
-                                    <td><span class="<?= $statusClass ?>"><?= ucfirst($cycle["status"]) ?></span></td>
-                                    <td><?= htmlspecialchars($cycle["deadline"] ?? 'N/A') ?></td>
-                                    <td><?= htmlspecialchars($cycle["created_at"]) ?></td>
-                                    <td>
-                                        <button type="button" class="btn btn-sm btn-primary">
-                                            <i class="fas fa-edit"></i> Edit
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-danger">
+                                        <button type="button" class="btn btn-sm btn-danger delete-criterion-btn"
+                                            data-criteria-id="<?= htmlspecialchars($criterion['criteria_id']) ?>"
+                                            data-bs-toggle="modal" data-bs-target="#deleteCriterionModal">
                                             <i class="fas fa-trash"></i> Delete
                                         </button>
                                     </td>
@@ -601,6 +657,51 @@ function editArea(areaId, areaNumber, areaName, description) {
 function setDeleteAreaId(areaId) {
     document.getElementById('deleteAreaId').value = areaId;
 }
+
+function editIndicator(indicatorId, areaId, indicatorCode, indicatorDescription) {
+    document.getElementById('editIndicatorId').value = indicatorId;
+    document.getElementById('editAreaIds').value = areaId;
+    document.getElementById('editIndicatorCode').value = indicatorCode;
+    document.getElementById('editIndicatorDescription').value = indicatorDescription;
+
+    var editModal = new bootstrap.Modal(document.getElementById('editIndicatorModal'));
+    editModal.show();
+}
+
+function setDeleteIndicatorId(indicatorId) {
+    document.getElementById('deleteIndicatorId').value = indicatorId;
+}
+
+// Edit button event handler
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle edit buttons
+    document.querySelectorAll('.edit-criterion-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const criteriaId = this.getAttribute('data-criteria-id');
+            const indicatorId = this.getAttribute('data-indicator-id');
+            const criteriaNumber = this.getAttribute('data-criteria-number');
+            const criteriaDescription = this.getAttribute('data-criteria-description');
+            const requiredEvidence = this.getAttribute('data-required-evidence');
+
+            document.getElementById('editCriteriaId').value = criteriaId;
+            document.getElementById('editIndicatorIdSelect').value = indicatorId;
+            document.getElementById('editCriteriaNumber').value = criteriaNumber;
+            document.getElementById('editCriteriaDescription').value = criteriaDescription;
+            document.getElementById('editRequiredEvidence').value = requiredEvidence;
+
+            var modal = new bootstrap.Modal(document.getElementById('editCriterionModal'));
+            modal.show();
+        });
+    });
+
+    // Handle delete buttons
+    document.querySelectorAll('.delete-criterion-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const criteriaId = this.getAttribute('data-criteria-id');
+            document.getElementById('deleteCriteriaId').value = criteriaId;
+        });
+    });
+});
 
 // Search functionality for Areas
 document.addEventListener('DOMContentLoaded', function() {

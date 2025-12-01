@@ -110,4 +110,120 @@ if ($action === 'area_form') {
 		echo $validation;
 	}
 }
+if ($action === 'edit_area_form') {
+	$validation = $crud->edit_area_form();
+	if ($validation) {
+		echo $validation;
+	}
+}
+if ($action === 'delete_area_form') {
+	$validation = $crud->delete_area_form();
+	if ($validation) {
+		echo $validation;
+	}
+}
+
+if ($action === 'indicator_form') {
+	$validation = $crud->indicator_form();
+	if ($validation) {
+		echo $validation;
+	}
+}
+if ($action === 'edit_indicator_form') {
+	$validation = $crud->edit_indicator_form();
+	if ($validation) {
+		echo $validation;
+	}
+}
+if ($action === 'delete_indicator_form') {
+	$validation = $crud->delete_indicator_form();
+	if ($validation) {
+		echo $validation;
+	}
+}
+
+if ($action === 'criterion_form') {
+	$validation = $crud->criterion_form();
+	if ($validation) {
+		echo $validation;
+	}
+}
+if ($action === 'edit_criterion_form') {
+	$validation = $crud->edit_criterion_form();
+	if ($validation) {
+		echo $validation;
+	}
+}
+if ($action === 'delete_criterion_form') {
+	$validation = $crud->delete_criterion_form();
+	if ($validation) {
+		echo $validation;
+	}
+}
+
+// Accreditation Cycles  =================================================
+if ($action === 'cycle_form') {
+	$validation = $crud->cycle_form();
+	if ($validation) {
+		echo $validation;
+	}
+}
+if ($action === 'edit_cycle_form') {
+	$validation = $crud->edit_cycle_form();
+	if ($validation) {
+		echo $validation;
+	}
+}
+if ($action === 'delete_cycle_form') {
+	$validation = $crud->delete_cycle_form();
+	if ($validation) {
+		echo $validation;
+	}
+}
+
+// Document Management ==================================================
+if ($action === 'document_form') {
+	$validation = $crud->document_form();
+	if ($validation) {
+		echo $validation;
+	}
+}
+if ($action === 'edit_document_form') {
+	$validation = $crud->edit_document_form();
+	if ($validation) {
+		echo $validation;
+	}
+}
+if ($action === 'delete_document_form') {
+	$validation = $crud->delete_document_form();
+	if ($validation) {
+		echo $validation;
+	}
+}
+
+// Compliance Tracking ===================================================
+if ($action === 'add_compliance_form') {
+	$validation = $crud->add_compliance_form();
+	if ($validation) {
+		echo $validation;
+	}
+}
+if ($action === 'edit_compliance_form') {
+	$validation = $crud->edit_compliance_form();
+	if ($validation) {
+		echo $validation;
+	}
+}
+if ($action === 'delete_compliance_form') {
+	$validation = $crud->delete_compliance_form();
+	if ($validation) {
+		echo $validation;
+	}
+}
+if ($action === 'get_compliance_details') {
+    $validation = $crud->get_compliance_details();
+    if ($validation) {
+        echo $validation;
+    }
+}
 ?>

@@ -707,4 +707,1642 @@ class Action
             ]);
         }
     }
-}
+    function edit_area_form(){
+        try{
+            $area_id = $_POST["area_id"];
+            $editAreaNumber = $_POST["area_number"];
+            $editAreaName = $_POST["area_name"];
+            $editAreaDescription = $_POST["description"];
+
+            $stmt = $this->db->prepare("UPDATE accreditation_areas SET area_number = :area_number,
+                area_name = :area_name, description = :description WHERE area_id = :area_id");
+            $stmt->execute([
+                'area_id' => $area_id,
+                'area_number' => $editAreaNumber,
+                'area_name' => $editAreaName,
+                'description' => $editAreaDescription
+            ]);
+
+             return json_encode([
+                'status' => 1,
+                'message' => 'area updated successfully!'
+            ]);
+
+        } catch (PDOException $e) {
+                error_log("Database error: " . $e->getMessage());
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'An error occurred. Please try again later.'
+                ]);
+            }  
+    }
+    function delete_area_form(){
+        try {
+           $area_id = $_POST["area_id"];
+           $stmt = $this->db->prepare("DELETE FROM accreditation_areas WHERE area_id = :area_id");
+           $stmt->execute([
+            'area_id' => $area_id
+           ]);
+
+           return json_encode([
+                'status' => 1,
+                'message' => 'Area Deleted successfully!'
+            ]);
+       } catch (PDOException $e) {
+            error_log("Database error: " . $e->getMessage());
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred. Please try again later.'
+            ]);
+        }
+    }
+
+    function indicator_form() {
+        try {
+            $area_id = $_POST["area_id"] ?? '';
+            $indicator_code = $_POST["indicator_code"] ?? '';
+            $indicator_description = $_POST["indicator_description"] ?? '';
+
+            // Validate required fields
+            if (empty($area_id) || empty($indicator_code) || empty($indicator_description)) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'All fields are required.'
+                ]);
+            }
+
+            $stmt = $this->db->prepare("
+                INSERT INTO accreditation_indicators (area_id, indicator_code, indicator_description)
+                VALUES (:area_id, :indicator_code, :indicator_description)
+            ");
+
+            $stmt->execute([
+                'area_id' => $area_id,
+                'indicator_code' => $indicator_code,
+                'indicator_description' => $indicator_description
+            ]);
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Indicator added successfully!'
+            ]);
+
+        } catch (PDOException $e) {
+            error_log("Database error: " . $e->getMessage());
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred. Please try again later.'
+            ]);
+        }
+    }
+    function edit_indicator_form() {
+        try {
+            $indicator_id = $_POST["indicator_id"] ?? '';
+            $area_id = $_POST["area_id"] ?? '';
+            $indicator_code = $_POST["indicator_code"] ?? '';
+            $indicator_description = $_POST["indicator_description"] ?? '';
+
+            // Validate required fields
+            if (empty($indicator_id) || empty($area_id) || empty($indicator_code) || empty($indicator_description)) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'All fields are required.'
+                ]);
+            }
+
+            $stmt = $this->db->prepare("
+                UPDATE accreditation_indicators 
+                SET area_id = :area_id,
+                    indicator_code = :indicator_code,
+                    indicator_description = :indicator_description
+                WHERE indicator_id = :indicator_id
+            ");
+
+            $stmt->execute([
+                'indicator_id' => $indicator_id,
+                'area_id' => $area_id,
+                'indicator_code' => $indicator_code,
+                'indicator_description' => $indicator_description
+            ]);
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Indicator updated successfully!'
+            ]);
+
+        } catch (PDOException $e) {
+            error_log("Database error: " . $e->getMessage());
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred. Please try again later.'
+            ]);
+        }
+    }
+    function delete_indicator_form(){
+        try {
+           $indicator_id = $_POST["indicator_id"];
+           $stmt = $this->db->prepare("DELETE FROM accreditation_indicators WHERE indicator_id = :indicator_id");
+           $stmt->execute([
+            'indicator_id' => $indicator_id
+           ]);
+
+           return json_encode([
+                'status' => 1,
+                'message' => 'Indicators Deleted successfully!'
+            ]);
+       } catch (PDOException $e) {
+            error_log("Database error: " . $e->getMessage());
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred. Please try again later.'
+            ]);
+        }
+    }
+
+    function criterion_form() {
+        try {
+            $indicator_id = $_POST["indicator_id"] ?? '';
+            $criteria_number = $_POST["criteria_number"] ?? '';
+            $criteria_description = $_POST["criteria_description"] ?? '';
+            $required_evidence = $_POST["required_evidence"] ?? '';
+
+            if (empty($indicator_id) || empty($criteria_number) || empty($criteria_description)) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'All required fields must be filled.'
+                ]);
+            }
+
+            $stmt = $this->db->prepare("
+                INSERT INTO accreditation_criteria 
+                    (indicator_id, criteria_number, criteria_description, required_evidence)
+                VALUES 
+                    (:indicator_id, :criteria_number, :criteria_description, :required_evidence)
+            ");
+
+            $stmt->execute([
+                ':indicator_id' => $indicator_id,
+                ':criteria_number' => $criteria_number,
+                ':criteria_description' => $criteria_description,
+                ':required_evidence' => $required_evidence
+            ]);
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Criterion added successfully!'
+            ]);
+
+        } catch (PDOException $e) {
+            error_log("Database error: " . $e->getMessage());
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred. Please try again later.'
+            ]);
+        }
+    }
+    function edit_criterion_form() {
+        try {
+            $criteria_id = $_POST["criteria_id"] ?? '';
+            $indicator_id = $_POST["indicator_id"] ?? '';
+            $criteria_number = $_POST["criteria_number"] ?? '';
+            $criteria_description = $_POST["criteria_description"] ?? '';
+            $required_evidence = $_POST["required_evidence"] ?? '';
+
+            if (empty($criteria_id) || empty($indicator_id) || empty($criteria_number) || empty($criteria_description)) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'All required fields must be filled.'
+                ]);
+            }
+
+            $stmt = $this->db->prepare("
+                UPDATE accreditation_criteria
+                SET indicator_id = :indicator_id,
+                    criteria_number = :criteria_number,
+                    criteria_description = :criteria_description,
+                    required_evidence = :required_evidence
+                WHERE criteria_id = :criteria_id
+            ");
+
+            $stmt->execute([
+                ':criteria_id' => $criteria_id,
+                ':indicator_id' => $indicator_id,
+                ':criteria_number' => $criteria_number,
+                ':criteria_description' => $criteria_description,
+                ':required_evidence' => $required_evidence
+            ]);
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Criterion updated successfully!'
+            ]);
+
+        } catch (PDOException $e) {
+            error_log("Database error: " . $e->getMessage());
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred. Please try again later.'
+            ]);
+        }
+    }
+    function delete_criterion_form() {
+        try {
+            $criteria_id = $_POST["criteria_id"] ?? '';
+
+            if (empty($criteria_id)) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Invalid request. Missing criterion ID.'
+                ]);
+            }
+
+            $stmt = $this->db->prepare("
+                DELETE FROM accreditation_criteria 
+                WHERE criteria_id = :criteria_id
+            ");
+
+            $stmt->execute([':criteria_id' => $criteria_id]);
+
+            if ($stmt->rowCount() === 0) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Criterion not found or already deleted.'
+                ]);
+            }
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Criterion deleted successfully!'
+            ]);
+
+        } catch (PDOException $e) {
+            error_log("Database error: " . $e->getMessage());
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred. Please try again later.'
+            ]);
+        }
+    }
+
+// Accreditation Cycles  =================================================
+    function cycle_form() {
+        try {
+            $cycle_name = $_POST["cycle_name"] ?? '';
+            $academic_year = $_POST["academic_year"] ?? '';
+            $status = $_POST["status"] ?? 'upcoming';
+            $deadline = $_POST["deadline"] ?? null;
+
+            if (empty($cycle_name) || empty($academic_year)) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Cycle name and academic year are required.'
+                ]);
+            }
+
+            // Validate academic year format (e.g., 2024-2025)
+            if (!preg_match('/^\d{4}-\d{4}$/', $academic_year)) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Academic year must be in format YYYY-YYYY (e.g., 2024-2025).'
+                ]);
+            }
+
+            // Validate status
+            $allowed_statuses = ['upcoming', 'active', 'closed'];
+            if (!in_array($status, $allowed_statuses)) {
+                $status = 'upcoming';
+            }
+
+            // Validate deadline if provided
+            if (!empty($deadline)) {
+                $deadline_date = DateTime::createFromFormat('Y-m-d', $deadline);
+                if (!$deadline_date || $deadline_date->format('Y-m-d') !== $deadline) {
+                    return json_encode([
+                        'status' => 0,
+                        'message' => 'Invalid deadline format. Use YYYY-MM-DD.'
+                    ]);
+                }
+            }
+
+            $stmt = $this->db->prepare("
+                INSERT INTO accreditation_cycles 
+                    (cycle_name, academic_year, status, deadline)
+                VALUES 
+                    (:cycle_name, :academic_year, :status, :deadline)
+            ");
+
+            $stmt->execute([
+                ':cycle_name' => $cycle_name,
+                ':academic_year' => $academic_year,
+                ':status' => $status,
+                ':deadline' => $deadline ?: null
+            ]);
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Accreditation cycle added successfully!'
+            ]);
+
+        } catch (PDOException $e) {
+            error_log("Database error: " . $e->getMessage());
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred. Please try again later.'
+            ]);
+        }
+    }
+    function edit_cycle_form() {
+        try {
+            $cycle_id = $_POST["cycle_id"] ?? '';
+            $cycle_name = $_POST["cycle_name"] ?? '';
+            $academic_year = $_POST["academic_year"] ?? '';
+            $status = $_POST["status"] ?? 'upcoming';
+            $deadline = $_POST["deadline"] ?? null;
+
+            if (empty($cycle_id) || empty($cycle_name) || empty($academic_year)) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Cycle ID, name, and academic year are required.'
+                ]);
+            }
+
+            // Validate academic year format (e.g., 2024-2025)
+            if (!preg_match('/^\d{4}-\d{4}$/', $academic_year)) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Academic year must be in format YYYY-YYYY (e.g., 2024-2025).'
+                ]);
+            }
+
+            // Validate status
+            $allowed_statuses = ['upcoming', 'active', 'closed'];
+            if (!in_array($status, $allowed_statuses)) {
+                $status = 'upcoming';
+            }
+
+            // Validate deadline if provided
+            if (!empty($deadline)) {
+                $deadline_date = DateTime::createFromFormat('Y-m-d', $deadline);
+                if (!$deadline_date || $deadline_date->format('Y-m-d') !== $deadline) {
+                    return json_encode([
+                        'status' => 0,
+                        'message' => 'Invalid deadline format. Use YYYY-MM-DD.'
+                    ]);
+                }
+            }
+
+            $stmt = $this->db->prepare("
+                UPDATE accreditation_cycles
+                SET cycle_name = :cycle_name,
+                    academic_year = :academic_year,
+                    status = :status,
+                    deadline = :deadline
+                WHERE cycle_id = :cycle_id
+            ");
+
+            $stmt->execute([
+                ':cycle_id' => $cycle_id,
+                ':cycle_name' => $cycle_name,
+                ':academic_year' => $academic_year,
+                ':status' => $status,
+                ':deadline' => $deadline ?: null
+            ]);
+
+            if ($stmt->rowCount() === 0) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'No changes made or cycle not found.'
+                ]);
+            }
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Accreditation cycle updated successfully!'
+            ]);
+
+        } catch (PDOException $e) {
+            error_log("Database error: " . $e->getMessage());
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred. Please try again later.'
+            ]);
+        }
+    }
+    function delete_cycle_form() {
+        try {
+            $cycle_id = $_POST["cycle_id"] ?? '';
+
+            if (empty($cycle_id)) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Invalid request. Missing cycle ID.'
+                ]);
+            }
+
+            // First, check if cycle exists and can be deleted
+            $check_stmt = $this->db->prepare("
+                SELECT status FROM accreditation_cycles 
+                WHERE cycle_id = :cycle_id
+            ");
+            $check_stmt->execute([':cycle_id' => $cycle_id]);
+            $cycle = $check_stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$cycle) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Accreditation cycle not found.'
+                ]);
+            }
+
+            // Optional: Prevent deletion of active cycles
+            if ($cycle['status'] === 'active') {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Cannot delete an strong active accreditation cycle. Please close it first.'
+                ]);
+            }
+
+            $stmt = $this->db->prepare("
+                DELETE FROM accreditation_cycles 
+                WHERE cycle_id = :cycle_id
+            ");
+
+            $stmt->execute([':cycle_id' => $cycle_id]);
+
+            if ($stmt->rowCount() === 0) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Accreditation cycle not found or already deleted.'
+                ]);
+            }
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Accreditation cycle deleted successfully!'
+            ]);
+
+        } catch (PDOException $e) {
+            error_log("Database error: " . $e->getMessage());
+            
+            // Check for foreign key constraint violation
+            if (strpos($e->getMessage(), 'foreign key constraint') !== false) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Cannot delete this cycle because it has associated criteria or data. Please delete related data first.'
+                ]);
+            }
+            
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred. Please try again later.'
+            ]);
+        }
+    }
+
+// Document Management ==================================================
+    function document_form() {
+        try {
+            // Get form data
+            $indicator_id = $_POST["indicator_id"] ?? '';
+            $program_id = $_POST["program_id"] ?? '';
+            $cycle_id = $_POST["cycle_id"] ?? '';
+            $version = $_POST["version"] ?? 1;
+            $status = $_POST["status"] ?? 'draft';
+            $uploaded_by = $_POST["user_id"];
+            
+
+            // Validate required fields
+            if (empty($indicator_id) || empty($program_id) || empty($cycle_id)) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Indicator, program, and cycle are required.'
+                ]);
+            }
+
+            if (empty($uploaded_by)) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'You must be logged in to upload documents.'
+                ]);
+            }
+
+            // Validate file upload
+            if (!isset($_FILES['document_file']) || $_FILES['document_file']['error'] !== UPLOAD_ERR_OK) {
+                $error_message = "Please select a valid file to upload.";
+                
+                // Check for specific upload errors
+                $upload_error = $_FILES['document_file']['error'] ?? null;
+                if ($upload_error) {
+                    switch ($upload_error) {
+                        case UPLOAD_ERR_INI_SIZE:
+                        case UPLOAD_ERR_FORM_SIZE:
+                            $error_message = "File is too large. Maximum size is 10MB.";
+                            break;
+                        case UPLOAD_ERR_PARTIAL:
+                            $error_message = "File was only partially uploaded.";
+                            break;
+                        case UPLOAD_ERR_NO_FILE:
+                            $error_message = "No file was selected.";
+                            break;
+                        case UPLOAD_ERR_NO_TMP_DIR:
+                            $error_message = "Missing temporary folder.";
+                            break;
+                        case UPLOAD_ERR_CANT_WRITE:
+                            $error_message = "Failed to write file to disk.";
+                            break;
+                        case UPLOAD_ERR_EXTENSION:
+                            $error_message = "File upload stopped by extension.";
+                            break;
+                    }
+                }
+                
+                return json_encode([
+                    'status' => 0,
+                    'message' => $error_message
+                ]);
+            }
+
+            $file = $_FILES['document_file'];
+            
+            // Validate file type
+            $allowed_extensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'];
+            $file_extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            
+            if (!in_array($file_extension, $allowed_extensions)) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Invalid file type. Allowed types: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX.'
+                ]);
+            }
+
+            // Validate file size (max 10MB)
+            $max_file_size = 10 * 1024 * 1024; // 10MB in bytes
+            if ($file['size'] > $max_file_size) {
+                $file_size_mb = round($file['size'] / (1024 * 1024), 2);
+                return json_encode([
+                    'status' => 0,
+                    'message' => "File size ($file_size_mb MB) exceeds the 10MB limit."
+                ]);
+            }
+
+            // Create upload directory if it doesn't exist
+            $upload_dir = 'uploads/documents/';
+            if (!file_exists($upload_dir)) {
+                if (!mkdir($upload_dir, 0777, true)) {
+                    return json_encode([
+                        'status' => 0,
+                        'message' => 'Failed to create upload directory.'
+                    ]);
+                }
+            }
+
+            // Generate safe filename
+            $original_filename = $file['name'];
+            $safe_filename = preg_replace('/[^A-Za-z0-9\._-]/', '_', $original_filename);
+            $unique_filename = date('Ymd_His') . '_' . uniqid() . '_' . $safe_filename;
+            $file_path = $upload_dir . $unique_filename;
+
+            // Move uploaded file
+            if (!move_uploaded_file($file['tmp_name'], $file_path)) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Failed to save the uploaded file. Please try again.'
+                ]);
+            }
+
+            // Validate status
+            $allowed_statuses = ['draft', 'submitted', 'under_review', 'needs_revision', 'approved'];
+            if (!in_array($status, $allowed_statuses)) {
+                $status = 'draft';
+            }
+
+            // Validate version
+            if (!is_numeric($version) || $version < 1) {
+                $version = 1;
+            }
+
+            // Check if referenced IDs exist in database
+            $check_stmt = $this->db->prepare("
+                SELECT 
+                    (SELECT COUNT(*) FROM accreditation_indicators WHERE indicator_id = ?) as indicator_exists,
+                    (SELECT COUNT(*) FROM programs WHERE program_id = ?) as program_exists,
+                    (SELECT COUNT(*) FROM accreditation_cycles WHERE cycle_id = ?) as cycle_exists
+            ");
+            $check_stmt->execute([$indicator_id, $program_id, $cycle_id]);
+            $exists = $check_stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($exists['indicator_exists'] == 0) {
+                unlink($file_path);
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Selected indicator does not exist.'
+                ]);
+            }
+            
+            if ($exists['program_exists'] == 0) {
+                unlink($file_path);
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Selected program does not exist.'
+                ]);
+            }
+            
+            if ($exists['cycle_exists'] == 0) {
+                unlink($file_path);
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Selected accreditation cycle does not exist.'
+                ]);
+            }
+
+            // Insert into database
+            $stmt = $this->db->prepare("
+                INSERT INTO documents 
+                    (filename, file_path, file_size, uploaded_by, indicator_id, program_id, cycle_id, version, status)
+                VALUES 
+                    (:filename, :file_path, :file_size, :uploaded_by, :indicator_id, :program_id, :cycle_id, :version, :status)
+            ");
+
+            $stmt->execute([
+                ':filename' => $original_filename,
+                ':file_path' => $file_path,
+                ':file_size' => $file['size'],
+                ':uploaded_by' => $uploaded_by,
+                ':indicator_id' => $indicator_id,
+                ':program_id' => $program_id,
+                ':cycle_id' => $cycle_id,
+                ':version' => $version,
+                ':status' => $status
+            ]);
+
+            $document_id = $this->db->lastInsertId();
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Document uploaded successfully!',
+                'document_id' => $document_id
+            ]);
+
+        } catch (PDOException $e) {
+            error_log("Database error in document_form: " . $e->getMessage());
+            
+            // Clean up uploaded file if database insert failed
+            if (isset($file_path) && file_exists($file_path)) {
+                unlink($file_path);
+            }
+            
+            // Check for foreign key constraint violation
+            if (strpos($e->getMessage(), 'foreign key constraint') !== false) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Invalid reference. Please check the selected indicator, program, or cycle.'
+                ]);
+            }
+            
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred. Please try again later. Error: ' . $e->getMessage()
+            ]);
+        }
+    }
+    function edit_document_form() {
+        try {
+            // Get form data
+            $document_id = $_POST["document_id"] ?? '';
+            $indicator_id = $_POST["indicator_id"] ?? '';
+            $program_id = $_POST["program_id"] ?? '';
+            $cycle_id = $_POST["cycle_id"] ?? '';
+            $version = $_POST["version"] ?? 1;
+            $status = $_POST["status"] ?? 'draft';
+            $current_user_id = $_POST["user_id"];
+            
+
+            // Validate required fields
+            if (empty($document_id) || empty($indicator_id) || empty($program_id) || empty($cycle_id)) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'All required fields must be filled.'
+                ]);
+            }
+
+            // Validate document exists and user has permission (optional)
+            $check_stmt = $this->db->prepare("
+                SELECT uploaded_by, file_path, filename 
+                FROM documents 
+                WHERE document_id = :document_id
+            ");
+            $check_stmt->execute([':document_id' => $document_id]);
+            $existing_document = $check_stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$existing_document) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Document not found.'
+                ]);
+            }
+
+            // Optional: Check if current user is the uploader or has admin rights
+            // if ($existing_document['uploaded_by'] != $current_user_id) {
+            //     // Check if user is admin
+            //     $user_stmt = $this->db->prepare("SELECT user_role FROM users WHERE user_id = :user_id");
+            //     $user_stmt->execute([':user_id' => $current_user_id]);
+            //     $user = $user_stmt->fetch(PDO::FETCH_ASSOC);
+            //     
+            //     if ($user['user_role'] !== 'admin') {
+            //         return json_encode([
+            //             'status' => 0,
+            //             'message' => 'You do not have permission to edit this document.'
+            //         ]);
+            //     }
+            // }
+
+            // Check if referenced IDs exist in database
+            $exists_stmt = $this->db->prepare("
+                SELECT 
+                    (SELECT COUNT(*) FROM accreditation_indicators WHERE indicator_id = ?) as indicator_exists,
+                    (SELECT COUNT(*) FROM programs WHERE program_id = ?) as program_exists,
+                    (SELECT COUNT(*) FROM accreditation_cycles WHERE cycle_id = ?) as cycle_exists
+            ");
+            $exists_stmt->execute([$indicator_id, $program_id, $cycle_id]);
+            $exists = $exists_stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($exists['indicator_exists'] == 0) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Selected indicator does not exist.'
+                ]);
+            }
+            
+            if ($exists['program_exists'] == 0) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Selected program does not exist.'
+                ]);
+            }
+            
+            if ($exists['cycle_exists'] == 0) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Selected accreditation cycle does not exist.'
+                ]);
+            }
+
+            // Validate status
+            $allowed_statuses = ['draft', 'submitted', 'under_review', 'needs_revision', 'approved'];
+            if (!in_array($status, $allowed_statuses)) {
+                $status = 'draft';
+            }
+
+            // Validate version
+            if (!is_numeric($version) || $version < 1) {
+                $version = 1;
+            }
+
+            // Handle file replacement if new file is uploaded
+            $new_file_path = null;
+            $new_filename = null;
+            $new_file_size = null;
+            
+            if (isset($_FILES['document_file']) && $_FILES['document_file']['error'] === UPLOAD_ERR_OK) {
+                $file = $_FILES['document_file'];
+                
+                // Validate file type
+                $allowed_extensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'];
+                $file_extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+                
+                if (!in_array($file_extension, $allowed_extensions)) {
+                    return json_encode([
+                        'status' => 0,
+                        'message' => 'Invalid file type. Allowed types: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX.'
+                    ]);
+                }
+
+                // Validate file size (max 10MB)
+                $max_file_size = 10 * 1024 * 1024; // 10MB in bytes
+                if ($file['size'] > $max_file_size) {
+                    $file_size_mb = round($file['size'] / (1024 * 1024), 2);
+                    return json_encode([
+                        'status' => 0,
+                        'message' => "File size ($file_size_mb MB) exceeds the 10MB limit."
+                    ]);
+                }
+
+                // Create upload directory if it doesn't exist
+                $upload_dir = 'uploads/documents/';
+                if (!file_exists($upload_dir)) {
+                    if (!mkdir($upload_dir, 0777, true)) {
+                        return json_encode([
+                            'status' => 0,
+                            'message' => 'Failed to create upload directory.'
+                        ]);
+                    }
+                }
+
+                // Generate safe filename
+                $original_filename = $file['name'];
+                $safe_filename = preg_replace('/[^A-Za-z0-9\._-]/', '_', $original_filename);
+                $unique_filename = date('Ymd_His') . '_' . uniqid() . '_' . $safe_filename;
+                $new_file_path = $upload_dir . $unique_filename;
+
+                // Move uploaded file
+                if (!move_uploaded_file($file['tmp_name'], $new_file_path)) {
+                    return json_encode([
+                        'status' => 0,
+                        'message' => 'Failed to save the uploaded file. Please try again.'
+                    ]);
+                }
+                
+                $new_filename = $original_filename;
+                $new_file_size = $file['size'];
+            }
+
+            // Build the update query based on whether a new file was uploaded
+            if ($new_file_path !== null) {
+                // Update with new file
+                $stmt = $this->db->prepare("
+                    UPDATE documents
+                    SET indicator_id = :indicator_id,
+                        program_id = :program_id,
+                        cycle_id = :cycle_id,
+                        version = :version,
+                        status = :status,
+                        filename = :filename,
+                        file_path = :file_path,
+                        file_size = :file_size
+                    WHERE document_id = :document_id
+                ");
+
+                $stmt->execute([
+                    ':document_id' => $document_id,
+                    ':indicator_id' => $indicator_id,
+                    ':program_id' => $program_id,
+                    ':cycle_id' => $cycle_id,
+                    ':version' => $version,
+                    ':status' => $status,
+                    ':filename' => $new_filename,
+                    ':file_path' => $new_file_path,
+                    ':file_size' => $new_file_size
+                ]);
+
+                // Delete the old file
+                if (file_exists($existing_document['file_path'])) {
+                    unlink($existing_document['file_path']);
+                }
+                
+                $file_message = " and file replaced";
+            } else {
+                // Update without changing the file
+                $stmt = $this->db->prepare("
+                    UPDATE documents
+                    SET indicator_id = :indicator_id,
+                        program_id = :program_id,
+                        cycle_id = :cycle_id,
+                        version = :version,
+                        status = :status
+                    WHERE document_id = :document_id
+                ");
+
+                $stmt->execute([
+                    ':document_id' => $document_id,
+                    ':indicator_id' => $indicator_id,
+                    ':program_id' => $program_id,
+                    ':cycle_id' => $cycle_id,
+                    ':version' => $version,
+                    ':status' => $status
+                ]);
+                
+                $file_message = "";
+            }
+
+            if ($stmt->rowCount() === 0) {
+                // Clean up new file if no rows were updated
+                if ($new_file_path !== null && file_exists($new_file_path)) {
+                    unlink($new_file_path);
+                }
+                
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'No changes were made. The document information is already up to date.'
+                ]);
+            }
+
+            return json_encode([
+                'status' => 1,
+                'message' => "Document updated successfully{$file_message}!",
+                'document_id' => $document_id
+            ]);
+
+        } catch (PDOException $e) {
+            error_log("Database error in edit_document_form: " . $e->getMessage());
+            
+            // Clean up new uploaded file if database insert failed
+            if (isset($new_file_path) && file_exists($new_file_path)) {
+                unlink($new_file_path);
+            }
+            
+            // Check for foreign key constraint violation
+            if (strpos($e->getMessage(), 'foreign key constraint') !== false) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Invalid reference. Please check the selected indicator, program, or cycle.'
+                ]);
+            }
+            
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred. Please try again later. Error: ' . $e->getMessage()
+            ]);
+        }
+    }
+    function delete_document_form() {
+        try {
+            $document_id = $_POST["document_id"] ?? '';
+
+            if (empty($document_id)) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Invalid request. Missing criterion ID.'
+                ]);
+            }
+
+            $stmt = $this->db->prepare("
+                DELETE FROM documents 
+                WHERE document_id = :document_id
+            ");
+
+            $stmt->execute([':document_id' => $document_id]);
+
+            if ($stmt->rowCount() === 0) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Documents not found or already deleted.'
+                ]);
+            }
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Documents deleted successfully!'
+            ]);
+
+        } catch (PDOException $e) {
+            error_log("Database error: " . $e->getMessage());
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred. Please try again later.'
+            ]);
+        }
+    }
+
+// Compliance Tracking ===================================================
+    function add_compliance_form() {
+        try {
+            // Get form data
+            $program_id = $_POST["program_id"] ?? '';
+            $cycle_id = $_POST["cycle_id"] ?? '';
+            $indicator_id = $_POST["indicator_id"] ?? '';
+            $criteria_id = $_POST["criteria_id"] ?? null; // Optional
+            $status = $_POST["status"] ?? 'not_assessed';
+            $compliance_score = $_POST["compliance_score"] ?? null;
+            $evidence_count = $_POST["evidence_count"] ?? 0;
+            $reviewer_id = $_POST["reviewer_id"] ?? null;
+            $review_date = $_POST["review_date"] ?? null;
+            $comments = $_POST["comments"] ?? '';
+            $current_user_id = $_POST["user_id"];
+
+            // Validate required fields
+            if (empty($program_id) || empty($cycle_id) || empty($indicator_id)) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Program, accreditation cycle, and indicator are required.'
+                ]);
+            }
+
+            // Validate program exists
+            $checkProgram = $this->db->prepare("SELECT program_id FROM programs WHERE program_id = ?");
+            $checkProgram->execute([$program_id]);
+            if (!$checkProgram->fetch()) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Selected program does not exist.'
+                ]);
+            }
+
+            // Validate cycle exists
+            $checkCycle = $this->db->prepare("SELECT cycle_id FROM accreditation_cycles WHERE cycle_id = ?");
+            $checkCycle->execute([$cycle_id]);
+            if (!$checkCycle->fetch()) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Selected accreditation cycle does not exist.'
+                ]);
+            }
+
+            // Validate indicator exists
+            $checkIndicator = $this->db->prepare("SELECT indicator_id FROM accreditation_indicators WHERE indicator_id = ?");
+            $checkIndicator->execute([$indicator_id]);
+            if (!$checkIndicator->fetch()) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Selected indicator does not exist.'
+                ]);
+            }
+
+            // Validate criteria if provided
+            if (!empty($criteria_id)) {
+                $checkCriteria = $this->db->prepare("SELECT criteria_id FROM accreditation_criteria WHERE criteria_id = ?");
+                $checkCriteria->execute([$criteria_id]);
+                if (!$checkCriteria->fetch()) {
+                    return json_encode([
+                        'status' => 0,
+                        'message' => 'Selected criteria does not exist.'
+                    ]);
+                }
+            }
+
+            // Validate status
+            $allowed_statuses = ['compliant', 'non_compliant', 'partial', 'not_assessed'];
+            if (!in_array($status, $allowed_statuses)) {
+                $status = 'not_assessed';
+            }
+
+            // Validate compliance score (0-100)
+            if ($compliance_score !== null) {
+                $compliance_score = floatval($compliance_score);
+                if ($compliance_score < 0 || $compliance_score > 100) {
+                    return json_encode([
+                        'status' => 0,
+                        'message' => 'Compliance score must be between 0 and 100.'
+                    ]);
+                }
+            }
+
+            // Validate evidence count
+            $evidence_count = intval($evidence_count);
+            if ($evidence_count < 0) {
+                $evidence_count = 0;
+            }
+
+            // Validate reviewer if provided
+            if (!empty($reviewer_id)) {
+                $checkReviewer = $this->db->prepare("SELECT user_id FROM users WHERE user_id = ?");
+                $checkReviewer->execute([$reviewer_id]);
+                if (!$checkReviewer->fetch()) {
+                    return json_encode([
+                        'status' => 0,
+                        'message' => 'Selected reviewer does not exist.'
+                    ]);
+                }
+            }
+
+            // Validate review date if provided
+            if (!empty($review_date)) {
+                $review_date_obj = DateTime::createFromFormat('Y-m-d', $review_date);
+                if (!$review_date_obj || $review_date_obj->format('Y-m-d') !== $review_date) {
+                    return json_encode([
+                        'status' => 0,
+                        'message' => 'Invalid review date format. Use YYYY-MM-DD.'
+                    ]);
+                }
+            }
+
+            // Check if compliance record already exists for this combination
+            $checkExisting = $this->db->prepare("
+                SELECT compliance_id 
+                FROM compliance_tracking 
+                WHERE program_id = ? 
+                AND cycle_id = ? 
+                AND indicator_id = ?
+                AND (criteria_id = ? OR (? IS NULL AND criteria_id IS NULL))
+            ");
+            $checkExisting->execute([$program_id, $cycle_id, $indicator_id, $criteria_id, $criteria_id]);
+            
+            if ($checkExisting->fetch()) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'A compliance record already exists for this program, cycle, and indicator combination. Please update the existing record instead.'
+                ]);
+            }
+
+            // Insert into compliance_tracking
+            $stmt = $this->db->prepare("
+                INSERT INTO compliance_tracking 
+                    (program_id, cycle_id, indicator_id, criteria_id, status, 
+                    compliance_score, evidence_count, reviewer_id, review_date, comments)
+                VALUES 
+                    (:program_id, :cycle_id, :indicator_id, :criteria_id, :status,
+                    :compliance_score, :evidence_count, :reviewer_id, :review_date, :comments)
+            ");
+
+            $stmt->execute([
+                ':program_id' => $program_id,
+                ':cycle_id' => $cycle_id,
+                ':indicator_id' => $indicator_id,
+                ':criteria_id' => $criteria_id,
+                ':status' => $status,
+                ':compliance_score' => $compliance_score,
+                ':evidence_count' => $evidence_count,
+                ':reviewer_id' => $reviewer_id,
+                ':review_date' => $review_date,
+                ':comments' => $comments
+            ]);
+
+            $compliance_id = $this->db->lastInsertId();
+
+            // Optional: Log the action
+            $logStmt = $this->db->prepare("
+                INSERT INTO activity_logs 
+                    (user_id, action, description, ip_address, user_agent)
+                VALUES 
+                    (:user_id, :action, :description, :ip_address, :user_agent)
+            ");
+
+            // Get IP address
+            $ip_address = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+            if (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+                $ip_address = $_SERVER['HTTP_X_FORWARDED_FOR'];
+            }
+
+            // Get user agent
+            $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
+
+            $logStmt->execute([
+                ':user_id' => $current_user_id,
+                ':action' => 'add_compliance',
+                ':description' => "Added compliance record #{$compliance_id} for program:{$program_id}, indicator:{$indicator_id}, status:{$status}",
+                ':ip_address' => $ip_address,
+                ':user_agent' => $user_agent
+            ]);
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Compliance assessment added successfully!',
+                'compliance_id' => $compliance_id
+            ]);
+
+        } catch (PDOException $e) {
+            error_log("Database error in add_compliance_form: " . $e->getMessage());
+            
+            // Check for foreign key constraint violation
+            if (strpos($e->getMessage(), 'foreign key constraint') !== false) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Invalid reference. Please check the selected program, cycle, or indicator.'
+                ]);
+            }
+            
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred. Please try again later.'
+            ]);
+        }
+    }
+    function edit_compliance_form() {
+        try {
+            // Get form data
+            $compliance_id = $_POST["compliance_id"] ?? '';
+            $program_id = $_POST["program_id"] ?? '';
+            $cycle_id = $_POST["cycle_id"] ?? '';
+            $indicator_id = $_POST["indicator_id"] ?? '';
+            $criteria_id = $_POST["criteria_id"] ?? null;
+            $status = $_POST["status"] ?? 'not_assessed';
+            $compliance_score = $_POST["compliance_score"] ?? null;
+            $evidence_count = $_POST["evidence_count"] ?? 0;
+            $reviewer_id = $_POST["reviewer_id"] ?? null;
+            $review_date = $_POST["review_date"] ?? null;
+            $comments = $_POST["comments"] ?? '';
+            $current_user_id = $_POST["user_id"];
+
+            // Validate required fields
+            if (empty($compliance_id) || empty($program_id) || empty($cycle_id) || empty($indicator_id)) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'All required fields must be filled.'
+                ]);
+            }
+
+            // Check if compliance record exists
+            $checkExists = $this->db->prepare("SELECT compliance_id FROM compliance_tracking WHERE compliance_id = ?");
+            $checkExists->execute([$compliance_id]);
+            if (!$checkExists->fetch()) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Compliance record not found.'
+                ]);
+            }
+
+            // Validate program exists
+            $checkProgram = $this->db->prepare("SELECT program_id FROM programs WHERE program_id = ?");
+            $checkProgram->execute([$program_id]);
+            if (!$checkProgram->fetch()) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Selected program does not exist.'
+                ]);
+            }
+
+            // Validate cycle exists
+            $checkCycle = $this->db->prepare("SELECT cycle_id FROM accreditation_cycles WHERE cycle_id = ?");
+            $checkCycle->execute([$cycle_id]);
+            if (!$checkCycle->fetch()) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Selected accreditation cycle does not exist.'
+                ]);
+            }
+
+            // Validate indicator exists
+            $checkIndicator = $this->db->prepare("SELECT indicator_id FROM accreditation_indicators WHERE indicator_id = ?");
+            $checkIndicator->execute([$indicator_id]);
+            if (!$checkIndicator->fetch()) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Selected indicator does not exist.'
+                ]);
+            }
+
+            // Validate criteria if provided
+            if (!empty($criteria_id)) {
+                $checkCriteria = $this->db->prepare("SELECT criteria_id FROM accreditation_criteria WHERE criteria_id = ?");
+                $checkCriteria->execute([$criteria_id]);
+                if (!$checkCriteria->fetch()) {
+                    return json_encode([
+                        'status' => 0,
+                        'message' => 'Selected criteria does not exist.'
+                    ]);
+                }
+            }
+
+            // Validate status
+            $allowed_statuses = ['compliant', 'non_compliant', 'partial', 'not_assessed'];
+            if (!in_array($status, $allowed_statuses)) {
+                $status = 'not_assessed';
+            }
+
+            // Validate compliance score (0-100)
+            if ($compliance_score !== null && $compliance_score !== '') {
+                $compliance_score = floatval($compliance_score);
+                if ($compliance_score < 0 || $compliance_score > 100) {
+                    return json_encode([
+                        'status' => 0,
+                        'message' => 'Compliance score must be between 0 and 100.'
+                    ]);
+                }
+            } else {
+                $compliance_score = null;
+            }
+
+            // Validate evidence count
+            $evidence_count = intval($evidence_count);
+            if ($evidence_count < 0) {
+                $evidence_count = 0;
+            }
+
+            // Validate reviewer if provided
+            if (!empty($reviewer_id)) {
+                $checkReviewer = $this->db->prepare("SELECT user_id FROM users WHERE user_id = ?");
+                $checkReviewer->execute([$reviewer_id]);
+                if (!$checkReviewer->fetch()) {
+                    return json_encode([
+                        'status' => 0,
+                        'message' => 'Selected reviewer does not exist.'
+                    ]);
+                }
+            }
+
+            // Validate review date if provided
+            if (!empty($review_date)) {
+                $review_date_obj = DateTime::createFromFormat('Y-m-d', $review_date);
+                if (!$review_date_obj || $review_date_obj->format('Y-m-d') !== $review_date) {
+                    return json_encode([
+                        'status' => 0,
+                        'message' => 'Invalid review date format. Use YYYY-MM-DD.'
+                    ]);
+                }
+            }
+
+            // Check for duplicate compliance record (excluding current one)
+            $checkDuplicate = $this->db->prepare("
+                SELECT compliance_id 
+                FROM compliance_tracking 
+                WHERE program_id = ? 
+                AND cycle_id = ? 
+                AND indicator_id = ?
+                AND (criteria_id = ? OR (? IS NULL AND criteria_id IS NULL))
+                AND compliance_id != ?
+            ");
+            $checkDuplicate->execute([$program_id, $cycle_id, $indicator_id, $criteria_id, $criteria_id, $compliance_id]);
+            
+            if ($checkDuplicate->fetch()) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Another compliance record already exists for this program, cycle, and indicator combination.'
+                ]);
+            }
+
+            // Update the compliance record
+            $stmt = $this->db->prepare("
+                UPDATE compliance_tracking 
+                SET program_id = :program_id,
+                    cycle_id = :cycle_id,
+                    indicator_id = :indicator_id,
+                    criteria_id = :criteria_id,
+                    status = :status,
+                    compliance_score = :compliance_score,
+                    evidence_count = :evidence_count,
+                    reviewer_id = :reviewer_id,
+                    review_date = :review_date,
+                    comments = :comments
+                WHERE compliance_id = :compliance_id
+            ");
+
+            $stmt->execute([
+                ':compliance_id' => $compliance_id,
+                ':program_id' => $program_id,
+                ':cycle_id' => $cycle_id,
+                ':indicator_id' => $indicator_id,
+                ':criteria_id' => $criteria_id,
+                ':status' => $status,
+                ':compliance_score' => $compliance_score,
+                ':evidence_count' => $evidence_count,
+                ':reviewer_id' => $reviewer_id,
+                ':review_date' => $review_date,
+                ':comments' => $comments
+            ]);
+
+            if ($stmt->rowCount() === 0) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'No changes were made.'
+                ]);
+            }
+
+            // Log the action
+            if ($current_user_id > 0) {
+                $logStmt = $this->db->prepare("
+                    INSERT INTO activity_logs 
+                        (user_id, action, description, ip_address, user_agent)
+                    VALUES 
+                        (:user_id, :action, :description, :ip_address, :user_agent)
+                ");
+                
+                // Get IP address
+                $ip_address = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+                if (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+                    $ip_address = $_SERVER['HTTP_X_FORWARDED_FOR'];
+                }
+                
+                // Get user agent
+                $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
+                
+                $logStmt->execute([
+                    ':user_id' => $current_user_id,
+                    ':action' => 'edit_compliance',
+                    ':description' => "Updated compliance record #{$compliance_id} - Program:{$program_id}, Indicator:{$indicator_id}, Status:{$status}, Score:{$compliance_score}",
+                    ':ip_address' => $ip_address,
+                    ':user_agent' => $user_agent
+                ]);
+            }
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Compliance assessment updated successfully!',
+                'compliance_id' => $compliance_id
+            ]);
+
+        } catch (PDOException $e) {
+            error_log("Database error in edit_compliance_form: " . $e->getMessage());
+            
+            // Check for foreign key constraint violation
+            if (strpos($e->getMessage(), 'foreign key constraint') !== false) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Invalid reference. Please check the selected program, cycle, or indicator.'
+                ]);
+            }
+            
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred. Please try again later.'
+            ]);
+        }
+    }
+    function delete_compliance_form() {
+        try {
+            $compliance_id = $_POST["compliance_id"] ?? '';
+            
+            // Get current user for logging
+            $current_user_id = $_POST['user_id'] ?? 0;
+
+            // Validate required fields
+            if (empty($compliance_id)) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Invalid request. Missing compliance ID.'
+                ]);
+            }
+
+            // Get compliance details before deletion (for logging and verification)
+            $getDetails = $this->db->prepare("
+                SELECT 
+                    ct.program_id,
+                    ct.indicator_id,
+                    ct.status,
+                    ct.compliance_score,
+                    p.program_code,
+                    p.program_name,
+                    ai.indicator_code
+                FROM compliance_tracking ct
+                JOIN programs p ON ct.program_id = p.program_id
+                JOIN accreditation_indicators ai ON ct.indicator_id = ai.indicator_id
+                WHERE ct.compliance_id = ?
+            ");
+            $getDetails->execute([$compliance_id]);
+            $details = $getDetails->fetch(PDO::FETCH_ASSOC);
+
+            if (!$details) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Compliance record not found.'
+                ]);
+            }
+
+            // Optional: Check permissions (e.g., only admin or original reviewer can delete)
+            // $checkPermission = $this->db->prepare("
+            //     SELECT user_role FROM users WHERE user_id = ?
+            // ");
+            // $checkPermission->execute([$current_user_id]);
+            // $user = $checkPermission->fetch(PDO::FETCH_ASSOC);
+            // 
+            // if ($user['user_role'] !== 'admin') {
+            //     return json_encode([
+            //         'status' => 0,
+            //         'message' => 'You do not have permission to delete compliance records.'
+            //     ]);
+            // }
+
+            // Delete the compliance record
+            $stmt = $this->db->prepare("DELETE FROM compliance_tracking WHERE compliance_id = ?");
+            $stmt->execute([$compliance_id]);
+
+            if ($stmt->rowCount() === 0) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Compliance record not found or already deleted.'
+                ]);
+            }
+
+            // Log the action
+            if ($current_user_id > 0) {
+                $logStmt = $this->db->prepare("
+                    INSERT INTO activity_logs 
+                        (user_id, action, description, ip_address, user_agent)
+                    VALUES 
+                        (:user_id, :action, :description, :ip_address, :user_agent)
+                ");
+                
+                // Get IP address
+                $ip_address = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+                if (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+                    $ip_address = $_SERVER['HTTP_X_FORWARDED_FOR'];
+                }
+                
+                // Get user agent
+                $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
+                
+                $logDescription = sprintf(
+                    "Deleted compliance record #%s - Program: %s (%s), Indicator: %s, Status: %s, Score: %s",
+                    $compliance_id,
+                    $details['program_code'],
+                    $details['program_name'],
+                    $details['indicator_code'],
+                    $details['status'],
+                    $details['compliance_score'] ?? 'N/A'
+                );
+                
+                $logStmt->execute([
+                    ':user_id' => $current_user_id,
+                    ':action' => 'delete_compliance',
+                    ':description' => $logDescription,
+                    ':ip_address' => $ip_address,
+                    ':user_agent' => $user_agent
+                ]);
+            }
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Compliance assessment deleted successfully!',
+                'deleted_id' => $compliance_id
+            ]);
+
+        } catch (PDOException $e) {
+            error_log("Database error in delete_compliance_form: " . $e->getMessage());
+            
+            // Check for foreign key constraint violation
+            if (strpos($e->getMessage(), 'foreign key constraint') !== false) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Cannot delete this compliance record because it is referenced by other data.'
+                ]);
+            }
+            
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred while deleting the compliance record. Please try again later.'
+            ]);
+        }
+    }
+    function get_compliance_details() {
+        try {
+            $compliance_id = $_POST["compliance_id"] ?? $_GET["compliance_id"] ?? '';
+            
+            if (empty($compliance_id)) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Compliance ID is required.'
+                ]);
+            }
+
+            $stmt = $this->db->prepare("
+                SELECT 
+                    ct.*,
+                    p.program_code,
+                    p.program_name,
+                    ac.cycle_name,
+                    ac.academic_year,
+                    ai.indicator_code,
+                    ai.indicator_description,
+                    aa.area_number,
+                    aa.area_name,
+                    aa.description as area_description,
+                    cr.criteria_number,
+                    cr.criteria_description,
+                    cr.required_evidence,
+                    u.first_name as reviewer_first,
+                    u.last_name as reviewer_last,
+                    u.email as reviewer_email,
+                    u.user_role as reviewer_role,
+                    -- Get creator info if you have created_by field
+                    uc.first_name as created_first,
+                    uc.last_name as created_last,
+                    -- Get evidence documents count
+                    (SELECT COUNT(*) FROM documents d 
+                    WHERE d.program_id = ct.program_id 
+                    AND d.indicator_id = ct.indicator_id 
+                    AND d.cycle_id = ct.cycle_id) as total_documents
+                FROM compliance_tracking ct
+                JOIN programs p ON ct.program_id = p.program_id
+                JOIN accreditation_cycles ac ON ct.cycle_id = ac.cycle_id
+                JOIN accreditation_indicators ai ON ct.indicator_id = ai.indicator_id
+                JOIN accreditation_areas aa ON ai.area_id = aa.area_id
+                LEFT JOIN accreditation_criteria cr ON ct.criteria_id = cr.criteria_id
+                LEFT JOIN users u ON ct.reviewer_id = u.user_id
+                LEFT JOIN users uc ON ct.created_by = uc.user_id
+                WHERE ct.compliance_id = ?
+            ");
+            
+            $stmt->execute([$compliance_id]);
+            $compliance = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$compliance) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Compliance record not found.'
+                ]);
+            }
+
+            // Format dates
+            $compliance['review_date_formatted'] = $compliance['review_date'] ? 
+                date('F j, Y', strtotime($compliance['review_date'])) : 'Not reviewed';
+            
+            $compliance['created_at_formatted'] = date('F j, Y g:i A', strtotime($compliance['created_at']));
+            $compliance['updated_at_formatted'] = date('F j, Y g:i A', strtotime($compliance['updated_at']));
+
+            // Get status badge class
+            $statusClass = '';
+            switch($compliance['status']) {
+                case 'compliant': $statusClass = 'success'; break;
+                case 'partial': $statusClass = 'warning'; break;
+                case 'non_compliant': $statusClass = 'danger'; break;
+                case 'not_assessed': $statusClass = 'secondary'; break;
+            }
+            $compliance['status_class'] = $statusClass;
+            $compliance['status_display'] = ucfirst(str_replace('_', ' ', $compliance['status']));
+
+            // Format score
+            $compliance['score_display'] = $compliance['compliance_score'] ? 
+                number_format($compliance['compliance_score'], 1) . '%' : 'Not scored';
+
+            return json_encode([
+                'status' => 1,
+                'data' => $compliance
+            ]);
+
+        } catch (PDOException $e) {
+            error_log("Database error in get_compliance_details: " . $e->getMessage());
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred while fetching compliance details.'
+            ]);
+        }
+    }
+}   
