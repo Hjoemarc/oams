@@ -76,7 +76,23 @@
                             </div>
                             <input type="hidden" name="is_active" value="Pending">
                             <input type="hidden" name="user_role" value="faculty">
-                            <div class="col-md-6">
+                            <div class="col-md-4">
+                                <label class="form-label">Program <span class="text-danger">*</span></label>
+                                <select required class="form-select" name="program_id" id="Program">
+                                    <option value="">Select Program</option>
+                                    <?php 
+                                            $stmt = $pdo->prepare("SELECT * FROM programs");
+                                            $stmt->execute();
+                                            $programs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                                            foreach($programs as $prog) :
+                                        ?>
+                                    <option value="<?= htmlspecialchars($prog["program_id"]) ?>">
+                                        <?= htmlspecialchars($prog["program_name"] . '(' . $prog["program_code"] . ')') ?>
+                                    </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
                                 <label class="form-label">Department <span class="text-danger">*</span></label>
                                 <select required class="form-select" name="department_id" id="Department">
                                     <option value="">Select Department</option>
@@ -94,7 +110,7 @@
                             </div>
 
                             <!-- Contact Information -->
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <label class="form-label">Email <span class="text-danger">*</span></label>
                                 <input required type="email" class="form-control" name="email" id="email">
                             </div>

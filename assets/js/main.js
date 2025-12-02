@@ -63,7 +63,17 @@ $(document).ready(function () {
 //   this is for offline login
 
 //   
-    
+    const showError = (message) => {
+        Swal.fire({
+            title: "Error!",
+            text: message,
+            icon: "error",
+            toast: true,
+            position: "top-end",
+            timer: 3000,
+            showConfirmButton: false,
+        });
+    };
     $("body").on("submit", "#login-form", function (e) {
         e.preventDefault();
         const $this = $(this);
@@ -71,72 +81,64 @@ $(document).ready(function () {
         const password = $this.find("input[name=password]").val();
 
         if (!$this.hasClass("processing")) {
-        $this.addClass("processing");
+            $this.addClass("processing");
 
-        const $submitBtn = $this.find("button[type='submit']");
-        const originalBtnText = $submitBtn.text();
+            const $submitBtn = $this.find("button[type='submit']");
+            const originalBtnText = $submitBtn.text();
 
-        $.ajax({
-            url: base_url + "/authentication/action.php?action=login",
-            method: "POST",
-            dataType: "json",
-            data: {
-            username: username,
-            password: password,
-            },
-            beforeSend: function () {
-            $submitBtn
-                .prop("disabled", true)
-                .html(
-                `<span class="spinner-border spinner-border-sm"></span> Processing...`
-                );
-            },
-            success: function (response) {
-            if (response.status == 1) {
-                $this.find("button").text("Login Success!");
-                Swal.fire({
-                title: "Success!",
-                text: response.message,
-                icon: "success",
-                toast: true,
-                position: "top-end",
-                timer: 3000,
-                showConfirmButton: false,
-                }).then(() => {
-                window.location.href =
-                    base_url + response.redirect_url || base_url + "src/";
-                });
-                $this.removeClass("processing");
-            } else {
-                showError(response.message);
-                $this.removeClass("processing");
-                $this.find("button").text("Login");
-            }
-            },
-            error: function (jqXHR, textStatus, errorThrown) {
-            console.error("AJAX error:", textStatus, errorThrown);
-            if (jqXHR) {
-                Swal.fire({
-                title: "Failed",
-                icon: "error",
-                text: "Failed to login",
-                toast: true,
-                position: "top-end",
-                timer: 3000,
-                showConfirmButton: false,
-                });
-                $this.removeClass("processing");
-            }
-            $this.removeClass("processing");
-            },
-            complete: function () {
-            $submitBtn.prop("disabled", false).html(originalBtnText);
-            $this.removeClass("processing");
-            },
-        });
+            $.ajax({
+                url: base_url + "/authentication/action.php?action=login",
+                method: "POST",
+                dataType: "json",
+                data: {
+                    username: username,
+                    password: password,
+                },
+                beforeSend: function () {
+                    $submitBtn
+                        .prop("disabled", true)
+                        .html(
+                            `<span class="spinner-border spinner-border-sm"></span> Processing...`
+                        );
+                },
+                success: function (response) {
+                    if (response.status == 1) {
+                        $this.find("button").text("Login Success!");
+                        Swal.fire({
+                            title: "Success!",
+                            text: response.message,
+                            icon: "success",
+                            toast: true,
+                            position: "top-end",
+                            timer: 3000,
+                            showConfirmButton: false,
+                        }).then(() => {
+                            window.location.href =
+                                base_url + response.redirect_url || base_url + "src/";
+                        });
+                        $this.removeClass("processing");
+                    } else {
+                        showError(response.message); // Now this will work
+                        $this.removeClass("processing");
+                        $this.find("button").text("Login");
+                    }
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error("AJAX error:", textStatus, errorThrown);
+                    if (jqXHR) {
+                        // You could also use showError here
+                        showError("Incorrect Email/Username or Password");
+                        $this.removeClass("processing");
+                    }
+                    $this.removeClass("processing");
+                },
+                complete: function () {
+                    $submitBtn.prop("disabled", false).html(originalBtnText);
+                    $this.removeClass("processing");
+                },
+            });
         }
     });
-
     $(document).on("submit", "#changePassword-verification-form", function (e) { 
         e.preventDefault();
         const $form = $(this);
@@ -1921,6 +1923,191 @@ $(document).ready(function () {
       
       $.ajax({
           url: base_url + "authentication/action.php?action=delete_notification_form",
+          type: "POST",
+          data: formData,
+          processData: false,
+          contentType: false,
+          dataType: "json",
+          success: function (response) {
+              if (response.status === 1) {
+                  Swal.fire({
+                      title: "Success!",
+                      text: response.message,
+                      icon: "success",
+                      toast: true,
+                      position: "top-end",
+                      timer: 1000,
+                      showConfirmButton: false,
+                  }).then(() => {
+                      location.reload();
+                  });
+              } else {
+                  Swal.fire({
+                      title: "Error",
+                      text: response.message,
+                      icon: "error",
+                      toast: true,
+                      position: "top-end",
+                      timer: 1000,
+                      showConfirmButton: false,
+                  });
+              }
+          },
+          error: function (jqXHR, textStatus, err) {
+              console.error("AJAX error:", textStatus, err);
+              Swal.fire({
+                  title: "Connection Error",
+                  text: "Please check your connection and try again.",
+                  icon: "error",
+                  toast: true,
+                  position: "top-end",
+                  timer: 1000,
+                  showConfirmButton: false,
+              });
+          },
+          complete: function () {
+              $form.data("isSubmitted", false);
+              $btn.prop("disabled", false).html('Create Account');
+          }
+      });
+    }); 
+
+// Assignments ===========================================================
+    $(document).on("submit", "#assignment-form", function (e) { 
+      e.preventDefault();
+      const $form = $(this);
+      if ($form.data("isSubmitted")) return;
+      $form.data("isSubmitted", true);
+      
+      const formData = new FormData(this);
+      const $btn = $form.find("button[type='submit']");
+      $btn.prop("disabled", true);
+      $btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Processing...');
+      
+      $.ajax({
+          url: base_url + "authentication/action.php?action=assignment_form",
+          type: "POST",
+          data: formData,
+          processData: false,
+          contentType: false,
+          dataType: "json",
+          success: function (response) {
+              if (response.status === 1) {
+                  Swal.fire({
+                      title: "Success!",
+                      text: response.message,
+                      icon: "success",
+                      toast: true,
+                      position: "top-end",
+                      timer: 3000,
+                      showConfirmButton: false,
+                  }).then(() => {
+                      $form[0].reset(); // Reset form on success
+                  });
+              } else {
+                  Swal.fire({
+                      title: "Error",
+                      text: response.message,
+                      icon: "error",
+                      toast: true,
+                      position: "top-end",
+                      timer: 3000,
+                      showConfirmButton: false,
+                  });
+              }
+          },
+          error: function (jqXHR, textStatus, err) {
+              console.error("AJAX error:", textStatus, err);
+              Swal.fire({
+                  title: "Connection Error",
+                  text: "Please check your connection and try again.",
+                  icon: "error",
+                  toast: true,
+                  position: "top-end",
+                  timer: 3000,
+                  showConfirmButton: false,
+              });
+          },
+          complete: function () {
+              $form.data("isSubmitted", false);
+              $btn.prop("disabled", false).html('Create Account');
+          }
+      });
+    });
+    $(document).on("submit", "#edit-assignment-form", function (e) { 
+      e.preventDefault();
+      const $form = $(this);
+      if ($form.data("isSubmitted")) return;
+      $form.data("isSubmitted", true);
+      
+      const formData = new FormData(this);
+      const $btn = $form.find("button[type='submit']");
+      $btn.prop("disabled", true);
+      $btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Processing...');
+      
+      $.ajax({
+          url: base_url + "authentication/action.php?action=update_assignment",
+          type: "POST",
+          data: formData,
+          processData: false,
+          contentType: false,
+          dataType: "json",
+          success: function (response) {
+              if (response.status === 1) {
+                  Swal.fire({
+                      title: "Success!",
+                      text: response.message,
+                      icon: "success",
+                      toast: true,
+                      position: "top-end",
+                      timer: 1000,
+                      showConfirmButton: false,
+                  }).then(() => {
+                      location.reload();
+                  });
+              } else {
+                  Swal.fire({
+                      title: "Error",
+                      text: response.message,
+                      icon: "error",
+                      toast: true,
+                      position: "top-end",
+                      timer: 1000,
+                      showConfirmButton: false,
+                  });
+              }
+          },
+          error: function (jqXHR, textStatus, err) {
+              console.error("AJAX error:", textStatus, err);
+              Swal.fire({
+                  title: "Connection Error",
+                  text: "Please check your connection and try again.",
+                  icon: "error",
+                  toast: true,
+                  position: "top-end",
+                  timer: 1000,
+                  showConfirmButton: false,
+              });
+          },
+          complete: function () {
+              $form.data("isSubmitted", false);
+              $btn.prop("disabled", false).html('Create Account');
+          }
+      });
+    }); 
+    $(document).on("submit", "#delete-assignment-form", function (e) { 
+      e.preventDefault();
+      const $form = $(this);
+      if ($form.data("isSubmitted")) return;
+      $form.data("isSubmitted", true);
+      
+      const formData = new FormData(this);
+      const $btn = $form.find("button[type='submit']");
+      $btn.prop("disabled", true);
+      $btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Processing...');
+      
+      $.ajax({
+          url: base_url + "authentication/action.php?action=delete_assignment_form",
           type: "POST",
           data: formData,
           processData: false,

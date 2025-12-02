@@ -221,4 +221,26 @@ if ($action === 'delete_notification_form') {
         echo $validation;
     }
 }
+
+// Assignment ======================================================
+if ($action === 'get_faculty') {
+    $validation = $crud->get_faculty();
+    if ($validation) {
+        echo $validation;
+    }
+}
+if ($action === 'assignment_form') {
+    $validation = $crud->assignment_form();
+    if ($validation) {
+        echo $validation;
+    }
+}
+if ($action === 'update_assignment') {
+    $result = $crud->update_assignment();
+    echo $result;
+}
+if ($action === 'delete_assignment_form') {
+    $result = $crud->delete_assignment_form();
+    echo $result;
+}
 ?>

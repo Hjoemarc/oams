@@ -110,6 +110,22 @@ $inactiveEmployees = $stmtInactive->fetchAll(PDO::FETCH_ASSOC);
                         </div>
                         <input type="hidden" name="is_active" value="Active">
                         <div class="col-md-4">
+                            <label class="form-label">Program <span class="text-danger">*</span></label>
+                            <select required class="form-select" name="program_id" id="Program">
+                                <option value="">Select Program</option>
+                                <?php 
+                                            $stmt = $pdo->prepare("SELECT * FROM programs");
+                                            $stmt->execute();
+                                            $programs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                                            foreach($programs as $prog) :
+                                        ?>
+                                <option value="<?= htmlspecialchars($prog["program_id"]) ?>">
+                                    <?= htmlspecialchars($prog["program_name"] . '(' . $prog["program_code"] . ')') ?>
+                                </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
                             <label class="form-label">Department <span class="text-danger">*</span></label>
                             <select required class="form-select" name="department_id" id="Department">
                                 <option value="">Select Department</option>
@@ -125,7 +141,14 @@ $inactiveEmployees = $stmtInactive->fetchAll(PDO::FETCH_ASSOC);
                                 <?php endforeach; ?>
                             </select>
                         </div>
+                        <!-- Contact Information -->
                         <div class="col-md-4">
+                            <label class="form-label">Email <span class="text-danger">*</span></label>
+                            <input required type="email" class="form-control" name="email" id="email">
+                        </div>
+
+                        <!-- Account Info -->
+                         <div class="col-md-3">
                             <label class="form-label">Account Role <span class="text-danger">*</span></label>
                             <select required class="form-select" name="user_role">
                                 <option value="">Select account role</option>
@@ -134,22 +157,15 @@ $inactiveEmployees = $stmtInactive->fetchAll(PDO::FETCH_ASSOC);
                                 <option value="faculty">Faculty/Accreditor</option>
                             </select>
                         </div>
-                        <!-- Contact Information -->
-                        <div class="col-md-4">
-                            <label class="form-label">Email <span class="text-danger">*</span></label>
-                            <input required type="email" class="form-control" name="email" id="email">
-                        </div>
-
-                        <!-- Account Info -->
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label">Username <span class="text-danger">*</span></label>
                             <input required type="text" class="form-control" name="username" id="username">
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label">Password <span class="text-danger">*</span></label>
                             <input required type="password" class="form-control" name="password" id="password">
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label">Confirm Password <span class="text-danger">*</span></label>
                             <input required type="password" class="form-control" name="cpassword" id="cpassword">
                             <div id="password-feedback" class="password-feedback"></div>

@@ -47,9 +47,11 @@ function db_connect()
                 suffix VARCHAR(5),
                 user_role ENUM('admin', 'qa', 'head', 'faculty') NOT NULL,
                 department_id INT,
+                program_id INT,
                 is_active ENUM('Active', 'Inactive') DEFAULT 'Active',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (department_id) REFERENCES departments(department_id)
+                FOREIGN KEY (department_id) REFERENCES departments(department_id),
+                FOREIGN KEY (program_id) REFERENCES programs(program_id)
             )",
 
             // ==================== SIMPLE ACCREDITATION FRAMEWORK ====================

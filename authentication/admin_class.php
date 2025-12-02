@@ -292,7 +292,7 @@ class Action
                 } else {
                     return json_encode(['status' => 0, 'message' => 'Incorrect password.']);
                 }
-            }else if($employees['user_role'] === 'QA' && $employees["is_active"] === 'Active'){
+            }else if($employees['user_role'] === 'qa' && $employees["is_active"] === 'Active'){
                 if (password_verify($password, $employees['password'])) {
                     $_SESSION['QAData'] = [
                         'first_name' => $employees['first_name'],
@@ -402,6 +402,7 @@ class Action
             $firstName = $_POST["firstName"] ?? '';
             $middleName = $_POST["middleName"] ?? '';
             $department_id = $_POST["department_id"] ?? null;
+            $program_id = $_POST["program_id"] ?? null;
             $suffix = $_POST["suffix"] ?? '';
             $email = $_POST["email"] ?? '';
             $username = $_POST["username"] ?? '';
@@ -450,8 +451,8 @@ class Action
             // Insert into database
             $stmt = $this->db->prepare("INSERT INTO users (
                 username, email, password, first_name, last_name, middle_name, 
-                suffix, user_role, is_active, department_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                suffix, user_role, is_active, department_id, program_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             
             $result = $stmt->execute([
                 $username,
@@ -463,7 +464,8 @@ class Action
                 $suffix,
                 $user_role,
                 $is_active,
-                $department_id
+                $department_id,
+                $program_id
             ]);
             
             if ($result) {
@@ -2494,6 +2496,264 @@ class Action
             return json_encode([
                 'status' => 0, 
                 'message' => 'An error occured: ' . $e->getMessage() 
+            ]);
+        }
+    }
+
+// Assignments ========================================================
+    function get_faculty(){
+         $program_id = $_POST['program_id'] ?? '';
+    
+        if (!empty($program_id)) {
+            try {
+                $stmt = $this->db->prepare("
+                    SELECT user_id, first_name, last_name, email 
+                    FROM users 
+                    WHERE program_id = :program_id 
+                    AND user_role = 'faculty'
+                    AND is_active = 'Active'
+                    ORDER BY last_name, first_name
+                ");
+                $stmt->execute([':program_id' => $program_id]);
+                $faculty = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                echo json_encode([
+                    'status' => 1,
+                    'data' => $faculty
+                ]);
+            } catch (PDOException $e) {
+                echo json_encode([
+                    'status' => 0,
+                    'message' => 'Database error: ' . $e->getMessage()
+                ]);
+            }
+        } else {
+            echo json_encode([
+                'status' => 0,
+                'message' => 'Program ID is required'
+            ]);
+        }
+    }
+    function assignment_form(){
+        try {
+            // Get form data
+            $cycle_id = $_POST["cycle_id"] ?? '';
+            $user_id = $_POST["user_id"] ?? ''; 
+            $faculty_id = $_POST["faculty_id"] ?? ''; 
+            $indicator_id = $_POST["indicator_id"] ?? '';
+            $program_id = $_POST["program_id"] ?? '';
+            $status = $_POST["status"] ?? 'not_started';
+            
+            if (empty($cycle_id) || empty($faculty_id) || empty($indicator_id) || empty($program_id)) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'All fields are required'
+                ]);
+            }
+            
+            // Check if assignment already exists (optional - prevents duplicates)
+            $checkStmt = $this->db->prepare("
+                SELECT assignment_id 
+                FROM assignments 
+                WHERE user_id = :faculty_id 
+                AND indicator_id = :indicator_id 
+                AND program_id = :program_id 
+                AND cycle_id = :cycle_id
+            ");
+            $checkStmt->execute([
+                ':faculty_id' => $faculty_id,
+                ':indicator_id' => $indicator_id,
+                ':program_id' => $program_id,
+                ':cycle_id' => $cycle_id
+            ]);
+            
+            if ($checkStmt->rowCount() > 0) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Assignment already exists for this faculty, indicator, program, and cycle'
+                ]);
+            }
+            
+            // Insert the assignment
+            $stmt = $this->db->prepare("
+                INSERT INTO assignments 
+                (user_id, indicator_id, program_id, status, cycle_id, assigned_by) 
+                VALUES (:faculty_id, :indicator_id, :program_id, :status, :cycle_id, :assigned_by)
+            ");
+            
+            $stmt->execute([
+                ':faculty_id' => $faculty_id,
+                ':indicator_id' => $indicator_id,
+                ':program_id' => $program_id,
+                ':status' => $status,
+                ':cycle_id' => $cycle_id,
+                ':assigned_by' => $user_id
+            ]);
+            
+            // Optional: Insert into notification table
+            try {
+                $notifStmt = $this->db->prepare("
+                    INSERT INTO notifications 
+                    (user_id, title, message) 
+                    VALUES (:user_id, 'New Assignment', 'You have been assigned a new accreditation task.')
+                ");
+                $notifStmt->execute([
+                    ':user_id' => $faculty_id
+                ]);
+            } catch (Exception $e) {
+                // Continue even if notification fails
+                error_log("Notification error: " . $e->getMessage());
+            }
+            
+            return json_encode([
+                'status' => 1,
+                'message' => 'Assignment created successfully'
+            ]);
+            
+        } catch (PDOException $e) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'Database error: ' . $e->getMessage()
+            ]);
+        } catch (Exception $e) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred: ' . $e->getMessage()
+            ]);
+        }
+    }
+    function update_assignment() {
+        try {
+            $assignment_id = $_POST["assignment_id"] ?? '';
+            $faculty_id = $_POST["faculty_id"] ?? '';
+            $indicator_id = $_POST["indicator_id"] ?? '';
+            $program_id = $_POST["program_id"] ?? '';
+            $status = $_POST["status"] ?? 'not_started';
+            $cycle_id = $_POST["cycle_id"] ?? '';
+            
+            // Validate required fields
+            if (empty($assignment_id) || empty($faculty_id) || empty($indicator_id) || empty($program_id) || empty($cycle_id)) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'All required fields must be filled'
+                ]);
+            }
+            
+            // Check if assignment exists
+            $checkStmt = $this->db->prepare("SELECT assignment_id FROM assignments WHERE assignment_id = :assignment_id");
+            $checkStmt->execute([':assignment_id' => $assignment_id]);
+            
+            if ($checkStmt->rowCount() === 0) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Assignment not found'
+                ]);
+            }
+            
+            // Update assignment
+            $stmt = $this->db->prepare("
+                UPDATE assignments 
+                SET user_id = :faculty_id,
+                    indicator_id = :indicator_id,
+                    program_id = :program_id,
+                    status = :status
+                WHERE assignment_id = :assignment_id
+            ");
+            
+            $stmt->execute([
+                ':faculty_id' => $faculty_id,
+                ':indicator_id' => $indicator_id,
+                ':program_id' => $program_id,
+                ':status' => $status,
+                ':assignment_id' => $assignment_id
+            ]);
+            
+            return json_encode([
+                'status' => 1,
+                'message' => 'Assignment updated successfully'
+            ]);
+            
+        } catch (PDOException $e) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'Database error: ' . $e->getMessage()
+            ]);
+        }
+    }
+    function delete_assignment_form(){
+        try {
+            // Get assignment ID from POST
+            $assignment_id = $_POST["assignment_id"] ?? '';
+            
+            // Validate assignment ID
+            if (empty($assignment_id)) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Assignment ID is required'
+                ]);
+            }
+            
+            // Check if assignment exists
+            $checkStmt = $this->db->prepare("SELECT assignment_id FROM assignments WHERE assignment_id = :assignment_id");
+            $checkStmt->execute([':assignment_id' => $assignment_id]);
+            
+            if ($checkStmt->rowCount() === 0) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Assignment not found'
+                ]);
+            }
+            
+            // Optional: Check if assignment has any submissions/documents before deleting
+            // This prevents accidental deletion of assignments with progress
+            $progressStmt = $this->db->prepare("
+                SELECT status 
+                FROM assignments 
+                WHERE assignment_id = :assignment_id 
+                AND status IN ('in_progress', 'submitted', 'completed')
+            ");
+            $progressStmt->execute([':assignment_id' => $assignment_id]);
+            
+            if ($progressStmt->rowCount() > 0) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Cannot delete assignment with existing progress. Please update status instead.'
+                ]);
+            }
+            
+            $user_idStmt = $this->db->prepare("SELECT user_id FROM assignments WHERE assignment_id = :assignment_id");
+            $user_idStmt->execute([':assignment_id' => $assignment_id]);
+            $getUser_id = $user_idStmt->fetch(PDO::FETCH_ASSOC);
+            $user_id = $getUser_id["user_id"];
+
+            // Delete the assignment
+            $stmt = $this->db->prepare("DELETE FROM assignments WHERE assignment_id = :assignment_id");
+            $stmt->execute([':assignment_id' => $assignment_id]);
+            
+            try {
+                $notifStmt = $this->db->prepare("DELETE FROM notifications WHERE user_id = :user_id");
+                $notifStmt->execute([
+                    'user_id' => $user_id
+                ]);
+            } catch (Exception $e) {
+                // Continue even if notification deletion fails
+                error_log("Notification cleanup error: " . $e->getMessage());
+            }
+            
+            return json_encode([
+                'status' => 1,
+                'message' => 'Assignment deleted successfully'
+            ]);
+            
+        } catch (PDOException $e) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'Database error: ' . $e->getMessage()
+            ]);
+        } catch (Exception $e) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred: ' . $e->getMessage()
             ]);
         }
     }
