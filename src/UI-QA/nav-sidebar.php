@@ -5,17 +5,11 @@
             <a href="index.php?page=home" class="nav-item nav-home rounded-2">
                 <span class=""><i class=""></i></span> Dashboard
             </a>
-            <a href="index.php?page=contents/leave" class="nav-item nav-leave rounded-2 my-1">
-                <span class=""><i class=""></i></span> Leave Request
+            <a href="index.php?page=contents/review" class="nav-item nav-review rounded-2 my-1">
+                <span class=""><i class=""></i></span> Review Documents
             </a>
-            <a href="index.php?page=contents/payroll" class="nav-item nav-payroll rounded-2 my-1">
-                <span class=""><i class=""></i></span> Payslip
-            </a>
-            <a href="index.php?page=contents/employment" class="nav-item nav-employment rounded-2 my-1">
-                <span class=""><i class=""></i></span> Employment History 
-            </a>
-            <a href="index.php?page=contents/201" class="nav-item nav-201 rounded-2 my-1">
-                <span class=""><i class=""></i></span> 201 Files
+            <a href="index.php?page=contents/notification" class="nav-item nav-notification rounded-2 my-1">
+                <span class=""><i class=""></i></span> Notifications
             </a>
             <a href="index.php?page=contents/setting" class="nav-item nav-setting rounded-2 my-1">
                 <span class=""><i class=""></i></span> Account Settings

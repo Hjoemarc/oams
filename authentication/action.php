@@ -181,6 +181,18 @@ if ($action === 'delete_document_form') {
 		echo $validation;
 	}
 }
+if ($action === 'approve_document_form') {
+	$validation = $crud->approve_document_form();
+	if ($validation) {
+		echo $validation;
+	}
+}
+if ($action === 'revise_document_form') {
+	$validation = $crud->revise_document_form();
+	if ($validation) {
+		echo $validation;
+	}
+}
 
 // Compliance Tracking ===================================================
 if ($action === 'add_compliance_form') {

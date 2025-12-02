@@ -19,7 +19,7 @@ function db_connect()
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
         // Step 4: Define table structure
-       $tableQueries = [
+        $tableQueries = [
             // ==================== BASIC ORGANIZATION ====================
             "CREATE TABLE IF NOT EXISTS departments (
                 department_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -127,6 +127,7 @@ function db_connect()
                 review_action ENUM('approved', 'needs_revision') NOT NULL,
                 comments TEXT,
                 deadline DATE,
+                revision_reason TEXT NULL,
                 priority ENUM('normal', 'high', 'urgent') DEFAULT 'normal',
                 reviewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (document_id) REFERENCES documents(document_id),

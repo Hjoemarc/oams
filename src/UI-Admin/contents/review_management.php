@@ -477,11 +477,6 @@ $documentCount = 1;
                         <option value="approved">Approved</option>
                     </select>
                 </div>
-                <div class="col-md-3">
-                    <button class="btn btn-primary w-100" onclick="refreshDocuments()">
-                        <i class="fas fa-sync-alt"></i> Refresh
-                    </button>
-                </div>
             </div>
 
             <!-- DOCUMENTS TABLE -->
@@ -728,30 +723,6 @@ function initAccreditationFrameworkTabs() {
     });
 }
 
-// Submit reviewer assignment
-function submitReviewerAssignment() {
-    const form = document.getElementById('quick-assign-reviewer-form');
-    const formData = new FormData(form);
-
-    fetch('assign_reviewer.php', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 1) {
-                alert('Reviewer assigned successfully!');
-                location.reload();
-            } else {
-                alert('Error: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Failed to assign reviewer');
-        });
-}
-
 // Load document reviews via AJAX
 function loadDocumentReviews(documentId) {
     fetch('get_document_reviews.php?document_id=' + documentId)
@@ -798,205 +769,6 @@ function viewAssignmentDetails(assignmentId) {
                     showCloseButton: true
                 });
             }
-        });
-}
-
-// Send reminder to faculty
-function sendReminder(assignmentId, facultyName) {
-    if (confirm(`Send reminder to ${facultyName} about this assignment?`)) {
-        fetch('send_reminder.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    assignment_id: assignmentId
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 1) {
-                    alert('Reminder sent successfully!');
-                } else {
-                    alert('Failed to send reminder');
-                }
-            });
-    }
-}
-
-// Refresh documents list
-function refreshDocuments() {
-    location.reload();
-}
-
-// Initialize search filters
-function initializeSearchFilters() {
-    // Assignments search
-    const searchAssignments = document.getElementById('searchAssignments');
-    if (searchAssignments) {
-        searchAssignments.addEventListener('input', function(e) {
-            filterTable('assignmentsTable', e.target.value.toLowerCase());
-        });
-    }
-
-    // Documents search
-    const searchDocuments = document.getElementById('searchDocuments');
-    if (searchDocuments) {
-        searchDocuments.addEventListener('input', function(e) {
-            filterTable('documentsTable', e.target.value.toLowerCase());
-        });
-    }
-
-    // Status filter
-    const filterStatus = document.getElementById('filterStatus');
-    if (filterStatus) {
-        filterStatus.addEventListener('change', function() {
-            filterTableByStatus('assignmentsTable', this.value);
-        });
-    }
-
-    // Program filter
-    const filterProgram = document.getElementById('filterProgram');
-    if (filterProgram) {
-        filterProgram.addEventListener('change', function() {
-            filterTableByProgram('assignmentsTable', this.value);
-        });
-    }
-
-    // Document status filter
-    const filterDocStatus = document.getElementById('filterDocStatus');
-    if (filterDocStatus) {
-        filterDocStatus.addEventListener('change', function() {
-            filterTableByDocStatus('documentsTable', this.value);
-        });
-    }
-}
-
-// Table filtering functions
-function filterTable(tableId, searchTerm) {
-    const table = document.getElementById(tableId);
-    if (!table) return;
-
-    const rows = table.getElementsByTagName('tr');
-
-    for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        const text = row.textContent.toLowerCase();
-
-        if (text.includes(searchTerm)) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
-    }
-}
-
-function filterTableByStatus(tableId, status) {
-    const table = document.getElementById(tableId);
-    if (!table) return;
-
-    const rows = table.getElementsByTagName('tr');
-
-    for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        const statusCell = row.querySelector('.badge');
-
-        if (!status || !statusCell) {
-            row.style.display = '';
-            continue;
-        }
-
-        const rowStatus = statusCell.textContent.toLowerCase().replace(' ', '_');
-
-        if (rowStatus === status) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
-    }
-}
-
-function filterTableByProgram(tableId, programCode) {
-    const table = document.getElementById(tableId);
-    if (!table) return;
-
-    const rows = table.getElementsByTagName('tr');
-
-    for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        const programCell = row.cells[2]; // Assuming program is in 3rd column
-
-        if (!programCode || !programCell) {
-            row.style.display = '';
-            continue;
-        }
-
-        const rowProgram = programCell.textContent.toLowerCase();
-
-        if (rowProgram.includes(programCode.toLowerCase())) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
-    }
-}
-
-function filterTableByDocStatus(tableId, status) {
-    const table = document.getElementById(tableId);
-    if (!table) return;
-
-    const rows = table.getElementsByTagName('tr');
-
-    for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        const statusCell = row.querySelector('.badge');
-
-        if (!status || !statusCell) {
-            row.style.display = '';
-            continue;
-        }
-
-        const rowStatus = statusCell.textContent.toLowerCase().replace(' ', '_');
-
-        if (rowStatus === status) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
-    }
-}
-
-// Assign reviewer from main form
-function assignReviewer() {
-    const form = document.getElementById('assign-reviewer-form');
-    const formData = new FormData(form);
-    const selectedItem = document.getElementById('reviewItemSelect').value;
-
-    if (!selectedItem) {
-        alert('Please select an item to review');
-        return;
-    }
-
-    const [type, id] = selectedItem.split('_');
-    formData.append('item_type', type);
-    formData.append('item_id', id);
-
-    fetch('assign_reviewer.php', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 1) {
-                alert('Reviewer assigned successfully!');
-                location.reload();
-            } else {
-                alert('Error: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Failed to assign reviewer');
         });
 }
 </script>
@@ -1061,64 +833,68 @@ $(document).ready(function() {
 
 });
 </script>
+<!-- filtering js -->
+ <script>
+    
+ </script>
 <style>
-/* Custom styles for Review Management */
-.card {
-    border-radius: 10px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
+    /* Custom styles for Review Management */
+    .card {
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
 
-.nav-tabs .nav-link {
-    border-radius: 8px 8px 0 0;
-    font-weight: 500;
-}
+    .nav-tabs .nav-link {
+        border-radius: 8px 8px 0 0;
+        font-weight: 500;
+    }
 
-.nav-tabs .nav-link.active {
-    background-color: #f8f9fa;
-    border-bottom-color: #f8f9fa;
-}
+    .nav-tabs .nav-link.active {
+        background-color: #f8f9fa;
+        border-bottom-color: #f8f9fa;
+    }
 
-.table-hover tbody tr:hover {
-    background-color: rgba(0, 123, 255, 0.05);
-}
+    .table-hover tbody tr:hover {
+        background-color: rgba(0, 123, 255, 0.05);
+    }
 
-.badge {
-    font-size: 0.75em;
-    padding: 4px 8px;
-}
+    .badge {
+        font-size: 0.75em;
+        padding: 4px 8px;
+    }
 
-.btn-group-sm .btn {
-    padding: 0.25rem 0.5rem;
-}
+    .btn-group-sm .btn {
+        padding: 0.25rem 0.5rem;
+    }
 
-.table th {
-    font-weight: 600;
-    color: #495057;
-}
+    .table th {
+        font-weight: 600;
+        color: #495057;
+    }
 
-/* Status colors */
-.badge.bg-success {
-    background-color: #28a745 !important;
-}
+    /* Status colors */
+    .badge.bg-success {
+        background-color: #28a745 !important;
+    }
 
-.badge.bg-primary {
-    background-color: #007bff !important;
-}
+    .badge.bg-primary {
+        background-color: #007bff !important;
+    }
 
-.badge.bg-warning {
-    background-color: #ffc107 !important;
-    color: #212529;
-}
+    .badge.bg-warning {
+        background-color: #ffc107 !important;
+        color: #212529;
+    }
 
-.badge.bg-danger {
-    background-color: #dc3545 !important;
-}
+    .badge.bg-danger {
+        background-color: #dc3545 !important;
+    }
 
-.badge.bg-info {
-    background-color: #17a2b8 !important;
-}
+    .badge.bg-info {
+        background-color: #17a2b8 !important;
+    }
 
-.badge.bg-secondary {
-    background-color: #6c757d !important;
-}
+    .badge.bg-secondary {
+        background-color: #6c757d !important;
+    }
 </style>

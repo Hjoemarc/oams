@@ -55,6 +55,83 @@ class Action
             'redirect_url' => './src/index.php'
         ]);
     }
+
+    private function getComplianceId($program_id, $cycle_id, $indicator_id) {
+        // Check if already exists
+        $checkStmt = $this->db->prepare("
+            SELECT compliance_id FROM compliance_tracking 
+            WHERE program_id = :program_id 
+            AND cycle_id = :cycle_id 
+            AND indicator_id = :indicator_id
+        ");
+        $checkStmt->execute([
+            ':program_id' => $program_id,
+            ':cycle_id' => $cycle_id,
+            ':indicator_id' => $indicator_id
+        ]);
+        
+        if ($checkStmt->rowCount() > 0) {
+            // Already exists, return the existing ID
+            $row = $checkStmt->fetch(PDO::FETCH_ASSOC);
+            return $row['compliance_id'];
+        } else {
+            // Insert new record
+            $stmt = $this->db->prepare("
+                INSERT INTO compliance_tracking 
+                (program_id, cycle_id, indicator_id, status, created_at)
+                VALUES (:program_id, :cycle_id, :indicator_id, 'not_assessed', NOW())
+            ");
+            
+            $stmt->execute([
+                ':program_id' => $program_id,
+                ':cycle_id' => $cycle_id,
+                ':indicator_id' => $indicator_id
+            ]);
+            
+            // Return the new ID
+            return $this->db->lastInsertId();
+        }
+    }
+    // Helper method for fallback if getComplianceId doesn't exist
+    private function createOrGetComplianceId($program_id, $cycle_id, $indicator_id) {
+        // Check if already exists
+        $checkStmt = $this->db->prepare("
+            SELECT compliance_id FROM compliance_tracking 
+            WHERE program_id = :program_id 
+            AND cycle_id = :cycle_id 
+            AND indicator_id = :indicator_id
+        ");
+        $checkStmt->execute([
+            ':program_id' => $program_id,
+            ':cycle_id' => $cycle_id,
+            ':indicator_id' => $indicator_id
+        ]);
+        
+        if ($checkStmt->rowCount() > 0) {
+            // Already exists, return the existing ID
+            $row = $checkStmt->fetch(PDO::FETCH_ASSOC);
+            return $row['compliance_id'];
+        } else {
+            // Insert new record
+            $stmt = $this->db->prepare("
+                INSERT INTO compliance_tracking 
+                (program_id, cycle_id, indicator_id, status, created_at)
+                VALUES (:program_id, :cycle_id, :indicator_id, 'not_assessed', NOW())
+            ");
+            
+            $stmt->execute([
+                ':program_id' => $program_id,
+                ':cycle_id' => $cycle_id,
+                ':indicator_id' => $indicator_id
+            ]);
+            
+            // Return the new ID
+            return $this->db->lastInsertId();
+        }
+    }
+    
+
+   
     
     // ---------- Forget Account Verifications and change  password code
     function changePassword_form(){
@@ -1230,6 +1307,189 @@ class Action
             return json_encode(['status' => 0, 'message' => 'Error: ' . $e->getMessage()]);
         }
     }
+    function approve_document_form() {
+        try {
+            $document_id = $_POST["document_id"];
+            $review_id = $_POST["review_id"];
+
+            // Update document status
+            $stmtdocumemt = $this->db->prepare("UPDATE documents SET status = 'approved' WHERE document_id = :document_id");
+            $stmtdocumemt->execute(['document_id' => $document_id]);
+            
+            // Update review action
+            $stmtreview = $this->db->prepare("UPDATE reviews SET review_action = 'approved' WHERE review_id = :review_id");
+            $stmtreview->execute(['review_id' => $review_id]);
+
+            // Get document info for compliance tracking
+            $stmt = $this->db->prepare("
+                SELECT d.program_id, d.cycle_id, d.indicator_id, 
+                    d.status, r.reviewer_id, r.reviewed_at
+                FROM documents d
+                LEFT JOIN reviews r ON d.document_id = r.document_id
+                WHERE d.document_id = :document_id
+            ");
+            $stmt->execute(['document_id' => $document_id]);
+            $doc = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            $complianceId = null;
+            if ($doc) {
+                // Determine compliance status
+                $complianceStatus = 'compliant'; // Since we just approved it
+                
+                // Get or create compliance record (using helper function)
+                $complianceId = $this->getComplianceId(
+                    $doc['program_id'],
+                    $doc['cycle_id'], 
+                    $doc['indicator_id']
+                );
+                
+                // Update compliance tracking
+                $stmt = $this->db->prepare("
+                    UPDATE compliance_tracking 
+                    SET status = :status, 
+                        reviewer_id = :reviewer_id,
+                        review_date = DATE(:reviewed_at)
+                    WHERE compliance_id = :compliance_id
+                ");
+                
+                $stmt->execute([
+                    'status' => $complianceStatus,
+                    'reviewer_id' => $doc['reviewer_id'],
+                    'reviewed_at' => $doc['reviewed_at'],
+                    'compliance_id' => $complianceId
+                ]);
+            }
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Document approved successfully',
+                'compliance_id' => $complianceId
+            ]);
+            
+        } catch (PDOException $e) { 
+            return json_encode([
+                'status' => 0, 
+                'message' => 'An error occurred: ' . $e->getMessage() 
+            ]);
+        }
+    }
+    function revise_document_form() {
+        try {
+            $document_id = $_POST["document_id"];
+            $review_id = $_POST["review_id"];
+            $revision_comments = $_POST["comments"] ?? '';
+            $revision_reason = $_POST["revision_reason"] ?? ''; // Optional: specific reason
+
+            // Update document status
+            $stmtdocumemt = $this->db->prepare("UPDATE documents SET status = 'needs_revision' WHERE document_id = :document_id");
+            $stmtdocumemt->execute(['document_id' => $document_id]);
+            
+            // Update review with reason and comments
+            $stmtreview = $this->db->prepare("
+                UPDATE reviews 
+                SET review_action = 'needs_revision', 
+                    comments = :comments,
+                    revision_reason = :revision_reason,
+                    reviewed_at = NOW()
+                WHERE review_id = :review_id
+            ");
+            $stmtreview->execute([
+                'review_id' => $review_id,
+                'comments' => $revision_comments,
+                'revision_reason' => $revision_reason
+            ]);
+
+            // Get document info for compliance tracking
+            $stmt = $this->db->prepare("
+                SELECT d.program_id, d.cycle_id, d.indicator_id, 
+                    d.status, r.reviewer_id, r.reviewed_at
+                FROM documents d
+                LEFT JOIN reviews r ON d.document_id = r.document_id
+                WHERE d.document_id = :document_id
+            ");
+            $stmt->execute(['document_id' => $document_id]);
+            $doc = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            $complianceId = null;
+            if ($doc) {
+                // Compliance status for needs_revision is 'partial'
+                $complianceStatus = 'partial';
+                
+                // Get or create compliance record using the helper method
+                if (method_exists($this, 'getComplianceId')) {
+                    $complianceId = $this->getComplianceId(
+                        $doc['program_id'],
+                        $doc['cycle_id'], 
+                        $doc['indicator_id']
+                    );
+                } else {
+                    // Fallback: direct implementation
+                    $complianceId = $this->createOrGetComplianceId(
+                        $doc['program_id'],
+                        $doc['cycle_id'], 
+                        $doc['indicator_id']
+                    );
+                }
+                
+                // Update compliance tracking
+                $stmt = $this->db->prepare("
+                    UPDATE compliance_tracking 
+                    SET status = :status, 
+                        reviewer_id = :reviewer_id,
+                        review_date = DATE(:reviewed_at),
+                        comments = :comments
+                    WHERE compliance_id = :compliance_id
+                ");
+                
+                $stmt->execute([
+                    'status' => $complianceStatus,
+                    'reviewer_id' => $doc['reviewer_id'],
+                    'reviewed_at' => $doc['reviewed_at'],
+                    'comments' => $revision_comments . ($revision_reason ? "\n\nRevision Reason: " . $revision_reason : ''),
+                    'compliance_id' => $complianceId
+                ]);
+                
+                // Optional: Send notification to faculty that document needs revision
+                try {
+                    // Get faculty user_id from the document
+                    $facultyStmt = $this->db->prepare("
+                        SELECT uploaded_by 
+                        FROM documents 
+                        WHERE document_id = :document_id
+                    ");
+                    $facultyStmt->execute(['document_id' => $document_id]);
+                    $faculty = $facultyStmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if ($faculty && isset($faculty['uploaded_by'])) {
+                        $notifStmt = $this->db->prepare("
+                            INSERT INTO notifications 
+                            (user_id, title, message, created_at) 
+                            VALUES (:user_id, 'Document Needs Revision', 'Your submitted document requires revisions. Please check the comments.', NOW())
+                        ");
+                        $notifStmt->execute([':user_id' => $faculty['uploaded_by']]);
+                    }
+                } catch (Exception $e) {
+                    // Continue even if notification fails
+                    error_log("Notification error in revise_document_form: " . $e->getMessage());
+                }
+            }
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Document marked for revision successfully',
+                'compliance_id' => $complianceId,
+                'document_id' => $document_id,
+                'status_text' => 'needs_revision'
+            ]);
+            
+        } catch (PDOException $e) {
+            return json_encode([
+                'status' => 0, 
+                'message' => 'An error occurred: ' . $e->getMessage(),
+                'error_details' => 'Error in revise_document_form function'
+            ]);
+        }
+    }
 
 // Compliance Tracking ===================================================
     function add_compliance_form() {
@@ -1968,94 +2228,99 @@ class Action
             ]);
         }
     }
-    function assignment_form(){
-        try {
-            // Get form data
-            $cycle_id = $_POST["cycle_id"] ?? '';
-            $user_id = $_POST["user_id"] ?? ''; 
-            $faculty_id = $_POST["faculty_id"] ?? ''; 
-            $indicator_id = $_POST["indicator_id"] ?? '';
-            $program_id = $_POST["program_id"] ?? '';
-            $status = $_POST["status"] ?? 'not_started';
-            
-            if (empty($cycle_id) || empty($faculty_id) || empty($indicator_id) || empty($program_id)) {
-                return json_encode([
-                    'status' => 0,
-                    'message' => 'All fields are required'
-                ]);
-            }
-            
-            // Check if assignment already exists (optional - prevents duplicates)
-            $checkStmt = $this->db->prepare("
-                SELECT assignment_id 
-                FROM assignments 
-                WHERE user_id = :faculty_id 
-                AND indicator_id = :indicator_id 
-                AND program_id = :program_id 
-                AND cycle_id = :cycle_id
-            ");
-            $checkStmt->execute([
-                ':faculty_id' => $faculty_id,
-                ':indicator_id' => $indicator_id,
-                ':program_id' => $program_id,
-                ':cycle_id' => $cycle_id
-            ]);
-            
-            if ($checkStmt->rowCount() > 0) {
-                return json_encode([
-                    'status' => 0,
-                    'message' => 'Assignment already exists for this faculty, indicator, program, and cycle'
-                ]);
-            }
-            
-            // Insert the assignment
-            $stmt = $this->db->prepare("
-                INSERT INTO assignments 
-                (user_id, indicator_id, program_id, status, cycle_id, assigned_by) 
-                VALUES (:faculty_id, :indicator_id, :program_id, :status, :cycle_id, :assigned_by)
-            ");
-            
-            $stmt->execute([
-                ':faculty_id' => $faculty_id,
-                ':indicator_id' => $indicator_id,
-                ':program_id' => $program_id,
-                ':status' => $status,
-                ':cycle_id' => $cycle_id,
-                ':assigned_by' => $user_id
-            ]);
-            
-            // Optional: Insert into notification table
-            try {
-                $notifStmt = $this->db->prepare("
-                    INSERT INTO notifications 
-                    (user_id, title, message) 
-                    VALUES (:user_id, 'New Assignment', 'You have been assigned a new accreditation task.')
-                ");
-                $notifStmt->execute([
-                    ':user_id' => $faculty_id
-                ]);
-            } catch (Exception $e) {
-                // Continue even if notification fails
-                error_log("Notification error: " . $e->getMessage());
-            }
-            
-            return json_encode([
-                'status' => 1,
-                'message' => 'Assignment created successfully'
-            ]);
-            
-        } catch (PDOException $e) {
+    function assignment_form() {
+    try {
+        // Get form data
+        $cycle_id = $_POST["cycle_id"] ?? '';
+        $user_id = $_POST["user_id"] ?? ''; 
+        $faculty_id = $_POST["faculty_id"] ?? ''; 
+        $indicator_id = $_POST["indicator_id"] ?? '';
+        $program_id = $_POST["program_id"] ?? '';
+        $status = $_POST["status"] ?? 'not_started';
+        
+        if (empty($cycle_id) || empty($faculty_id) || empty($indicator_id) || empty($program_id)) {
             return json_encode([
                 'status' => 0,
-                'message' => 'Database error: ' . $e->getMessage()
-            ]);
-        } catch (Exception $e) {
-            return json_encode([
-                'status' => 0,
-                'message' => 'An error occurred: ' . $e->getMessage()
+                'message' => 'All fields are required'
             ]);
         }
+        
+        // Check if assignment already exists
+        $checkStmt = $this->db->prepare("
+            SELECT assignment_id 
+            FROM assignments 
+            WHERE user_id = :faculty_id 
+            AND indicator_id = :indicator_id 
+            AND program_id = :program_id 
+            AND cycle_id = :cycle_id
+        ");
+        $checkStmt->execute([
+            ':faculty_id' => $faculty_id,
+            ':indicator_id' => $indicator_id,
+            ':program_id' => $program_id,
+            ':cycle_id' => $cycle_id
+        ]);
+        
+        if ($checkStmt->rowCount() > 0) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'Assignment already exists for this faculty, indicator, program, and cycle'
+            ]);
+        }
+        
+        // Insert the assignment
+        $stmt = $this->db->prepare("
+            INSERT INTO assignments 
+            (user_id, indicator_id, program_id, status, cycle_id, assigned_by) 
+            VALUES (:faculty_id, :indicator_id, :program_id, :status, :cycle_id, :assigned_by)
+        ");
+        
+        $stmt->execute([
+            ':faculty_id' => $faculty_id,
+            ':indicator_id' => $indicator_id,
+            ':program_id' => $program_id,
+            ':status' => $status,
+            ':cycle_id' => $cycle_id,
+            ':assigned_by' => $user_id
+        ]);
+        
+        $assignmentId = $this->db->lastInsertId();
+        
+        // Create or get compliance record
+        $complianceId = $this->getComplianceId($program_id, $cycle_id, $indicator_id);
+        
+        // Optional: Send notification
+        try {
+            $notifStmt = $this->db->prepare("
+                INSERT INTO notifications 
+                (user_id, title, message) 
+                VALUES (:user_id, 'New Assignment', 'You have been assigned a new accreditation task.')
+            ");
+            $notifStmt->execute([':user_id' => $faculty_id]);
+        } catch (Exception $e) {
+            // Continue even if notification fails
+            error_log("Notification error: " . $e->getMessage());
+        }
+
+        return json_encode([
+            'status' => 1,
+            'message' => 'Assignment created successfully',
+            'assignment_id' => $assignmentId,
+            'compliance_id' => $complianceId
+        ]);
+        
+    } catch (PDOException $e) {
+        return json_encode([
+            'status' => 0,
+            'message' => 'Database error: ' . $e->getMessage()
+        ]);
+    } catch (Exception $e) {
+        return json_encode([
+            'status' => 0,
+            'message' => 'An error occurred: ' . $e->getMessage()
+        ]);
     }
+}
     function update_assignment() {
         try {
             $assignment_id = $_POST["assignment_id"] ?? '';
