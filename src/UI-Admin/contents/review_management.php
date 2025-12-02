@@ -489,7 +489,6 @@ $documentCount = 1;
                     <thead class="table-light">
                         <tr>
                             <th>#</th>
-                            <th>Document</th>
                             <th>Uploaded By</th>
                             <th>Indicator</th>
                             <th>Program</th>
@@ -511,11 +510,7 @@ $documentCount = 1;
                         ?>
                         <tr>
                             <td><?= $documentCount++ ?></td>
-                            <td>
-                                <strong><?= htmlspecialchars($document['filename']) ?></strong><br>
-                                <small
-                                    class="text-muted"><?= date('M d, Y', strtotime($document['uploaded_date'])) ?></small>
-                            </td>
+                           
                             <td><?= htmlspecialchars($document['uploader_name']) ?></td>
                             <td>
                                 <span
@@ -540,19 +535,11 @@ $documentCount = 1;
                             </td>
                             <td>
                                 <div class="btn-group btn-group-sm" role="group">
-                                    <a href="download.php?id=<?= $document['document_id'] ?>"
-                                        class="btn btn-outline-primary" title="Download">
-                                        <i class="fas fa-download"></i>
-                                    </a>
                                     <button type="button" class="btn btn-outline-success assign-document-reviewer-btn"
                                         data-document-id="<?= $document['document_id'] ?>"
                                         data-filename="<?= htmlspecialchars($document['filename']) ?>"
                                         title="Assign Reviewer">
                                         <i class="fas fa-user-check"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-outline-info view-reviews-btn"
-                                        data-document-id="<?= $document['document_id'] ?>" title="View Reviews">
-                                        <i class="fas fa-comments"></i>
                                     </button>
                                 </div>
                             </td>

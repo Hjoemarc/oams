@@ -1,0 +1,980 @@
+<?php
+// Fetch all assignments that need review
+$stmtAssignments = $pdo->prepare("SELECT 
+    a.assignment_id,
+    ac.deadline,
+    a.status as assignment_status,
+    a.*,
+    u.user_id as faculty_id,
+    CONCAT(u.first_name, ' ', u.last_name) as faculty_name,
+    i.indicator_code,
+    i.indicator_description,
+    p.program_code,
+    p.program_name,
+    ac.cycle_name,
+    d.department_name
+FROM assignments a
+INNER JOIN users u ON a.user_id = u.user_id
+INNER JOIN accreditation_indicators i ON a.indicator_id = i.indicator_id
+INNER JOIN programs p ON a.program_id = p.program_id
+INNER JOIN accreditation_cycles ac ON a.cycle_id = ac.cycle_id
+INNER JOIN departments d ON u.department_id = d.department_id
+WHERE u.user_id = :user_id
+ORDER BY ac.deadline ASC, a.assigned_at DESC");
+$stmtAssignments->execute([
+    'user_id' => $user_id
+]);
+$assignments = $stmtAssignments->fetchAll(PDO::FETCH_ASSOC);
+
+// Fetch reviewers (users with QA role)
+$stmtReviewers = $pdo->prepare("SELECT user_id, CONCAT(first_name, ' ', last_name) as name, user_role 
+                               FROM users 
+                               WHERE user_role = 'qa' OR user_role = 'head'
+                               AND is_active = 'Active'
+                               ORDER BY first_name");
+$stmtReviewers->execute();
+$reviewers = $stmtReviewers->fetchAll(PDO::FETCH_ASSOC);
+
+// Fetch submitted documents for review
+$stmtDocuments = $pdo->prepare("SELECT 
+    d.document_id,
+    d.filename,
+    d.status as doc_status,
+    d.created_at as uploaded_date,
+    u.user_id as uploader_id,
+    CONCAT(u.first_name, ' ', u.last_name) as uploader_name,
+    i.indicator_code,
+    i.indicator_description,
+    p.program_name,
+    ac.cycle_name,
+    COUNT(r.review_id) as review_count
+FROM documents d
+INNER JOIN users u ON d.uploaded_by = u.user_id
+INNER JOIN accreditation_indicators i ON d.indicator_id = i.indicator_id
+INNER JOIN programs p ON d.program_id = p.program_id
+INNER JOIN accreditation_cycles ac ON d.cycle_id = ac.cycle_id
+LEFT JOIN reviews r ON d.document_id = r.document_id
+WHERE d.status IN ('submitted', 'under_review', 'needs_revision')
+GROUP BY d.document_id
+ORDER BY d.created_at DESC");
+$stmtDocuments->execute();
+$documents = $stmtDocuments->fetchAll(PDO::FETCH_ASSOC);
+
+$assignmentCount = 1;
+$documentCount = 1;
+?>
+<section>
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="mx-2">
+            <h4 class=""><span class=""><i class="fa-solid fa-clipboard-check me-2"></i></span>Review Management</h4>
+            <small class="text-muted">Assign reviewers and manage document reviews</small>
+        </div>
+    </div>
+
+    <!-- REVIEW STATISTICS CARDS -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-primary">
+                <div class="card-body text-center">
+                    <h6 class="card-title text-dark">Pending Assignments</h6>
+                    <h2 class="text-dark"><?= count($assignments) ?></h2>
+                    <small class="text-muted">Need reviewer assignment</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-warning">
+                <div class="card-body text-center">
+                    <h6 class="card-title text-dark">Documents for Review</h6>
+                    <h2 class="text-dark"><?= count($documents) ?></h2>
+                    <small class="text-muted">Awaiting review</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <?php
+            $stmtNeedsRevision = $pdo->prepare("SELECT COUNT(*) FROM documents WHERE status = 'needs_revision'");
+            $stmtNeedsRevision->execute();
+            $needsRevision = $stmtNeedsRevision->fetchColumn();
+            ?>
+            <div class="card border-danger">
+                <div class="card-body text-center">
+                    <h6 class="card-title text-dark">Needs Revision</h6>
+                    <h2 class="text-dark"><?= $needsRevision ?></h2>
+                    <small class="text-muted">Require resubmission</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <?php
+            $stmtCompleted = $pdo->prepare("SELECT COUNT(*) FROM assignments WHERE status = 'completed'");
+            $stmtCompleted->execute();
+            $completed = $stmtCompleted->fetchColumn();
+            ?>
+            <div class="card border-success">
+                <div class="card-body text-center">
+                    <h6 class="card-title text-dark">Completed</h6>
+                    <h2 class="text-dark"><?= $completed ?></h2>
+                    <small class="text-muted">Fully reviewed</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card-body col-md-12 col-12 d-flex justify-content-between">
+        <ul class="nav nav-tabs col-md-6 col-12" id="AccreditationFrameworkTab">
+            <li class="nav-item col-md-6">
+                <a class="nav-link active" data-bs-toggle="tab" data-bs-target="#assignments"> <i
+                        class="fa-solid fa-tasks me-2"></i> Assignments</a>
+            </li>
+        </ul>
+    </div>
+    <!-- Assign faculty -->
+    <div class="modal fade" id="createAccounts" tabindex="-1" aria-labelledby="createAccountsLabel" aria-hidden="true">
+        <div class="modal-dialog modal-md">
+            <div class="modal-content">
+                <div class="modal-header bg-gradient-primary text-white">
+                    <h5 class="modal-title text-white" id="createAccountsLabel">Create Assignment</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"
+                        onclick="location.reload()"></button>
+                </div>
+                <div class="modal-body">
+                    <form class="row g-1 align-items-start justify-content-start" id="assignment-form">
+                        <div class="mx-2">
+                            <?php
+                                $stmt = $pdo->prepare("SELECT * FROM accreditation_cycles WHERE status = 'active'");
+                                $stmt->execute();
+                                $cycles = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                                $stmt = $pdo->prepare("SELECT * FROM accreditation_indicators");
+                                $stmt->execute();
+                                $indicators = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                                $stmt = $pdo->prepare("SELECT * FROM programs");
+                                $stmt->execute();
+                                $programs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                            ?>
+                            <label class="form-label">Cycle</label>
+                            <input type="hidden" class="form-control" name="cycle_id"
+                                value="<?= htmlspecialchars($cycles["cycle_id"]) ?>">
+                            <p class="form-control text-dark border" readonly>
+                                <?= htmlspecialchars($cycles["cycle_name"] . '(' . $cycles["academic_year"] . ')') ?>
+                            </p>
+                        </div>
+                        <input type="hidden" name="user_id" value="<?= htmlspecialchars($admin_id) ?>">
+                        <div class="mx-2">
+                            <label class="form-label">Indicator</label>
+                            <select name="indicator_id" id="indicator_id" class="form-select">
+                                <option value="">Select Indicator</option>
+                                <?php foreach($indicators as $indi) : ?>
+                                <option value="<?= htmlspecialchars($indi["indicator_id"]) ?>">
+                                    <?= htmlspecialchars($indi["indicator_code"] . ' - ' . $indi["indicator_description"]) ?>
+                                </option>
+                                <?php endforeach ?>
+                            </select>
+                        </div>
+                        <div class="mx-2">
+                            <label class="form-label">Program</label>
+                            <select name="program_id" id="program_id" class="form-select">
+                                <option value="">Select Program</option>
+                                <?php foreach($programs as $prog) : ?>
+                                <option value="<?= htmlspecialchars($prog["program_id"]) ?>">
+                                    <?= htmlspecialchars($prog["program_name"] . ' (' . $prog["program_code"] . ')') ?>
+                                </option>
+                                <?php endforeach ?>
+                            </select>
+                        </div>
+                        <div class="mx-2">
+                            <label class="form-label">Faculty</label>
+                            <select name="faculty_id" id="user_id" class="form-select" disabled>
+                                <option value="">Select Faculty</option>
+                                <!-- Faculty options will be loaded dynamically via AJAX -->
+                            </select>
+                        </div>
+                        <div class="mx-2">
+                            <label class="form-label">Status</label>
+                            <select name="status" id="status" class="form-select">
+                                <option value="">Select status</option>
+                                <option value="not_started">Not Started</option>
+                                <option value="in_progress">In Progress</option>
+                                <option value="submitted">Submitted</option>
+                                <option value="completed">Completed</option>
+                            </select>
+                        </div>
+                        <div class="col-12 text-center mt-3">
+                            <button type="submit" class="btn btn-primary px-5" id="submit-btn">
+                                <i class="bi bi-person-plus-fill me-1"></i> Create Assignment
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Assignment Modal -->
+    <div class="modal fade" id="editAssignmentModal" tabindex="-1" aria-labelledby="editAssignmentModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editAssignmentModalLabel">view Assignment</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="edit-assignment-form">
+                        <!-- Hidden assignment ID -->
+                        <input type="hidden" id="editAssignmentId" name="assignment_id">
+
+                        <div class="row g-3">
+                            <!-- Cycle (Read-only) -->
+                            <div class="col-md-6">
+                                <label class="form-label">Cycle</label>
+                                <?php
+                                $stmt = $pdo->prepare("SELECT * FROM accreditation_cycles WHERE status = 'active'");
+                                $stmt->execute();
+                                $activeCycle = $stmt->fetch(PDO::FETCH_ASSOC);
+                            ?>
+                                <input type="hidden" name="cycle_id"
+                                    value="<?= htmlspecialchars($activeCycle['cycle_id']) ?>">
+                                <input type="text" class="form-control"
+                                    value="<?= htmlspecialchars($activeCycle['cycle_name'] . ' (' . $activeCycle['academic_year'] . ')') ?>"
+                                    readonly>
+                            </div>
+
+                            <!-- Indicator -->
+                            <div class="col-md-6">
+                                <label class="form-label">Indicator *</label>
+                                <select name="indicator_id" disabled id="editIndicatorId" class="form-select" required>
+                                    <option value="">Select Indicator</option>
+                                    <?php
+                                    $stmt = $pdo->prepare("SELECT * FROM accreditation_indicators");
+                                    $stmt->execute();
+                                    $indicators = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                                    foreach($indicators as $indi) : 
+                                ?>
+                                    <option value="<?= htmlspecialchars($indi["indicator_id"]) ?>">
+                                        <?= htmlspecialchars($indi["indicator_code"] . ' - ' . $indi["indicator_description"]) ?>
+                                    </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+
+                            <!-- Program -->
+                            <div class="col-md-6">
+                                <label class="form-label">Program *</label>
+                                <select name="program_id" disabled id="editProgramId" class="form-select" required
+                                    onchange="loadFacultyForProgram(this.value)">
+                                    <option value="">Select Program</option>
+                                    <?php
+                                    $stmt = $pdo->prepare("SELECT * FROM programs");
+                                    $stmt->execute();
+                                    $programs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                                    foreach($programs as $prog) : 
+                                ?>
+                                    <option value="<?= htmlspecialchars($prog["program_id"]) ?>">
+                                        <?= htmlspecialchars($prog["program_name"] . ' (' . $prog["program_code"] . ')') ?>
+                                    </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+
+                            <!-- Faculty -->
+                            <div class="col-md-6">
+                                <label class="form-label">Faculty *</label>
+                                <select name="faculty_id" id="editFacultyId" class="form-select" disabled required>
+                                    <option value="">Select Faculty</option>
+                                    <!-- Will be populated dynamically -->
+                                </select>
+                            </div>
+
+                            <!-- Status -->
+                            <div class="col-md-6">
+                                <label class="form-label">Status *</label>
+                                <select name="status" id="editStatus" disabled class="form-select" required>
+                                    <option value="not_started">Not Started</option>
+                                    <option value="in_progress">In Progress</option>
+                                    <option value="submitted">Submitted</option>
+                                    <option value="completed">Completed</option>
+                                </select>
+                            </div>
+
+                            <!-- Assigned By (Read-only) -->
+                            <div class="col-md-6">
+                                <label class="form-label">Assigned By</label>
+                                <input type="text" class="form-control"
+                                    value="<?= htmlspecialchars($_SESSION['adminData']['first_name'] ?? $_SESSION['QAData']['first_name'] ?? 'System') ?>"
+                                    readonly>
+                                <input type="hidden" name="assigned_by"
+                                    value="<?= htmlspecialchars($_SESSION['adminData']['user_id'] ?? $_SESSION['QAData']['user_id'] ?? 0) ?>">
+                            </div>
+                        </div>
+
+                        <div class="modal-footer mt-3">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Back</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- TAB CONTENT -->
+    <div class="tab-content" id="reviewTabContent">
+
+        <!-- TAB 1: ASSIGNMENTS TAB -->
+        <div class="tab-pane fade show active" id="assignments" role="tabpanel">
+            <!-- Search and Filters -->
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <input type="text" placeholder="Search assignments..." id="searchAssignments" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <select id="filterStatus" class="form-select">
+                        <option value="">All Status</option>
+                        <option value="not_started">Not Started</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="submitted">Submitted</option>
+                        <option value="completed">Completed</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- ASSIGNMENTS TABLE -->
+            <div class="table-responsive">
+                <table class="table table-sm table-hover" style="font-size: 0.875rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>Faculty</th>
+                            <th>Program</th>
+                            <th>Indicator</th>
+                            <th>Deadline</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="assignmentsTable">
+                        <?php foreach($assignments as $assignment) : 
+                            $statusBadge = '';
+                            switch($assignment['assignment_status']) {
+                                case 'submitted': $statusBadge = 'badge bg-success'; break;
+                                case 'in_progress': $statusBadge = 'badge bg-primary'; break;
+                                case 'not_started': $statusBadge = 'badge bg-secondary'; break;
+                                default: $statusBadge = 'badge bg-warning';
+                            }
+                            
+                            // Check if overdue
+                            $isOverdue = $assignment['deadline'] && strtotime($assignment['deadline']) < time() && $assignment['assignment_status'] != 'completed';
+                        ?>
+                        <tr <?= $isOverdue ? 'class="table-warning"' : '' ?>>
+                            <td><?= $assignmentCount++ ?></td>
+                            <td>
+                                <strong><?= htmlspecialchars($assignment['faculty_name']) ?></strong><br>
+                                <small
+                                    class="text-muted"><?= htmlspecialchars($assignment['department_name']) ?></small>
+                            </td>
+                            <td>
+                                <strong><?= htmlspecialchars($assignment['program_code']) ?></strong><br>
+                                <small><?= htmlspecialchars($assignment['program_name']) ?></small>
+                            </td>
+                            <td>
+                                <span
+                                    class="badge bg-info"><?= htmlspecialchars($assignment['indicator_code']) ?></span><br>
+                                <small><?= htmlspecialchars(substr($assignment['indicator_description'], 0, 50)) ?>...</small>
+                            </td>
+                            <td>
+                                <?= htmlspecialchars($assignment['deadline'] ?? 'No deadline') ?>
+                                <?php if($isOverdue): ?>
+                                <br><span class="badge bg-danger">Overdue</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <span class="<?= $statusBadge ?>">
+                                    <?= ucfirst(str_replace('_', ' ', $assignment['assignment_status'])) ?>
+                                </span>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" class="btn btn-sm btn-primary" onclick="editAssignment('<?= $assignment['assignment_id'] ?>',
+                                        '<?= $assignment['indicator_id'] ?>',
+                                        '<?= $assignment['program_id'] ?>',
+                                        '<?= $assignment['user_id'] ?>',
+                                        '<?= htmlspecialchars($assignment['status']) ?>')">
+                                        <i class="fas fa-eye"></i> view
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- MODALS -->
+    <!-- Assign Reviewer Modal -->
+    <div class="modal fade" id="assignReviewerModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">Assign Reviewer</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="quick-assign-reviewer-form">
+                        <input type="hidden" id="assignItemId" name="item_id">
+                        <input type="hidden" id="assignItemType" name="item_type">
+
+                        <div class="mb-3">
+                            <label class="form-label">Reviewer</label>
+                            <select id="modalReviewerSelect" name="reviewer_id" class="form-select" required>
+                                <option value="">Select Reviewer</option>
+                                <?php foreach($reviewers as $reviewer): ?>
+                                <option value="<?= $reviewer['user_id'] ?>">
+                                    <?= htmlspecialchars($reviewer['name']) ?>
+                                </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Deadline</label>
+                            <input type="date" id="modalReviewDeadline" name="deadline" class="form-control">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Priority</label>
+                            <select name="priority" class="form-select">
+                                <option value="normal">Normal</option>
+                                <option value="high">High</option>
+                                <option value="urgent">Urgent</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="submitReviewerAssignment()">Assign</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Reviews Modal -->
+    <div class="modal fade" id="viewReviewsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title">Document Reviews</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="reviewsList">
+                    <!-- Reviews will be loaded here via AJAX -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+</section>
+
+<script>
+// Global variables
+let selectedAssignmentId = null;
+let selectedDocumentId = null;
+
+function editAssignment(assignmentId, indicatorId, programId, facultyId, status) {
+    // Set hidden assignment ID
+    document.getElementById('editAssignmentId').value = assignmentId;
+
+    // Set form values
+    document.getElementById('editIndicatorId').value = indicatorId;
+    document.getElementById('editProgramId').value = programId;
+    document.getElementById('editFacultyId').value = facultyId;
+    document.getElementById('editStatus').value = status;
+
+    // Load faculty for the selected program (if needed)
+    if (programId) {
+        loadFacultyForProgram(programId, facultyId);
+    }
+
+    // Show modal
+    var editModal = new bootstrap.Modal(document.getElementById('editAssignmentModal'));
+    editModal.show();
+}
+
+function loadFacultyForProgram(programId, selectedFacultyId = null) {
+    var userSelect = $('#editFacultyId');
+
+    $.ajax({
+        url: base_url + "/authentication/action.php?action=get_faculty",
+        method: 'POST',
+        dataType: 'json',
+        data: {
+            program_id: programId
+        },
+        success: function(response) {
+            if (response.status == 1 && response.data.length > 0) {
+                userSelect.html('<option value="">Select Faculty</option>');
+                $.each(response.data, function(index, faculty) {
+                    var selected = (faculty.user_id == selectedFacultyId) ? 'selected' : '';
+                    userSelect.append(
+                        `<option value="${faculty.user_id}" ${selected}>
+                            ${faculty.first_name} ${faculty.last_name}
+                        </option>`
+                    );
+                });
+            } else {
+                userSelect.html('<option value="">No faculty found</option>');
+            }
+        }
+    });
+}
+
+function setDeleteAssignment_id(assignment_id) {
+    document.getElementById('deleteAssignment_id').value = assignment_id
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    initAccreditationFrameworkTabs();
+});
+
+function initAccreditationFrameworkTabs() {
+    const tabButtons = document.querySelectorAll('#AccreditationFrameworkTab .nav-link');
+    const tabContents = document.querySelectorAll('.tab-pane');
+
+    // Initialize tabs - hide all except active
+    tabContents.forEach(content => {
+        if (!content.classList.contains('active')) {
+            content.style.display = 'none';
+        }
+    });
+
+    tabButtons.forEach((button) => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+
+            // Update active button
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
+
+            // Hide all tab contents
+            tabContents.forEach(content => {
+                content.style.display = 'none';
+                content.classList.remove('show', 'active');
+            });
+
+            // Show the selected tab
+            const targetId = this.getAttribute('data-bs-target');
+            const targetContent = document.querySelector(targetId);
+            if (targetContent) {
+                targetContent.style.display = 'block';
+                targetContent.classList.add('show', 'active');
+
+                if (targetId === '#assignments') {
+                    console.log("Assignments tab active");
+                } else if (targetId === '#documents') {
+                    console.log("Documents tab active");
+                } else if (targetId === '#assign-reviewer') {
+                    console.log("Assign Reviewer tab active");
+                }
+            }
+        });
+    });
+}
+
+// Submit reviewer assignment
+function submitReviewerAssignment() {
+    const form = document.getElementById('quick-assign-reviewer-form');
+    const formData = new FormData(form);
+
+    fetch('assign_reviewer.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 1) {
+                alert('Reviewer assigned successfully!');
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to assign reviewer');
+        });
+}
+
+// Load document reviews via AJAX
+function loadDocumentReviews(documentId) {
+    fetch('get_document_reviews.php?document_id=' + documentId)
+        .then(response => response.text())
+        .then(html => {
+            document.getElementById('reviewsList').innerHTML = html;
+            const modal = new bootstrap.Modal(document.getElementById('viewReviewsModal'));
+            modal.show();
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('reviewsList').innerHTML =
+                '<div class="alert alert-danger">Failed to load reviews</div>';
+        });
+}
+
+// View assignment details
+function viewAssignmentDetails(assignmentId) {
+    fetch('get_assignment_details.php?assignment_id=' + assignmentId)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 1) {
+                // Create modal content
+                const content = `
+                <div class="card">
+                    <div class="card-header">
+                        <h6>Assignment Details</h6>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Faculty:</strong> ${data.data.faculty_name}</p>
+                        <p><strong>Program:</strong> ${data.data.program_name}</p>
+                        <p><strong>Indicator:</strong> ${data.data.indicator_code}</p>
+                        <p><strong>Status:</strong> <span class="badge bg-${data.data.status_color}">${data.data.status}</span></p>
+                        <p><strong>Deadline:</strong> ${data.data.deadline}</p>
+                        <p><strong>Description:</strong> ${data.data.indicator_description}</p>
+                    </div>
+                </div>
+            `;
+
+                Swal.fire({
+                    title: 'Assignment Details',
+                    html: content,
+                    width: '600px',
+                    showCloseButton: true
+                });
+            }
+        });
+}
+
+// Send reminder to faculty
+function sendReminder(assignmentId, facultyName) {
+    if (confirm(`Send reminder to ${facultyName} about this assignment?`)) {
+        fetch('send_reminder.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    assignment_id: assignmentId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 1) {
+                    alert('Reminder sent successfully!');
+                } else {
+                    alert('Failed to send reminder');
+                }
+            });
+    }
+}
+
+// Refresh documents list
+function refreshDocuments() {
+    location.reload();
+}
+
+// Initialize search filters
+function initializeSearchFilters() {
+    // Assignments search
+    const searchAssignments = document.getElementById('searchAssignments');
+    if (searchAssignments) {
+        searchAssignments.addEventListener('input', function(e) {
+            filterTable('assignmentsTable', e.target.value.toLowerCase());
+        });
+    }
+
+    // Documents search
+    const searchDocuments = document.getElementById('searchDocuments');
+    if (searchDocuments) {
+        searchDocuments.addEventListener('input', function(e) {
+            filterTable('documentsTable', e.target.value.toLowerCase());
+        });
+    }
+
+    // Status filter
+    const filterStatus = document.getElementById('filterStatus');
+    if (filterStatus) {
+        filterStatus.addEventListener('change', function() {
+            filterTableByStatus('assignmentsTable', this.value);
+        });
+    }
+
+    // Program filter
+    const filterProgram = document.getElementById('filterProgram');
+    if (filterProgram) {
+        filterProgram.addEventListener('change', function() {
+            filterTableByProgram('assignmentsTable', this.value);
+        });
+    }
+
+    // Document status filter
+    const filterDocStatus = document.getElementById('filterDocStatus');
+    if (filterDocStatus) {
+        filterDocStatus.addEventListener('change', function() {
+            filterTableByDocStatus('documentsTable', this.value);
+        });
+    }
+}
+
+// Table filtering functions
+function filterTable(tableId, searchTerm) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+
+    const rows = table.getElementsByTagName('tr');
+
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const text = row.textContent.toLowerCase();
+
+        if (text.includes(searchTerm)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    }
+}
+
+function filterTableByStatus(tableId, status) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+
+    const rows = table.getElementsByTagName('tr');
+
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const statusCell = row.querySelector('.badge');
+
+        if (!status || !statusCell) {
+            row.style.display = '';
+            continue;
+        }
+
+        const rowStatus = statusCell.textContent.toLowerCase().replace(' ', '_');
+
+        if (rowStatus === status) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    }
+}
+
+function filterTableByProgram(tableId, programCode) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+
+    const rows = table.getElementsByTagName('tr');
+
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const programCell = row.cells[2]; // Assuming program is in 3rd column
+
+        if (!programCode || !programCell) {
+            row.style.display = '';
+            continue;
+        }
+
+        const rowProgram = programCell.textContent.toLowerCase();
+
+        if (rowProgram.includes(programCode.toLowerCase())) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    }
+}
+
+function filterTableByDocStatus(tableId, status) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+
+    const rows = table.getElementsByTagName('tr');
+
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const statusCell = row.querySelector('.badge');
+
+        if (!status || !statusCell) {
+            row.style.display = '';
+            continue;
+        }
+
+        const rowStatus = statusCell.textContent.toLowerCase().replace(' ', '_');
+
+        if (rowStatus === status) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    }
+}
+
+// Assign reviewer from main form
+function assignReviewer() {
+    const form = document.getElementById('assign-reviewer-form');
+    const formData = new FormData(form);
+    const selectedItem = document.getElementById('reviewItemSelect').value;
+
+    if (!selectedItem) {
+        alert('Please select an item to review');
+        return;
+    }
+
+    const [type, id] = selectedItem.split('_');
+    formData.append('item_type', type);
+    formData.append('item_id', id);
+
+    fetch('assign_reviewer.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 1) {
+                alert('Reviewer assigned successfully!');
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to assign reviewer');
+        });
+}
+</script>
+<script>
+$(document).ready(function() {
+    // When program selection changes
+    $('#program_id').on('change', function() {
+        var programId = $(this).val();
+        var userSelect = $('#user_id');
+
+        if (programId) {
+            // Enable faculty dropdown
+            userSelect.prop('disabled', false);
+
+            // Clear existing options except the first one
+            userSelect.find('option:not(:first)').remove();
+
+            // Show loading
+            userSelect.html('<option value="">Loading faculty...</option>');
+
+            // Fetch faculty for selected program via AJAX
+            $.ajax({
+                url: base_url + "/authentication/action.php?action=get_faculty",
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    program_id: programId
+                },
+                success: function(response) {
+                    if (response.status == 1 && response.data.length > 0) {
+                        // Clear loading message
+                        userSelect.html('<option value="">Select Faculty</option>');
+
+                        // Add faculty options
+                        $.each(response.data, function(index, faculty) {
+                            userSelect.append(
+                                $('<option>', {
+                                    value: faculty.user_id,
+                                    text: faculty.first_name + ' ' + faculty
+                                        .last_name +
+                                        (faculty.email ? ' (' + faculty
+                                            .email + ')' : '')
+                                })
+                            );
+                        });
+                    } else {
+                        userSelect.html(
+                            '<option value="">No faculty found for this program</option>'
+                        );
+                    }
+                },
+                error: function() {
+                    userSelect.html('<option value="">Error loading faculty</option>');
+                }
+            });
+        } else {
+            // Disable and reset faculty dropdown if no program selected
+            userSelect.prop('disabled', true);
+            userSelect.html('<option value="">Select Faculty</option>');
+        }
+    });
+
+});
+</script>
+<style>
+/* Custom styles for Review Management */
+.card {
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.nav-tabs .nav-link {
+    border-radius: 8px 8px 0 0;
+    font-weight: 500;
+}
+
+.nav-tabs .nav-link.active {
+    background-color: #f8f9fa;
+    border-bottom-color: #f8f9fa;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+.badge {
+    font-size: 0.75em;
+    padding: 4px 8px;
+}
+
+.btn-group-sm .btn {
+    padding: 0.25rem 0.5rem;
+}
+
+.table th {
+    font-weight: 600;
+    color: #495057;
+}
+
+/* Status colors */
+.badge.bg-success {
+    background-color: #28a745 !important;
+}
+
+.badge.bg-primary {
+    background-color: #007bff !important;
+}
+
+.badge.bg-warning {
+    background-color: #ffc107 !important;
+    color: #212529;
+}
+
+.badge.bg-danger {
+    background-color: #dc3545 !important;
+}
+
+.badge.bg-info {
+    background-color: #17a2b8 !important;
+}
+
+.badge.bg-secondary {
+    background-color: #6c757d !important;
+}
+</style>

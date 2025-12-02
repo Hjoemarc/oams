@@ -260,6 +260,10 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
                                     <th>Filename:</th>
                                     <td id="viewFilename"></td>
                                 </tr>
+                                 <tr>
+                                    <th>File Type:</th>
+                                    <td id="fileType"></td>
+                                </tr>
                                 <tr>
                                     <th>File Size:</th>
                                     <td id="viewFileSize"></td>
@@ -386,7 +390,7 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
                                 title="<?= htmlspecialchars($document['filename']) ?>">
                                 <div class="fw-bold"><?= htmlspecialchars($document['filename']) ?></div>
                                 <small class="text-muted">
-                                    <?= $document['version'] ?> • <?= formatFileSize($document['file_size']) ?>
+                                     • <?= formatFileSize($document['file_size']) ?>
                                 </small>
                             </div>
                         </div>
@@ -435,12 +439,12 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
                                 data-program="<?= htmlspecialchars($document['program_code'] . ' - ' . $document['program_name']) ?>"
                                 data-department="<?= htmlspecialchars($document['department_name']) ?>"
                                 data-cycle="<?= htmlspecialchars($document['cycle_name'] . ' (' . $document['academic_year'] . ')') ?>"
-                                data-version="<?= htmlspecialchars($document['version']) ?>"
+
                                 data-status="<?= htmlspecialchars($document['status']) ?>">
                                 <i class="fas fa-eye"></i>
                             </button>
 
-                            <a href="<?= htmlspecialchars('../../authentication/uploads/documents/' . basename($document['file_path'])) ?>"
+                            <a href="<?= htmlspecialchars('../../authentication/uploads/' . basename($document['file_path'])) ?>"
                                 class="btn btn-sm btn-light" data-bs-toggle="tooltip" data-bs-title="Download"
                                 download="<?= htmlspecialchars($document['filename']) ?>">
                                 <i class="fas fa-download"></i>
@@ -453,7 +457,6 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
                                 data-indicator-id="<?= $document['indicator_id'] ?>"
                                 data-program-id="<?= $document['program_id'] ?>"
                                 data-cycle-id="<?= $document['cycle_id'] ?>"
-                                data-version="<?= htmlspecialchars($document['version']) ?>"
                                 data-status="<?= htmlspecialchars($document['status']) ?>">
                                 <i class="fas fa-edit"></i>
                             </button>
@@ -478,10 +481,35 @@ function viewDocument(documentId, filename, filePath, fileSize, uploadedBy, crea
 
     // Helper function to get correct path
     function getCorrectFilePath(path) {
-        // Extract filename
+        // Remove any date-based folders from the path and just get the filename
         const filename = path.split('/').pop();
-        // Return correct path
-        return '../../authentication/uploads/documents/' + filename;
+        // Return correct path - always in uploads/documents/
+        return '../../authentication/uploads/' + filename;
+    }
+
+    // Get file extension
+    function getFileExtension(filename) {
+        return filename.split('.').pop().toLowerCase();
+    }
+
+    // Get file type name
+    function getFileTypeName(extension) {
+        const fileTypes = {
+            'pdf': 'PDF Document',
+            'doc': 'Microsoft Word Document',
+            'docx': 'Microsoft Word Document',
+            'xls': 'Microsoft Excel Spreadsheet',
+            'xlsx': 'Microsoft Excel Spreadsheet',
+            'ppt': 'Microsoft PowerPoint Presentation',
+            'pptx': 'Microsoft PowerPoint Presentation',
+            'zip': 'ZIP Archive',
+            'jpg': 'JPEG Image',
+            'jpeg': 'JPEG Image',
+            'png': 'PNG Image',
+            'gif': 'GIF Image',
+            'txt': 'Text File'
+        };
+        return fileTypes[extension] || 'File';
     }
 
     // Set document information
@@ -495,6 +523,11 @@ function viewDocument(documentId, filename, filePath, fileSize, uploadedBy, crea
     document.getElementById('viewDepartment').textContent = department;
     document.getElementById('viewCycle').textContent = cycle;
     document.getElementById('viewVersion').textContent = version;
+
+    // Get file extension and set file type
+    const fileExtension = getFileExtension(filename);
+    const fileTypeName = getFileTypeName(fileExtension);
+    document.getElementById('fileType').textContent = fileTypeName + ' (.' + fileExtension + ')';
 
     // Set status with appropriate badge
     const statusText = status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ');
@@ -524,6 +557,7 @@ function viewDocument(documentId, filename, filePath, fileSize, uploadedBy, crea
     // Debug log
     console.log('Original path:', filePath);
     console.log('Corrected path:', webFilePath);
+    console.log('File extension:', fileExtension);
 
     // Now set the download link
     const downloadLink = document.getElementById('downloadDocumentLink');
@@ -532,7 +566,8 @@ function viewDocument(documentId, filename, filePath, fileSize, uploadedBy, crea
 
     // Set the preview link based on file type
     const previewLink = document.getElementById('previewDocumentLink');
-    const fileExtension = filename.split('.').pop().toLowerCase();
+    const basePath = '../../authentication/uploads/';
+    const actualFilename = filename.split('/').pop(); // In case filename has path
 
     // Always show the button
     previewLink.style.display = 'inline-block';
@@ -560,10 +595,10 @@ function viewDocument(documentId, filename, filePath, fileSize, uploadedBy, crea
             color: 'btn-primary',
             action: function() {
                 // Get absolute URL for Office Online Viewer
-                const absoluteUrl = window.location.origin + '/OAMS-ZPPSU/' + webFilePath.replace(/^\.\.\//g,
-                    '');
-                previewLink.href =
-                    `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absoluteUrl)}`;
+                const baseUrl = window.location.origin;
+                const projectPath = window.location.pathname.split('/').slice(0, -2).join('/') + '/';
+                const absolutePath = baseUrl + projectPath + webFilePath.replace('../../', '');
+                previewLink.href = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absolutePath)}`;
                 previewLink.setAttribute('target', '_blank');
                 previewLink.innerHTML = '<i class="fas fa-external-link-alt"></i> Open in Office Online';
             }
@@ -573,10 +608,10 @@ function viewDocument(documentId, filename, filePath, fileSize, uploadedBy, crea
             icon: 'fa-file-word',
             color: 'btn-primary',
             action: function() {
-                const absoluteUrl = window.location.origin + '/OAMS-ZPPSU/' + webFilePath.replace(/^\.\.\//g,
-                    '');
-                previewLink.href =
-                    `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absoluteUrl)}`;
+                const baseUrl = window.location.origin;
+                const projectPath = window.location.pathname.split('/').slice(0, -2).join('/') + '/';
+                const absolutePath = baseUrl + projectPath + webFilePath.replace('../../', '');
+                previewLink.href = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absolutePath)}`;
                 previewLink.setAttribute('target', '_blank');
                 previewLink.innerHTML = '<i class="fas fa-external-link-alt"></i> Open in Office Online';
             }
@@ -586,10 +621,10 @@ function viewDocument(documentId, filename, filePath, fileSize, uploadedBy, crea
             icon: 'fa-file-excel',
             color: 'btn-success',
             action: function() {
-                const absoluteUrl = window.location.origin + '/OAMS-ZPPSU/' + webFilePath.replace(/^\.\.\//g,
-                    '');
-                previewLink.href =
-                    `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absoluteUrl)}`;
+                const baseUrl = window.location.origin;
+                const projectPath = window.location.pathname.split('/').slice(0, -2).join('/') + '/';
+                const absolutePath = baseUrl + projectPath + webFilePath.replace('../../', '');
+                previewLink.href = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absolutePath)}`;
                 previewLink.setAttribute('target', '_blank');
                 previewLink.innerHTML = '<i class="fas fa-external-link-alt"></i> Open in Office Online';
             }
@@ -599,10 +634,10 @@ function viewDocument(documentId, filename, filePath, fileSize, uploadedBy, crea
             icon: 'fa-file-excel',
             color: 'btn-success',
             action: function() {
-                const absoluteUrl = window.location.origin + '/OAMS-ZPPSU/' + webFilePath.replace(/^\.\.\//g,
-                    '');
-                previewLink.href =
-                    `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absoluteUrl)}`;
+                const baseUrl = window.location.origin;
+                const projectPath = window.location.pathname.split('/').slice(0, -2).join('/') + '/';
+                const absolutePath = baseUrl + projectPath + webFilePath.replace('../../', '');
+                previewLink.href = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absolutePath)}`;
                 previewLink.setAttribute('target', '_blank');
                 previewLink.innerHTML = '<i class="fas fa-external-link-alt"></i> Open in Office Online';
             }
@@ -612,10 +647,10 @@ function viewDocument(documentId, filename, filePath, fileSize, uploadedBy, crea
             icon: 'fa-file-powerpoint',
             color: 'btn-warning',
             action: function() {
-                const absoluteUrl = window.location.origin + '/OAMS-ZPPSU/' + webFilePath.replace(/^\.\.\//g,
-                    '');
-                previewLink.href =
-                    `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absoluteUrl)}`;
+                const baseUrl = window.location.origin;
+                const projectPath = window.location.pathname.split('/').slice(0, -2).join('/') + '/';
+                const absolutePath = baseUrl + projectPath + webFilePath.replace('../../', '');
+                previewLink.href = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absolutePath)}`;
                 previewLink.setAttribute('target', '_blank');
                 previewLink.innerHTML = '<i class="fas fa-external-link-alt"></i> Open in Office Online';
             }
@@ -625,12 +660,24 @@ function viewDocument(documentId, filename, filePath, fileSize, uploadedBy, crea
             icon: 'fa-file-powerpoint',
             color: 'btn-warning',
             action: function() {
-                const absoluteUrl = window.location.origin + '/OAMS-ZPPSU/' + webFilePath.replace(/^\.\.\//g,
-                    '');
-                previewLink.href =
-                    `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absoluteUrl)}`;
+                const baseUrl = window.location.origin;
+                const projectPath = window.location.pathname.split('/').slice(0, -2).join('/') + '/';
+                const absolutePath = baseUrl + projectPath + webFilePath.replace('../../', '');
+                previewLink.href = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absolutePath)}`;
                 previewLink.setAttribute('target', '_blank');
                 previewLink.innerHTML = '<i class="fas fa-external-link-alt"></i> Open in Office Online';
+            }
+        },
+        'zip': {
+            type: 'archive',
+            icon: 'fa-file-archive',
+            color: 'btn-secondary',
+            action: function() {
+                // ZIP files can't be previewed, make it a download button
+                previewLink.className = 'btn btn-secondary';
+                previewLink.innerHTML = '<i class="fas fa-download"></i> Download ZIP';
+                previewLink.href = webFilePath;
+                previewLink.setAttribute('download', filename);
             }
         },
         'jpg': {
@@ -684,7 +731,7 @@ function viewDocument(documentId, filename, filePath, fileSize, uploadedBy, crea
         'txt': {
             type: 'text',
             icon: 'fa-file-alt',
-            color: 'btn-secondary',
+            color: 'btn-light',
             action: function() {
                 previewLink.href = webFilePath;
                 previewLink.setAttribute('target', '_blank');
@@ -696,8 +743,7 @@ function viewDocument(documentId, filename, filePath, fileSize, uploadedBy, crea
     if (fileTypeConfig[fileExtension]) {
         const config = fileTypeConfig[fileExtension];
         previewLink.className = 'btn ' + config.color;
-        previewLink.innerHTML =
-            `<i class="fas ${config.icon}"></i> ${config.type === 'office' ? 'Open Online' : 'Preview'}`;
+        previewLink.innerHTML = `<i class="fas ${config.icon}"></i> ${config.type === 'office' ? 'Open Online' : 'Preview'}`;
         config.action();
     } else {
         // For unknown file types, make it a download button

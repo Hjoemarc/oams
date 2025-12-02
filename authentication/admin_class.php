@@ -1103,697 +1103,131 @@ class Action
 // Document Management ==================================================
     function document_form() {
         try {
-            // Get form data
+            // Simple validation
             $indicator_id = $_POST["indicator_id"] ?? '';
             $program_id = $_POST["program_id"] ?? '';
             $cycle_id = $_POST["cycle_id"] ?? '';
-            $assignment_id = $_POST["assignment_id"] ?? ''; 
-            $document_type = $_POST["document_type"] ?? 'other'; 
-            $description = $_POST["description"] ?? ''; 
-            $version = $_POST["version"] ?? 1;
-            $status = $_POST["status"] ?? 'draft';
-            $uploaded_by = $_POST["user_id"] ?? $_SESSION['user_id'] ?? '';
+            $uploaded_by = $_POST['user_id'] ?? 0;
+            $description = $_POST["description"] ?? '';
 
-            // Validate required fields
-            $required_fields = ['indicator_id', 'program_id', 'cycle_id', 'uploaded_by'];
-            foreach ($required_fields as $field) {
-                if (empty($$field)) {
-                    return json_encode([
-                        'status' => 0,
-                        'message' => ucfirst(str_replace('_', ' ', $field)) . ' is required.'
-                    ]);
-                }
+            if (empty($indicator_id) || empty($program_id) || empty($cycle_id) || empty($uploaded_by)) {
+                return json_encode(['status' => 0, 'message' => 'Missing required fields']);
             }
 
-            // Validate file upload
             if (!isset($_FILES['document_file']) || $_FILES['document_file']['error'] !== UPLOAD_ERR_OK) {
-                $error_message = "Please select a valid file to upload.";
-                
-                // Check for specific upload errors
-                $upload_error = $_FILES['document_file']['error'] ?? null;
-                if ($upload_error) {
-                    switch ($upload_error) {
-                        case UPLOAD_ERR_INI_SIZE:
-                        case UPLOAD_ERR_FORM_SIZE:
-                            $error_message = "File is too large. Maximum size is 50MB.";
-                            break;
-                        case UPLOAD_ERR_PARTIAL:
-                            $error_message = "File was only partially uploaded.";
-                            break;
-                        case UPLOAD_ERR_NO_FILE:
-                            $error_message = "No file was selected.";
-                            break;
-                        case UPLOAD_ERR_NO_TMP_DIR:
-                            $error_message = "Missing temporary folder.";
-                            break;
-                        case UPLOAD_ERR_CANT_WRITE:
-                            $error_message = "Failed to write file to disk.";
-                            break;
-                        case UPLOAD_ERR_EXTENSION:
-                            $error_message = "File upload stopped by extension.";
-                            break;
-                    }
-                }
-                
-                return json_encode([
-                    'status' => 0,
-                    'message' => $error_message
-                ]);
+                return json_encode(['status' => 0, 'message' => 'Please select a file']);
             }
 
             $file = $_FILES['document_file'];
             
-            // Validate file type with ZIP support
-            $allowed_extensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'zip', 'rar', '7z'];
-            $file_extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            // Extended file validation
+            $allowed = ['pdf', 'doc', 'docx', 'zip'];
+            $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
             
-            if (!in_array($file_extension, $allowed_extensions)) {
-                return json_encode([
-                    'status' => 0,
-                    'message' => 'Invalid file type. Allowed types: ' . implode(', ', $allowed_extensions)
-                ]);
+            if (!in_array($ext, $allowed)) {
+                return json_encode(['status' => 0, 'message' => 'Only PDF, DOC, DOCX, and ZIP files allowed']);
             }
 
-            // Validate file size (larger for ZIP files)
-            $max_file_size = ($file_extension === 'zip' || $file_extension === 'rar' || $file_extension === '7z') 
-                ? 50 * 1024 * 1024  // 50MB for archives
-                : 10 * 1024 * 1024; // 10MB for single files
-                
-            if ($file['size'] > $max_file_size) {
-                $file_size_mb = round($file['size'] / (1024 * 1024), 2);
-                $max_size_mb = round($max_file_size / (1024 * 1024), 2);
-                return json_encode([
-                    'status' => 0,
-                    'message' => "File size ($file_size_mb MB) exceeds the $max_size_mb MB limit."
-                ]);
+            // Adjust file size limit
+            $max_size = ($ext === 'zip') ? 50 * 1024 * 1024 : 5 * 1024 * 1024;
+            if ($file['size'] > $max_size) {
+                $max_mb = ($ext === 'zip') ? 50 : 5;
+                return json_encode(['status' => 0, 'message' => "File too large (max {$max_mb}MB)"]);
             }
 
-            // Create upload directory if it doesn't exist
-            $upload_dir = 'uploads/documents/' . date('Y/m/');
+            // Create directory
+            $upload_dir = 'uploads/';
             if (!file_exists($upload_dir)) {
-                if (!mkdir($upload_dir, 0777, true)) {
-                    return json_encode([
-                        'status' => 0,
-                        'message' => 'Failed to create upload directory.'
-                    ]);
-                }
+                mkdir($upload_dir, 0777, true);
             }
 
-            // Generate safe filename
+            // Generate unique filename
             $original_filename = $file['name'];
-            $safe_filename = preg_replace('/[^A-Za-z0-9\._-]/', '_', $original_filename);
-            $unique_filename = uniqid() . '_' . $safe_filename;
-            $file_path = $upload_dir . $unique_filename;
-
+            $safe_filename = uniqid() . '_' . preg_replace('/[^A-Za-z0-9\._-]/', '_', $original_filename);
+            $filepath = $upload_dir . $safe_filename;
+            
             // Move uploaded file
-            if (!move_uploaded_file($file['tmp_name'], $file_path)) {
-                return json_encode([
-                    'status' => 0,
-                    'message' => 'Failed to save the uploaded file. Please try again.'
-                ]);
+            if (!move_uploaded_file($file['tmp_name'], $filepath)) {
+                return json_encode(['status' => 0, 'message' => 'Failed to upload file']);
             }
 
-            // If ZIP file, extract and create additional records
-            $extracted_files = [];
-            if (in_array($file_extension, ['zip', 'rar', '7z'])) {
-                $extracted_files = $this->handleArchiveUpload($file_path, $original_filename, $uploaded_by);
-                
-                if (empty($extracted_files)) {
-                    unlink($file_path);
-                    return json_encode([
-                        'status' => 0,
-                        'message' => 'Failed to extract archive or no valid files found.'
-                    ]);
-                }
-            }
-
-            // Validate status
-            $allowed_statuses = ['draft', 'submitted', 'under_review', 'needs_revision', 'approved'];
-            if (!in_array($status, $allowed_statuses)) {
-                $status = 'draft';
-            }
-
-            // Validate version
-            if (!is_numeric($version) || $version < 1) {
-                $version = 1;
-            }
-
-            // Check if referenced IDs exist in database
-            $check_stmt = $this->db->prepare("
-                SELECT 
-                    (SELECT COUNT(*) FROM accreditation_indicators WHERE indicator_id = ?) as indicator_exists,
-                    (SELECT COUNT(*) FROM programs WHERE program_id = ?) as program_exists,
-                    (SELECT COUNT(*) FROM accreditation_cycles WHERE cycle_id = ?) as cycle_exists
+            // Get or create assignment
+            $assignmentStmt = $this->db->prepare("
+                SELECT assignment_id FROM assignments 
+                WHERE user_id = ? AND indicator_id = ? AND program_id = ? AND cycle_id = ?
             ");
-            $check_stmt->execute([$indicator_id, $program_id, $cycle_id]);
-            $exists = $check_stmt->fetch(PDO::FETCH_ASSOC);
+            $assignmentStmt->execute([$uploaded_by, $indicator_id, $program_id, $cycle_id]);
+            $assignment = $assignmentStmt->fetch(PDO::FETCH_ASSOC);
             
-            if ($exists['indicator_exists'] == 0) {
-                unlink($file_path);
-                return json_encode([
-                    'status' => 0,
-                    'message' => 'Selected indicator does not exist.'
-                ]);
-            }
-            
-            if ($exists['program_exists'] == 0) {
-                unlink($file_path);
-                return json_encode([
-                    'status' => 0,
-                    'message' => 'Selected program does not exist.'
-                ]);
-            }
-            
-            if ($exists['cycle_exists'] == 0) {
-                unlink($file_path);
-                return json_encode([
-                    'status' => 0,
-                    'message' => 'Selected accreditation cycle does not exist.'
-                ]);
-            }
-
-            // Insert into database
-            if (!empty($extracted_files)) {
-                // For ZIP files, insert multiple records
-                $document_ids = [];
-                foreach ($extracted_files as $extracted_file) {
-                    $stmt = $this->db->prepare("
-                        INSERT INTO documents 
-                            (filename, original_filename, file_path, file_size, uploaded_by, 
-                            indicator_id, program_id, cycle_id, assignment_id, 
-                            document_type, description, version, status)
-                        VALUES 
-                            (:filename, :original_filename, :file_path, :file_size, :uploaded_by,
-                            :indicator_id, :program_id, :cycle_id, :assignment_id,
-                            :document_type, :description, :version, :status)
-                    ");
-
-                    $stmt->execute([
-                        ':filename' => $extracted_file['filename'],
-                        ':original_filename' => $extracted_file['original_name'],
-                        ':file_path' => $extracted_file['path'],
-                        ':file_size' => $extracted_file['size'],
-                        ':uploaded_by' => $uploaded_by,
-                        ':indicator_id' => $indicator_id,
-                        ':program_id' => $program_id,
-                        ':cycle_id' => $cycle_id,
-                        ':assignment_id' => $assignment_id,
-                        ':document_type' => $document_type,
-                        ':description' => $description . ' - ' . $extracted_file['original_name'],
-                        ':version' => $version,
-                        ':status' => $status
-                    ]);
-                    
-                    $document_ids[] = $this->db->lastInsertId();
-                }
+            if (!$assignment) {
+                $assigned_by = $_SESSION['adminData']['user_id'] ?? 
+                            $_SESSION['QAData']['user_id'] ?? 
+                            $_SESSION['employeeData']['user_id'] ?? 
+                            $uploaded_by;
                 
-                // Also save the ZIP file itself as a reference
-                $stmt = $this->db->prepare("
-                    INSERT INTO documents 
-                        (filename, file_path, file_size, uploaded_by, 
-                        indicator_id, program_id, cycle_id, assignment_id,
-                        document_type, description, version, status, is_archive)
-                    VALUES 
-                        (:filename, :file_path, :file_size, :uploaded_by,
-                        :indicator_id, :program_id, :cycle_id, :assignment_id,
-                        :document_type, :description, :version, :status, 1)
+                $create = $this->db->prepare("
+                    INSERT INTO assignments (user_id, indicator_id, program_id, cycle_id, assigned_by, status)
+                    VALUES (?, ?, ?, ?, ?, 'in_progress')
                 ");
-
-                $stmt->execute([
-                    ':filename' => $original_filename,
-                    ':file_path' => $file_path,
-                    ':file_size' => $file['size'],
-                    ':uploaded_by' => $uploaded_by,
-                    ':indicator_id' => $indicator_id,
-                    ':program_id' => $program_id,
-                    ':cycle_id' => $cycle_id,
-                    ':assignment_id' => $assignment_id,
-                    ':document_type' => 'archive',
-                    ':description' => $description . ' (ZIP Archive containing ' . count($extracted_files) . ' files)',
-                    ':version' => $version,
-                    ':status' => $status
-                ]);
-                
-                $archive_document_id = $this->db->lastInsertId();
-                
-                return json_encode([
-                    'status' => 1,
-                    'message' => 'Archive uploaded successfully! Extracted ' . count($extracted_files) . ' files.',
-                    'document_id' => $archive_document_id,
-                    'extracted_count' => count($extracted_files),
-                    'extracted_ids' => $document_ids
-                ]);
-                
+                $create->execute([$uploaded_by, $indicator_id, $program_id, $cycle_id, $assigned_by]);
+                $assignment_id = $this->db->lastInsertId();
             } else {
-                // For single file upload
-                $stmt = $this->db->prepare("
-                    INSERT INTO documents 
-                        (filename, file_path, file_size, uploaded_by, 
-                        indicator_id, program_id, cycle_id, assignment_id,
-                        document_type, description, version, status)
-                    VALUES 
-                        (:filename, :file_path, :file_size, :uploaded_by,
-                        :indicator_id, :program_id, :cycle_id, :assignment_id,
-                        :document_type, :description, :version, :status)
-                ");
-
-                $stmt->execute([
-                    ':filename' => $original_filename,
-                    ':file_path' => $file_path,
-                    ':file_size' => $file['size'],
-                    ':uploaded_by' => $uploaded_by,
-                    ':indicator_id' => $indicator_id,
-                    ':program_id' => $program_id,
-                    ':cycle_id' => $cycle_id,
-                    ':assignment_id' => $assignment_id,
-                    ':document_type' => $document_type,
-                    ':description' => $description,
-                    ':version' => $version,
-                    ':status' => $status
-                ]);
-
-                $document_id = $this->db->lastInsertId();
-
-                // Update assignment status if this is the first document
-                if (!empty($assignment_id)) {
-                    $this->updateAssignmentStatus($assignment_id, $uploaded_by);
-                }
-
-                return json_encode([
-                    'status' => 1,
-                    'message' => 'Document uploaded successfully!',
-                    'document_id' => $document_id
-                ]);
+                $assignment_id = $assignment['assignment_id'];
             }
 
-        } catch (PDOException $e) {
-            error_log("Database error in document_form: " . $e->getMessage());
-            
-            // Clean up uploaded file if database insert failed
-            if (isset($file_path) && file_exists($file_path)) {
-                unlink($file_path);
-            }
-            
-            // Check for foreign key constraint violation
-            if (strpos($e->getMessage(), 'foreign key constraint') !== false) {
-                return json_encode([
-                    'status' => 0,
-                    'message' => 'Invalid reference. Please check the selected indicator, program, or cycle.'
-                ]);
-            }
-            
-            return json_encode([
-                'status' => 0,
-                'message' => 'An error occurred. Please try again later.'
-            ]);
-        } catch (Exception $e) {
-            error_log("General error in document_form: " . $e->getMessage());
-            return json_encode([
-                'status' => 0,
-                'message' => 'An unexpected error occurred.'
-            ]);
-        }
-    }
+            // Set is_archive flag
+            $is_archive = ($ext === 'zip') ? 1 : 0;
 
-    // Add these helper methods to your class
-    private function handleArchiveUpload($archive_path, $original_filename, $uploaded_by) {
-        $extracted_files = [];
-        $file_extension = strtolower(pathinfo($original_filename, PATHINFO_EXTENSION));
-        $extract_dir = 'uploads/extracted/' . uniqid() . '/';
-        
-        if (!is_dir($extract_dir)) {
-            mkdir($extract_dir, 0777, true);
-        }
-        
-        try {
-            if ($file_extension === 'zip') {
-                $zip = new ZipArchive();
-                if ($zip->open($archive_path) === TRUE) {
-                    for ($i = 0; $i < $zip->numFiles; $i++) {
-                        $filename = $zip->getNameIndex($i);
-                        
-                        // Skip directories
-                        if (substr($filename, -1) === '/') continue;
-                        
-                        // Extract file
-                        $zip->extractTo($extract_dir, $filename);
-                        $extracted_path = $extract_dir . $filename;
-                        
-                        // Validate extracted file
-                        if (file_exists($extracted_path)) {
-                            $allowed_extensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'];
-                            $ext_extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-                            
-                            if (in_array($ext_extension, $allowed_extensions)) {
-                                $extracted_files[] = [
-                                    'original_name' => $filename,
-                                    'filename' => basename($filename),
-                                    'path' => $extracted_path,
-                                    'size' => filesize($extracted_path)
-                                ];
-                            } else {
-                                // Remove invalid file types
-                                unlink($extracted_path);
-                            }
-                        }
-                    }
-                    $zip->close();
-                }
-            } elseif (in_array($file_extension, ['rar', '7z'])) {
-                // For RAR and 7z, you might need a library like rararchiver or 7zip
-                // This is a simplified example
-                throw new Exception("RAR and 7z extraction not implemented. Please use ZIP format.");
-            }
-        } catch (Exception $e) {
-            error_log("Archive extraction error: " . $e->getMessage());
-            // Clean up extraction directory
-            $this->deleteDirectory($extract_dir);
-            return [];
-        }
-        
-        return $extracted_files;
-    }
-
-    private function updateAssignmentStatus($assignment_id, $user_id) {
-        try {
-            // Check if this is the first document for this assignment
+            // Insert document
             $stmt = $this->db->prepare("
-                SELECT COUNT(*) as doc_count 
-                FROM documents 
-                WHERE assignment_id = ? AND uploaded_by = ?
+                INSERT INTO documents 
+                (filename, original_filename, file_path, file_size, assignment_id, uploaded_by, 
+                indicator_id, program_id, cycle_id, description, status, is_archive)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'submitted', ?)
             ");
-            $stmt->execute([$assignment_id, $user_id]);
-            $result = $stmt->fetch(PDO::FETCH_ASSOC);
             
-            if ($result['doc_count'] == 1) {
-                // First document uploaded, update assignment status
-                $stmt = $this->db->prepare("
-                    UPDATE assignments 
-                    SET status = 'in_progress' 
-                    WHERE assignment_id = ? AND user_id = ?
-                ");
-                $stmt->execute([$assignment_id, $user_id]);
-            }
-        } catch (Exception $e) {
-            error_log("Error updating assignment status: " . $e->getMessage());
-        }
-    }
+            $stmt->execute([
+                $safe_filename,
+                $original_filename,
+                $filepath,
+                $file['size'],
+                $assignment_id,
+                $uploaded_by,
+                $indicator_id,
+                $program_id,
+                $cycle_id,
+                $description,
+                $is_archive
+            ]);
 
-    private function deleteDirectory($dir) {
-        if (!is_dir($dir)) return;
-        
-        $files = array_diff(scandir($dir), array('.', '..'));
-        foreach ($files as $file) {
-            $path = $dir . '/' . $file;
-            is_dir($path) ? $this->deleteDirectory($path) : unlink($path);
-        }
-        rmdir($dir);
-    }
-    function edit_document_form() {
-        try {
-            // Get form data
-            $document_id = $_POST["document_id"] ?? '';
-            $indicator_id = $_POST["indicator_id"] ?? '';
-            $program_id = $_POST["program_id"] ?? '';
-            $cycle_id = $_POST["cycle_id"] ?? '';
-            $version = $_POST["version"] ?? 1;
-            $status = $_POST["status"] ?? 'draft';
-            $current_user_id = $_POST["user_id"];
-            
+            $document_id = $this->db->lastInsertId();
 
-            // Validate required fields
-            if (empty($document_id) || empty($indicator_id) || empty($program_id) || empty($cycle_id)) {
-                return json_encode([
-                    'status' => 0,
-                    'message' => 'All required fields must be filled.'
-                ]);
-            }
+            // Update assignment to submitted
+            $update = $this->db->prepare("UPDATE assignments SET status = 'submitted' WHERE assignment_id = ?");
+            $update->execute([$assignment_id]);
 
-            // Validate document exists and user has permission (optional)
-            $check_stmt = $this->db->prepare("
-                SELECT uploaded_by, file_path, filename 
-                FROM documents 
-                WHERE document_id = :document_id
-            ");
-            $check_stmt->execute([':document_id' => $document_id]);
-            $existing_document = $check_stmt->fetch(PDO::FETCH_ASSOC);
-
-            if (!$existing_document) {
-                return json_encode([
-                    'status' => 0,
-                    'message' => 'Document not found.'
-                ]);
-            }
-
-            // Optional: Check if current user is the uploader or has admin rights
-            // if ($existing_document['uploaded_by'] != $current_user_id) {
-            //     // Check if user is admin
-            //     $user_stmt = $this->db->prepare("SELECT user_role FROM users WHERE user_id = :user_id");
-            //     $user_stmt->execute([':user_id' => $current_user_id]);
-            //     $user = $user_stmt->fetch(PDO::FETCH_ASSOC);
-            //     
-            //     if ($user['user_role'] !== 'admin') {
-            //         return json_encode([
-            //             'status' => 0,
-            //             'message' => 'You do not have permission to edit this document.'
-            //         ]);
-            //     }
-            // }
-
-            // Check if referenced IDs exist in database
-            $exists_stmt = $this->db->prepare("
-                SELECT 
-                    (SELECT COUNT(*) FROM accreditation_indicators WHERE indicator_id = ?) as indicator_exists,
-                    (SELECT COUNT(*) FROM programs WHERE program_id = ?) as program_exists,
-                    (SELECT COUNT(*) FROM accreditation_cycles WHERE cycle_id = ?) as cycle_exists
-            ");
-            $exists_stmt->execute([$indicator_id, $program_id, $cycle_id]);
-            $exists = $exists_stmt->fetch(PDO::FETCH_ASSOC);
-            
-            if ($exists['indicator_exists'] == 0) {
-                return json_encode([
-                    'status' => 0,
-                    'message' => 'Selected indicator does not exist.'
-                ]);
-            }
-            
-            if ($exists['program_exists'] == 0) {
-                return json_encode([
-                    'status' => 0,
-                    'message' => 'Selected program does not exist.'
-                ]);
-            }
-            
-            if ($exists['cycle_exists'] == 0) {
-                return json_encode([
-                    'status' => 0,
-                    'message' => 'Selected accreditation cycle does not exist.'
-                ]);
-            }
-
-            // Validate status
-            $allowed_statuses = ['draft', 'submitted', 'under_review', 'needs_revision', 'approved'];
-            if (!in_array($status, $allowed_statuses)) {
-                $status = 'draft';
-            }
-
-            // Validate version
-            if (!is_numeric($version) || $version < 1) {
-                $version = 1;
-            }
-
-            // Handle file replacement if new file is uploaded
-            $new_file_path = null;
-            $new_filename = null;
-            $new_file_size = null;
-            
-            if (isset($_FILES['document_file']) && $_FILES['document_file']['error'] === UPLOAD_ERR_OK) {
-                $file = $_FILES['document_file'];
-                
-                // Validate file type
-                $allowed_extensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'];
-                $file_extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-                
-                if (!in_array($file_extension, $allowed_extensions)) {
-                    return json_encode([
-                        'status' => 0,
-                        'message' => 'Invalid file type. Allowed types: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX.'
-                    ]);
-                }
-
-                // Validate file size (max 10MB)
-                $max_file_size = 10 * 1024 * 1024; // 10MB in bytes
-                if ($file['size'] > $max_file_size) {
-                    $file_size_mb = round($file['size'] / (1024 * 1024), 2);
-                    return json_encode([
-                        'status' => 0,
-                        'message' => "File size ($file_size_mb MB) exceeds the 10MB limit."
-                    ]);
-                }
-
-                // Create upload directory if it doesn't exist
-                $upload_dir = 'uploads/documents/';
-                if (!file_exists($upload_dir)) {
-                    if (!mkdir($upload_dir, 0777, true)) {
-                        return json_encode([
-                            'status' => 0,
-                            'message' => 'Failed to create upload directory.'
-                        ]);
-                    }
-                }
-
-                // Generate safe filename
-                $original_filename = $file['name'];
-                $safe_filename = preg_replace('/[^A-Za-z0-9\._-]/', '_', $original_filename);
-                $unique_filename = date('Ymd_His') . '_' . uniqid() . '_' . $safe_filename;
-                $new_file_path = $upload_dir . $unique_filename;
-
-                // Move uploaded file
-                if (!move_uploaded_file($file['tmp_name'], $new_file_path)) {
-                    return json_encode([
-                        'status' => 0,
-                        'message' => 'Failed to save the uploaded file. Please try again.'
-                    ]);
-                }
-                
-                $new_filename = $original_filename;
-                $new_file_size = $file['size'];
-            }
-
-            // Build the update query based on whether a new file was uploaded
-            if ($new_file_path !== null) {
-                // Update with new file
-                $stmt = $this->db->prepare("
-                    UPDATE documents
-                    SET indicator_id = :indicator_id,
-                        program_id = :program_id,
-                        cycle_id = :cycle_id,
-                        version = :version,
-                        status = :status,
-                        filename = :filename,
-                        file_path = :file_path,
-                        file_size = :file_size
-                    WHERE document_id = :document_id
-                ");
-
-                $stmt->execute([
-                    ':document_id' => $document_id,
-                    ':indicator_id' => $indicator_id,
-                    ':program_id' => $program_id,
-                    ':cycle_id' => $cycle_id,
-                    ':version' => $version,
-                    ':status' => $status,
-                    ':filename' => $new_filename,
-                    ':file_path' => $new_file_path,
-                    ':file_size' => $new_file_size
-                ]);
-
-                // Delete the old file
-                if (file_exists($existing_document['file_path'])) {
-                    unlink($existing_document['file_path']);
-                }
-                
-                $file_message = " and file replaced";
-            } else {
-                // Update without changing the file
-                $stmt = $this->db->prepare("
-                    UPDATE documents
-                    SET indicator_id = :indicator_id,
-                        program_id = :program_id,
-                        cycle_id = :cycle_id,
-                        version = :version,
-                        status = :status
-                    WHERE document_id = :document_id
-                ");
-
-                $stmt->execute([
-                    ':document_id' => $document_id,
-                    ':indicator_id' => $indicator_id,
-                    ':program_id' => $program_id,
-                    ':cycle_id' => $cycle_id,
-                    ':version' => $version,
-                    ':status' => $status
-                ]);
-                
-                $file_message = "";
-            }
-
-            if ($stmt->rowCount() === 0) {
-                // Clean up new file if no rows were updated
-                if ($new_file_path !== null && file_exists($new_file_path)) {
-                    unlink($new_file_path);
-                }
-                
-                return json_encode([
-                    'status' => 0,
-                    'message' => 'No changes were made. The document information is already up to date.'
-                ]);
-            }
+            $message = ($ext === 'zip') ? 
+                'ZIP file uploaded successfully!' : 
+                'Document uploaded successfully!';
 
             return json_encode([
                 'status' => 1,
-                'message' => "Document updated successfully{$file_message}!",
-                'document_id' => $document_id
+                'message' => $message,
+                'document_id' => $document_id,
+                'is_archive' => $is_archive
             ]);
 
         } catch (PDOException $e) {
-            error_log("Database error in edit_document_form: " . $e->getMessage());
-            
-            // Clean up new uploaded file if database insert failed
-            if (isset($new_file_path) && file_exists($new_file_path)) {
-                unlink($new_file_path);
+            // Clean up file on error
+            if (isset($filepath) && file_exists($filepath)) {
+                unlink($filepath);
             }
-            
-            // Check for foreign key constraint violation
-            if (strpos($e->getMessage(), 'foreign key constraint') !== false) {
-                return json_encode([
-                    'status' => 0,
-                    'message' => 'Invalid reference. Please check the selected indicator, program, or cycle.'
-                ]);
+            return json_encode(['status' => 0, 'message' => 'Database error: ' . $e->getMessage()]);
+        } catch (Exception $e) {
+            if (isset($filepath) && file_exists($filepath)) {
+                unlink($filepath);
             }
-            
-            return json_encode([
-                'status' => 0,
-                'message' => 'An error occurred. Please try again later. Error: ' . $e->getMessage()
-            ]);
-        }
-    }
-    function delete_document_form() {
-        try {
-            $document_id = $_POST["document_id"] ?? '';
-
-            if (empty($document_id)) {
-                return json_encode([
-                    'status' => 0,
-                    'message' => 'Invalid request. Missing criterion ID.'
-                ]);
-            }
-
-            $stmt = $this->db->prepare("
-                DELETE FROM documents 
-                WHERE document_id = :document_id
-            ");
-
-            $stmt->execute([':document_id' => $document_id]);
-
-            if ($stmt->rowCount() === 0) {
-                return json_encode([
-                    'status' => 0,
-                    'message' => 'Documents not found or already deleted.'
-                ]);
-            }
-
-            return json_encode([
-                'status' => 1,
-                'message' => 'Documents deleted successfully!'
-            ]);
-
-        } catch (PDOException $e) {
-            error_log("Database error: " . $e->getMessage());
-            return json_encode([
-                'status' => 0,
-                'message' => 'An error occurred. Please try again later.'
-            ]);
+            return json_encode(['status' => 0, 'message' => 'Error: ' . $e->getMessage()]);
         }
     }
 
@@ -2757,4 +2191,5 @@ class Action
             ]);
         }
     }
+    
 }   
