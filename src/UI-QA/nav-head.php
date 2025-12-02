@@ -1,82 +1,10 @@
 <?php
 session_start();
-if (!isset($_SESSION['employeeData'])) {
+if (!isset($_SESSION['QAData'])) {
   include 'eror.php';
   exit;
 }
-$employee_id = $_SESSION['employeeData']['employee_id'];
-verify_init($employee_id);
-
-$stmt = $pdo->prepare("SELECT firstname, lastname, middlename, suffix FROM employee_data WHERE employee_id = '$employee_id'");
-$stmt->execute();
-$employee_name = $stmt->fetch(PDO::FETCH_ASSOC);
-
-// LEAVE COUNTS UPDATE PER 15DAYS BY 0.5
-$stmt = $pdo->prepare("
-    SELECT VacationBalance, SickBalance, SpecialBalance, OthersBalance, last_updated 
-    FROM leaveCounts 
-    WHERE employee_id = :employee_id 
-    LIMIT 1
-");
-
-$stmt->execute(['employee_id' => $employee_id]);
-$row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-if (!$row) {
-    echo "No leave record found for this employee.";
-    exit;
-}
-
-$vacation = $row['VacationBalance'];
-$sick = $row['SickBalance'];
-$special = $row['SpecialBalance'];
-$others = $row['OthersBalance'];
-
-$last_updated = new DateTime($row['last_updated']);
-$today = new DateTime();
-
-$interval = $today->diff($last_updated);
-$days_passed = $interval->days;
-
-if ($days_passed >= 15) {
-
-    $periods = floor($days_passed / 15);
-
-    $increase = $periods * 0.5;
-
-    $new_vacation = $vacation + $increase;
-    $new_sick = $sick + $increase;
-    $new_special = $special + $increase;
-    $new_others = $others + $increase;
-
-    $stmt = $pdo->prepare("
-        UPDATE leaveCounts
-        SET 
-            VacationBalance = :vacation,
-            SickBalance = :sick,
-            SpecialBalance = :special,
-            OthersBalance = :others,
-            last_updated = :last_updated
-        WHERE employee_id = :employee_id
-    ");
-
-    $stmt->execute([
-        'vacation'     => $new_vacation,
-        'sick'         => $new_sick,
-        'special'      => $new_special,
-        'others'       => $new_others,
-        'last_updated' => $today->format('Y-m-d'),
-        'employee_id'  => $employee_id
-    ]);
-
-    // echo "Balances updated!<br>";
-    // echo "Vacation: +$increase → $new_vacation<br>";
-    // echo "Sick: +$increase → $new_sick<br>";
-    // echo "Special: +$increase → $new_special<br>";
-    // echo "Others: +$increase → $new_others<br>";
-
-} 
-
+$user_id = $_SESSION['QAData']['user_id'];
 ?>
 <style>
 @media(max-width:768px) {
@@ -98,7 +26,6 @@ if ($days_passed >= 15) {
     <div class="justify-content-end p-4 mx-2 d-flex col-md-6 col-5 media-header-padding no-media-margin">
         <div class="col-md-4 col-9 d-flex justify-content-end align-items-center">
             <i class="fas fa-user-shield me-2"></i>
-            <span class="header-name-media"><?= htmlspecialchars($employee_name["lastname"]) ?></span>
         </div>
 
         <button type="button" id="logoutBtn" class="col-md-2 col-3 button-location-media">

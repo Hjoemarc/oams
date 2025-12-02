@@ -126,6 +126,8 @@ function db_connect()
                 reviewer_id INT NOT NULL,
                 review_action ENUM('approved', 'needs_revision') NOT NULL,
                 comments TEXT,
+                deadline DATE,
+                priority ENUM('normal', 'high', 'urgent') DEFAULT 'normal',
                 reviewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (document_id) REFERENCES documents(document_id),
                 FOREIGN KEY (reviewer_id) REFERENCES users(user_id)

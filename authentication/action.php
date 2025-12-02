@@ -243,5 +243,9 @@ if ($action === 'delete_assignment_form') {
     $result = $crud->delete_assignment_form();
     echo $result;
 }
+if ($action === 'assign_reviewer_form') {
+    $result = $crud->assign_reviewer_form();
+    echo $result;
+}
 
 ?>

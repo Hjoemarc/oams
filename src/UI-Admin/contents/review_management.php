@@ -36,6 +36,7 @@ $reviewers = $stmtReviewers->fetchAll(PDO::FETCH_ASSOC);
 $stmtDocuments = $pdo->prepare("SELECT 
     d.document_id,
     d.filename,
+    d.assignment_id,
     d.status as doc_status,
     d.created_at as uploaded_date,
     u.user_id as uploader_id,
@@ -536,9 +537,12 @@ $documentCount = 1;
                             <td>
                                 <div class="btn-group btn-group-sm" role="group">
                                     <button type="button" class="btn btn-outline-success assign-document-reviewer-btn"
-                                        data-document-id="<?= $document['document_id'] ?>"
-                                        data-filename="<?= htmlspecialchars($document['filename']) ?>"
-                                        title="Assign Reviewer">
+                                            data-assignment-id="<?= $document['assignment_id'] ?>" 
+                                            data-document-id="<?= $document['document_id'] ?>" 
+                                            data-faculty-id="<?= $document['uploader_id'] ?>" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#assignReviewerModal"
+                                            id="getDocumentId">
                                         <i class="fas fa-user-check"></i>
                                     </button>
                                 </div>
@@ -562,10 +566,11 @@ $documentCount = 1;
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="quick-assign-reviewer-form">
-                        <input type="hidden" id="assignItemId" name="item_id">
-                        <input type="hidden" id="assignItemType" name="item_type">
-
+                    <form id="assign-reviewer-form">
+                        <input type="hidden" id="get_assignment_id" name="assignment_id">
+                        <input type="hidden" id="get_document_id" name="document_id">
+                        <input type="hidden" id="get_faculty_id" name="faculty_id">
+                        
                         <div class="mb-3">
                             <label class="form-label">Reviewer</label>
                             <select id="modalReviewerSelect" name="reviewer_id" class="form-select" required>
@@ -591,11 +596,11 @@ $documentCount = 1;
                                 <option value="urgent">Urgent</option>
                             </select>
                         </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary" onclick="submitReviewerAssignment()">Assign</button>
+                        </div>
                     </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" onclick="submitReviewerAssignment()">Assign</button>
                 </div>
             </div>
         </div>

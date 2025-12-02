@@ -2191,5 +2191,94 @@ class Action
             ]);
         }
     }
-    
+    function assign_reviewer_form(){
+        try {
+            // Get form data from POST
+            $document_id = $_POST["document_id"] ?? '';
+            $reviewer_id = $_POST["reviewer_id"] ?? '';
+            $faculty_id = $_POST["faculty_id"] ?? '';
+            $deadline = $_POST["deadline"] ?? '';
+            $priority = $_POST["priority"] ?? 'normal';
+            
+            // Validate required fields
+            if (empty($document_id) || empty($reviewer_id)) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Document and Reviewer are required'
+                ]);
+            }
+            
+            // Validate document exists
+            $checkDocStmt = $this->db->prepare("SELECT document_id FROM documents WHERE document_id = :document_id");
+            $checkDocStmt->execute([':document_id' => $document_id]);
+            
+            if ($checkDocStmt->rowCount() === 0) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Document not found'
+                ]);
+            }
+            
+            // Validate reviewer exists
+            $checkRevStmt = $this->db->prepare("SELECT user_id FROM users WHERE user_id = :reviewer_id");
+            $checkRevStmt->execute([':reviewer_id' => $reviewer_id]);
+            
+            if ($checkRevStmt->rowCount() === 0) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Reviewer not found'
+                ]);
+            }
+            
+            // Validate date if provided
+            if (!empty($deadline)) {
+                $date_parts = explode('-', $deadline);
+                if (count($date_parts) != 3 || !checkdate($date_parts[1], $date_parts[2], $date_parts[0])) {
+                    return json_encode([
+                        'status' => 0,
+                        'message' => 'Invalid date format'
+                    ]);
+                }
+            }
+            
+            // Insert into reviews table
+            $stmt = $this->db->prepare("
+                INSERT INTO reviews (document_id, reviewer_id, deadline, priority, review_action) 
+                VALUES (:document_id, :reviewer_id, :deadline, :priority, 'needs_revision')
+            ");
+            
+            // Convert empty deadline to NULL
+            $deadline_db = empty($deadline) ? null : $deadline;
+            
+            $stmt->execute([
+                ':document_id' => $document_id,
+                ':reviewer_id' => $reviewer_id,
+                ':deadline' => $deadline_db,
+                ':priority' => $priority
+            ]);
+
+            $stmtNotification = $this->db->prepare("INSERT INTO notifications (user_id, title, message)
+            VALUES (:user_id, 'Review Document', 'Review this document')");
+            $stmtNotification->execute([
+                'user_id' => $faculty_id
+            ]);
+            
+            return json_encode([
+                'status' => 1,
+                'message' => 'Reviewer assigned successfully',
+                'review_id' => $this->db->lastInsertId()
+            ]);
+            
+        } catch (PDOException $e) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'Database error: ' . $e->getMessage()
+            ]);
+        } catch (Exception $e) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'Error: ' . $e->getMessage()
+            ]);
+        }
+    }
 }   
