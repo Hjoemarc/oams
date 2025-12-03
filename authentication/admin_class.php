@@ -2765,4 +2765,90 @@ class Action
             ]);
         }
     }
+
+// user_profile =======================================================
+    function profile_update() {
+        try {
+            $user_id = $_POST["user_id"];
+            $citizenship = $_POST["citizenship"];
+            $civil_Status = $_POST["civil_Status"];
+            $birthday = $_POST["birthday"];
+            $religion = $_POST["religion"];
+            $birth_place = $_POST["birth_place"];
+            $contact = $_POST["contact"];
+            $block = $_POST["block"];
+            $subdivision = $_POST["subdivision"];
+            $barangay = $_POST["barangay"];
+            $city = $_POST["city"];
+            $province = $_POST["province"];
+            $zip_code = $_POST["zip_code"];
+
+            // 1. Check if user has an existing record
+            $check = $this->db->prepare("SELECT COUNT(*) FROM users_info WHERE user_id = :user_id");
+            $check->execute([':user_id' => $user_id]);
+            $exists = $check->fetchColumn();
+
+            // If record exists, UPDATE
+            if ($exists > 0) {
+
+                $stmt = $this->db->prepare("
+                    UPDATE users_info SET
+                        citizenship = :citizenship,
+                        civil_Status = :civil_Status,
+                        birthday = :birthday,
+                        religion = :religion,
+                        birth_place = :birth_place,
+                        contact = :contact,
+                        block = :block,
+                        subdivision = :subdivision,
+                        barangay = :barangay,
+                        city = :city,
+                        province = :province,
+                        zip_code = :zip_code
+                    WHERE user_id = :user_id
+                ");
+
+            } else {
+                // If no record, INSERT new row
+                $stmt = $this->db->prepare("
+                    INSERT INTO users_info (
+                        user_id, citizenship, civil_Status, birthday, religion, birth_place,
+                        contact, block, subdivision, barangay, city, province, zip_code
+                    ) VALUES (
+                        :user_id, :citizenship, :civil_Status, :birthday, :religion, :birth_place,
+                        :contact, :block, :subdivision, :barangay, :city, :province, :zip_code
+                    )
+                ");
+            }
+
+            // Bind all values
+            $stmt->execute([
+                ':user_id' => $user_id,
+                ':citizenship' => $citizenship,
+                ':civil_Status' => $civil_Status,
+                ':birthday' => $birthday,
+                ':religion' => $religion,
+                ':birth_place' => $birth_place,
+                ':contact' => $contact,
+                ':block' => $block,
+                ':subdivision' => $subdivision,
+                ':barangay' => $barangay,
+                ':city' => $city,
+                ':province' => $province,
+                ':zip_code' => $zip_code
+            ]);
+
+            return json_encode([
+                'status' => 1,
+                'message' => $exists > 0 ? 'Profile updated successfully' : 'Profile created successfully'
+            ]);
+
+        } catch (PDOException $e) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred: ' . $e->getMessage()
+            ]);
+        }
+    }
+
 }   

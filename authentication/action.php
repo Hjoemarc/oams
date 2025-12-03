@@ -271,5 +271,9 @@ if ($action === 'assign_reviewer_form') {
     $result = $crud->assign_reviewer_form();
     echo $result;
 }
-
+// user_profile =======================================================
+if ($action === 'profile_update') {
+    $result = $crud->profile_update();
+    echo $result;
+}
 ?>

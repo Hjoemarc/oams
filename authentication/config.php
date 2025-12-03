@@ -48,17 +48,29 @@ function db_connect()
                 user_role ENUM('admin', 'qa', 'head', 'faculty') NOT NULL,
                 department_id INT,
                 program_id INT,
-                is_active ENUM('Active', 'Inactive') DEFAULT 'Active',
+                is_active ENUM('Active', 'Inactive', 'Pending') DEFAULT 'Pending',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (department_id) REFERENCES departments(department_id),
                 FOREIGN KEY (program_id) REFERENCES programs(program_id)
             )",
-            // "CREATE TABLE IF NOT EXISTS users_info (
-            //     users_info_id INT AUTO_INCREMENT PRIMARY KEY,
-            //     user_id INT NOT NULL,
-
-            //     FOREIGN KEY (user_id) REFERENCES users(user_id)
-            // )",
+            "CREATE TABLE IF NOT EXISTS users_info (
+                users_info_id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                citizenship VARCHAR(50),
+                civil_Status VARCHAR(50),
+                birthday DATE,
+                religion VARCHAR(50),
+                birth_place VARCHAR(50),
+                contact VARCHAR(50),
+                block VARCHAR(50),
+                street VARCHAR(50),
+                subdivision VARCHAR(50),
+                barangay VARCHAR(50),
+                city VARCHAR(50),
+                province VARCHAR(50),
+                zip_code VARCHAR(5),
+                FOREIGN KEY (user_id) REFERENCES users(user_id)
+            )",
 
             // ==================== SIMPLE ACCREDITATION FRAMEWORK ====================
             "CREATE TABLE IF NOT EXISTS accreditation_areas (
