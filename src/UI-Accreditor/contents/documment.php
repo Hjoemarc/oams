@@ -85,6 +85,19 @@ $cycles = $stmtCycles->fetch(PDO::FETCH_ASSOC);
             <input type="text" placeholder="Search by filename, program, or indicator" id="searchDocuments"
                 class="form-control">
         </div>
+        <div class="col-md-4">
+            <select id="filterCycles" class="form-select">
+                <option value="">All Cycles</option>
+                <?php
+                        $stmtPrograms = $pdo->prepare("SELECT academic_year FROM accreditation_cycles ORDER BY academic_year");
+                        $stmtPrograms->execute();
+                        $accreditation_cycles = $stmtPrograms->fetchAll(PDO::FETCH_ASSOC);
+                        foreach($accreditation_cycles as $program) {
+                            echo '<option value="' . $program['academic_year'] . '">' . htmlspecialchars($program['academic_year']) . '</option>';
+                        }
+                        ?>
+            </select>
+        </div>
         <div class="col-md-3 d-flex justify-content-end">
                 <button type="button" class="btn bg-gradient-primary" data-bs-toggle="modal"
                     data-bs-target="#addDocumentModal" id="add_new_document">
@@ -193,7 +206,7 @@ $cycles = $stmtCycles->fetch(PDO::FETCH_ASSOC);
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Accreditation Cycle</label>
-                            <input type="hidden" name="cycle_id" id="editCycleId"class="form-control" value="<?= $cycles["cycle_id"] ?>">
+                            <input type="hidden" name="cycle_id" class="form-control" value="<?= $cycles["cycle_id"] ?>">
                             <p class="form-control" readonly><?= htmlspecialchars($cycles['cycle_name']) . ' (' . htmlspecialchars($cycles['academic_year']) . ')' ?></p>
                         </div>
                         <div class="col-md-3 d-none">
@@ -236,7 +249,17 @@ $cycles = $stmtCycles->fetch(PDO::FETCH_ASSOC);
                             <table class="table table-sm">
                                 <tr>
                                     <th>Filename:</th>
-                                    <td id="viewFilename"></td>
+                                    <style>
+                                        .truncate-text {
+                                            display: inline-block;
+                                            max-width: 20rem;     /* your desired width */
+                                            white-space: nowrap; 
+                                            overflow: hidden;
+                                            text-overflow: ellipsis;
+                                        }
+                                    </style>
+                                    <td id="viewFilename" class="truncate-text">
+                                    </td>
                                 </tr>
                                 <tr>
                                     <th>File Size:</th>
@@ -261,23 +284,19 @@ $cycles = $stmtCycles->fetch(PDO::FETCH_ASSOC);
                             <table class="table table-sm">
                                 <tr>
                                     <th>Indicator:</th>
-                                    <td id="viewIndicator"></td>
+                                    <td id="viewIndicator" class="truncate-text"></td>
                                 </tr>
                                 <tr>
                                     <th>Program:</th>
-                                    <td id="viewProgram"></td>
+                                    <td class="truncate-text" id="viewProgram"></td>
                                 </tr>
                                 <tr>
                                     <th>Department:</th>
-                                    <td id="viewDepartment"></td>
+                                    <td class="truncate-text" id="viewDepartment"></td>
                                 </tr>
                                 <tr>
                                     <th>Cycle:</th>
-                                    <td id="viewCycle"></td>
-                                </tr>
-                                <tr>
-                                    <th>Version:</th>
-                                    <td id="viewVersion"></td>
+                                    <td class="truncate-text" id="viewCycle"></td>
                                 </tr>
                                 <tr>
                                     <th>Status:</th>
@@ -335,7 +354,7 @@ $cycles = $stmtCycles->fetch(PDO::FETCH_ASSOC);
                         $statusIcon = '<i class="fas fa-search"></i>';
                         break;
                     case 'needs_revision': 
-                        $statusClass = 'bg-warning'; 
+                        $statusClass = 'bg-info'; 
                         $statusIcon = '<i class="fas fa-exclamation-circle"></i>';
                         break;
                     case 'draft': 
@@ -465,7 +484,6 @@ $cycles = $stmtCycles->fetch(PDO::FETCH_ASSOC);
         document.getElementById('viewProgram').textContent = program;
         document.getElementById('viewDepartment').textContent = department;
         document.getElementById('viewCycle').textContent = cycle;
-        document.getElementById('viewVersion').textContent = version;
 
         // Set status with appropriate badge
         const statusText = status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ');
@@ -481,7 +499,7 @@ $cycles = $stmtCycles->fetch(PDO::FETCH_ASSOC);
                 statusClass = 'badge bg-info';
                 break;
             case 'needs_revision':
-                statusClass = 'badge bg-warning';
+                statusClass = 'badge bg-info';
                 break;
             case 'draft':
                 statusClass = 'badge bg-secondary';
@@ -741,7 +759,6 @@ $cycles = $stmtCycles->fetch(PDO::FETCH_ASSOC);
         document.getElementById('editDocumentId').value = documentId;
         document.getElementById('currentFileName').textContent = filename;
         document.getElementById('editIndicatorId').value = indicatorId;
-        document.getElementById('editCycleId').value = cycleId;
         document.getElementById('editVersion').value = version;
         document.getElementById('editStatus').value = status;
 
@@ -859,7 +876,155 @@ $cycles = $stmtCycles->fetch(PDO::FETCH_ASSOC);
         }
     });
 </script>
+<script>
+    const filterCyclesSelect = document.getElementById('filterCycles');
+    const searchDocumentsInput = document.getElementById('searchDocuments');
+    const documentsTable = document.getElementById('documentsTable');
 
+    // Store original table data
+    let originalDocumentsData = [];
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        // Store original table data
+        const rows = documentsTable.querySelectorAll('tr');
+        rows.forEach((row, index) => {
+            const cells = row.cells;
+            if (cells.length === 0) return; // Skip header row
+            
+            // Extract academic year from cycle cell (4th cell, index 3)
+            let academicYear = '';
+            if (cells[3]) {
+                const badge = cells[3].querySelector('.badge');
+                academicYear = badge ? badge.textContent.trim() : cells[3].textContent.trim();
+            }
+            
+            // Extract all text for search
+            let allText = '';
+            for (let i = 0; i < cells.length; i++) {
+                if (cells[i]) {
+                    allText += cells[i].textContent + ' ';
+                }
+            }
+            
+            const rowData = {
+                element: row,
+                academicYear: academicYear.toLowerCase(),
+                allText: allText.toLowerCase()
+            };
+            originalDocumentsData.push(rowData);
+        });
+        
+        console.log('Documents table initialized with', originalDocumentsData.length, 'rows');
+    });
+
+    // Filter function for documents table
+    function filterDocumentsTable() {
+        const cycleValue = filterCyclesSelect.value.toLowerCase();
+        const searchTerm = searchDocumentsInput ? searchDocumentsInput.value.toLowerCase().trim() : '';
+        
+        console.log('Filtering - Cycle:', cycleValue, 'Search:', searchTerm);
+        
+        let visibleCount = 0;
+        
+        // Loop through each row data
+        originalDocumentsData.forEach((rowData, index) => {
+            let showRow = true;
+            
+            // Apply search filter if there's a search term
+            if (searchTerm && showRow) {
+                if (!rowData.allText.includes(searchTerm)) {
+                    showRow = false;
+                }
+            }
+            
+            // Apply cycle filter
+            if (cycleValue && showRow) {
+                if (rowData.academicYear !== cycleValue) {
+                    showRow = false;
+                }
+            }
+            
+            // Show/hide row
+            rowData.element.style.display = showRow ? '' : 'none';
+            
+            // Update row number if visible
+            if (showRow && rowData.element.cells[0]) {
+                rowData.element.cells[0].textContent = ++visibleCount;
+            }
+        });
+        
+        // Show message if no results
+        showNoResultsMessage(visibleCount);
+    }
+
+    // Show "no results" message
+    function showNoResultsMessage(visibleCount) {
+        // Remove existing no results message
+        const existingMessage = documentsTable.querySelector('.no-results-message');
+        if (existingMessage) {
+            existingMessage.remove();
+        }
+        
+        // Add message if no rows visible
+        if (visibleCount === 0 && (filterCyclesSelect.value || (searchDocumentsInput && searchDocumentsInput.value))) {
+            const noResultsRow = document.createElement('tr');
+            noResultsRow.className = 'no-results-message';
+            noResultsRow.innerHTML = `
+                <td colspan="7" class="text-center py-4 text-muted">
+                    <i class="fas fa-search fa-2x mb-2"></i>
+                    <p class="mb-0">No documents found matching your criteria.</p>
+                    <small>Try adjusting your search or filters.</small>
+                </td>
+            `;
+            documentsTable.appendChild(noResultsRow);
+        }
+    }
+
+    // Clear all filters
+    function clearDocumentFilters() {
+        filterCyclesSelect.value = '';
+        if (searchDocumentsInput) {
+            searchDocumentsInput.value = '';
+        }
+        
+        // Reset table to show all rows
+        originalDocumentsData.forEach((rowData, index) => {
+            rowData.element.style.display = '';
+            if (rowData.element.cells[0]) {
+                rowData.element.cells[0].textContent = index + 1;
+            }
+        });
+        
+        // Remove no results message
+        const existingMessage = documentsTable.querySelector('.no-results-message');
+        if (existingMessage) {
+            existingMessage.remove();
+        }
+    }
+
+    // Event listeners
+    filterCyclesSelect.addEventListener('change', filterDocumentsTable);
+    
+    // Add search input listener if it exists
+    if (searchDocumentsInput) {
+        searchDocumentsInput.addEventListener('input', filterDocumentsTable);
+    }
+
+    // Initialize tooltips
+    function initTooltips() {
+        const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+        if (tooltipTriggerList.length > 0 && typeof bootstrap !== 'undefined') {
+            const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
+        }
+    }
+
+    // Initialize everything when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        initTooltips();
+        console.log('Document filtering system initialized');
+    });
+</script>
 <?php
 // Helper function to format file size
 function formatFileSize($bytes) {

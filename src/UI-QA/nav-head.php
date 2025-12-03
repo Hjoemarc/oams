@@ -1,10 +1,10 @@
 <?php
-session_start();
 if (!isset($_SESSION['QAData'])) {
   include 'eror.php';
   exit;
 }
 $user_id = $_SESSION['QAData']['user_id'];
+$getEmployee = $employees["employee_data"];
 ?>
 <style>
 @media(max-width:768px) {

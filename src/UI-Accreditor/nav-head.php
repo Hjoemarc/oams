@@ -1,5 +1,5 @@
 <?php
-session_start();
+
 if (!isset($_SESSION['facultyData'])) {
   include 'eror.php';
   exit;
@@ -11,6 +11,7 @@ $stmt = $pdo->prepare("SELECT first_name, last_name, middle_name, suffix FROM us
 $stmt->execute();
 $employee_name = $stmt->fetch(PDO::FETCH_ASSOC);
 
+$getEmployee = $employees["employee_data"];
 ?>
 <style>
 @media(max-width:768px) {

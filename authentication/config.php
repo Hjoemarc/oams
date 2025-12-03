@@ -53,6 +53,12 @@ function db_connect()
                 FOREIGN KEY (department_id) REFERENCES departments(department_id),
                 FOREIGN KEY (program_id) REFERENCES programs(program_id)
             )",
+            // "CREATE TABLE IF NOT EXISTS users_info (
+            //     users_info_id INT AUTO_INCREMENT PRIMARY KEY,
+            //     user_id INT NOT NULL,
+
+            //     FOREIGN KEY (user_id) REFERENCES users(user_id)
+            // )",
 
             // ==================== SIMPLE ACCREDITATION FRAMEWORK ====================
             "CREATE TABLE IF NOT EXISTS accreditation_areas (

@@ -1,10 +1,21 @@
 <?php
-// session_start();
+if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
 require_once 'config.php';
 
 function getEmployees(){
     $pdo = db_connect();
-    $user_id = $_GET["id"] ?? 'hakdok';
+    if($_SESSION['facultyData']['user_id'] ?? ''){
+        $user_id = $_SESSION['facultyData']['user_id'] ?? '';
+    }else if($_SESSION['QAData']['user_id'] ?? '') {
+        $user_id = $_SESSION['QAData']['user_id'] ?? '';
+    }
+    else if($_SESSION['headData']['user_id'] ?? '') {
+        $user_id = $_SESSION['headData']['user_id'] ?? '';
+    }else{
+        $user_id = $_GET["id"] ?? '';   
+    }
     $query = "SELECT programs.*, users.*, departments.* FROM users
     INNER JOIN programs ON users.program_id = programs.program_id
     INNER JOIN departments ON users.department_id = departments.department_id

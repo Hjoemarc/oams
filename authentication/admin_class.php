@@ -1383,11 +1383,148 @@ class Action
             return json_encode(['status' => 0, 'message' => 'Error: ' . $e->getMessage()]);
         }
     }
-    function edit_document_form() {
-        // UNDER CONTRUCTIONS ==========================================
+    function edit_document_form(){
+        $document_id = $_POST['document_id'] ?? null;
+        $indicator_id = $_POST['indicator_id'] ?? null;
+        $program_id = $_POST['program_id'] ?? null;
+        $cycle_id = $_POST['cycle_id'] ?? null;
+        $status = $_POST['status'] ?? 'draft';
+
+        if (!$document_id) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'Missing document ID.'
+            ]);
+        }
+
+        try {
+            // Get existing document info
+            $stmt = $this->db->prepare("SELECT * FROM documents WHERE document_id = ?");
+            $stmt->execute([$document_id]);
+            $doc = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$doc) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Document not found.'
+                ]);
+            }
+
+            $newFilename = $doc['filename']; // keep existing if no upload
+            $newFilePath = $doc['file_path'];
+            $newFileSize = $doc['file_size'];
+            $newOriginalFilename = $doc['original_filename'];
+
+            // If user selected a new file
+            if (!empty($_FILES['document_file']['name'])) {
+
+                $uploadDir = "uploads/";
+
+                // Create folder if not exists
+                if (!is_dir($uploadDir)) {
+                    mkdir($uploadDir, 0777, true);
+                }
+
+                $originalName = $_FILES['document_file']['name'];
+                $tmpName = $_FILES['document_file']['tmp_name'];
+                $size = $_FILES['document_file']['size'];
+
+                // Generate new unique filename
+                $ext = pathinfo($originalName, PATHINFO_EXTENSION);
+                $generatedName = uniqid('doc_') . '.' . $ext;
+                $fullPath = $uploadDir . $generatedName;
+
+                // Upload file
+                if (!move_uploaded_file($tmpName, $fullPath)) {
+                    return json_encode([
+                        'status' => 0,
+                        'message' => 'Failed to upload new file.'
+                    ]);
+                }
+
+                // Delete old file
+                if (file_exists($doc['file_path'])) {
+                    unlink($doc['file_path']);
+                }
+
+                // Update values
+                $newFilename = $generatedName;
+                $newFilePath = $fullPath;
+                $newFileSize = $size;
+                $newOriginalFilename = $originalName;
+            }
+
+            // Update database record
+            $stmt = $this->db->prepare("
+                UPDATE documents SET 
+                    filename = ?, 
+                    file_path = ?, 
+                    file_size = ?, 
+                    indicator_id = ?, 
+                    program_id = ?, 
+                    cycle_id = ?, 
+                    original_filename = ?, 
+                    status = ?, 
+                    updated_at = NOW()
+                WHERE document_id = ?
+            ");
+
+            $stmt->execute([
+                $newFilename,
+                $newFilePath,
+                $newFileSize,
+                $indicator_id,
+                $program_id,
+                $cycle_id,
+                $newOriginalFilename,
+                $status,
+                $document_id
+            ]);
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Document updated successfully!'
+            ]);
+
+        } catch (PDOException $e) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'Error: ' . $e->getMessage()
+            ]);
+        }
     }
     function delete_document_form() {
-        // UNDER CONTRUCTIONS ==========================================
+        try {
+            $document_id  = $_POST["document_id"];
+
+            $stmt = $this->db->prepare("SELECT * FROM reviews WHERE document_id = :document_id");
+            $stmt->execute([
+                'document_id' => $document_id
+            ]);
+            $reviewerExist = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if($reviewerExist){
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Document are being reviewed cannot delete'
+                ]);
+            }
+            
+            $documentStmt = $this->db->prepare("DELETE FROM documents WHERE document_id = :document_id");
+            $documentStmt->execute([
+                'document_id' => $document_id
+            ]);
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Documment deleted successfully'
+            ]);
+        } catch (PDOExecption $e) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occured: ' . $e->getMessage()
+            ]);
+        }
     }
     function approve_document_form() {
         try {

@@ -8,9 +8,6 @@
             <a href="index.php?page=contents/review" class="nav-item nav-review rounded-2 my-1">
                 <span class=""><i class=""></i></span> Review Documents
             </a>
-            <a href="index.php?page=contents/notification" class="nav-item nav-notification rounded-2 my-1">
-                <span class=""><i class=""></i></span> Notifications
-            </a>
             <a href="index.php?page=contents/setting" class="nav-item nav-setting rounded-2 my-1">
                 <span class=""><i class=""></i></span> Account Settings
             </a>

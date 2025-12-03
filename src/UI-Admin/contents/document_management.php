@@ -53,9 +53,6 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
              <select id="filterPrograms" class="form-select">
                 <option value="">All Programs</option>
                 <?php
-                        $stmtPrograms = $pdo->prepare("SELECT program_code FROM programs ORDER BY program_code");
-                        $stmtPrograms->execute();
-                        $programs = $stmtPrograms->fetchAll(PDO::FETCH_ASSOC);
                         foreach($programs as $program) {
                             echo '<option value="' . $program['program_code'] . '">' . htmlspecialchars($program['program_code']) . '</option>';
                         }
@@ -68,8 +65,8 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
                 <?php
                         $stmtPrograms = $pdo->prepare("SELECT academic_year FROM accreditation_cycles ORDER BY academic_year");
                         $stmtPrograms->execute();
-                        $programs = $stmtPrograms->fetchAll(PDO::FETCH_ASSOC);
-                        foreach($programs as $program) {
+                        $accreditation_cycles = $stmtPrograms->fetchAll(PDO::FETCH_ASSOC);
+                        foreach($accreditation_cycles as $program) {
                             echo '<option value="' . $program['academic_year'] . '">' . htmlspecialchars($program['academic_year']) . '</option>';
                         }
                         ?>
@@ -216,10 +213,6 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        <div class="col-md-3 d-none">
-                            <label class="form-label">Version</label>
-                            <input type="number" class="form-control" id="editVersion" name="version" min="1" required>
-                        </div>
                         <div class="col-md-3">
                             <label class="form-label">Status</label>
                             <select name="status" id="editStatus" class="form-select" required>
@@ -245,7 +238,7 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
         aria-hidden="true">
         <div class="modal-dialog">
             <form id="delete-document-form" class="modal-content">
-                <div class="modal-header btn bg-gradient-primary text-white">
+                <div class="modal-header bg-gradient-primary text-white">
                     <h5 class="modal-title text-white" id="deleteDocumentModalLabel">Confirm Delete</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
@@ -850,7 +843,6 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
         document.getElementById('editIndicatorId').value = indicatorId;
         document.getElementById('editProgramId').value = programId;
         document.getElementById('editCycleId').value = cycleId;
-        document.getElementById('editVersion').value = version;
         document.getElementById('editStatus').value = status;
 
         var modal = new bootstrap.Modal(document.getElementById('editDocumentModal'));
