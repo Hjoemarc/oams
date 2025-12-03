@@ -25,11 +25,189 @@ class Action
         $this->db = null;
     }
 
+    // ===============================================================================================
+    // login without verification code !!!!!!!!!! Uncomment to use!!!!!
+    function login()
+    {
+        $username = $_POST['username'] ?? '';
+        $password = $_POST['password'] ?? '';
+
+        $_SESSION["username"] = $username;
+        $_SESSION["password"] = $password;
+
+        if (empty($username) || empty($password)) {
+            return json_encode(['status' => 0, 'message' => 'Username and password are required.']);
+        }
+
+        try {
+            // ==== Employee Login ====
+            $stmt = $this->db->prepare("SELECT * FROM users WHERE username = ?");
+            $stmt->execute([$username]);
+            $employees = $stmt->fetch();
+
+
+
+            if ($employees['user_role'] === 'admin' && $employees["is_active"] === 'Active') {
+
+                if (password_verify($password, $employees['password'])) {
+                    $_SESSION['adminData'] = [
+                        'first_name' => $employees['first_name'],
+                        'last_name' => $employees['last_name'],
+                        'user_role' => $employees['user_role'],
+                        'user_id' => $employees['user_id']
+                    ];
+                    $admin_id = $employees['user_id'];
+                    $stmtHistory = $this->db->prepare("INSERT INTO login_history (user_id, login_time) VALUES ('$admin_id', NOW())");
+                    $stmtHistory->execute();
+                    return json_encode([
+                        'status' => 1,
+                        'message' => 'Login successful.',
+                        'redirect_url' => 'src/UI-Admin/index.php',
+                        'user_role' => $employees['first_name'] . " " . $employees['last_name']
+                    ]);
+                } else {
+                    return json_encode(['status' => 0, 'message' => 'Incorrect password.']);
+                }
+            }else if($employees['user_role'] === 'qa' && $employees["is_active"] === 'Active'){
+                if (password_verify($password, $employees['password'])) {
+                    $_SESSION['QAData'] = [
+                        'first_name' => $employees['first_name'],
+                        'last_name' => $employees['last_name'],
+                        'user_role' => $employees['user_role'],
+                        'user_id' => $employees['user_id']
+                    ];
+                    $user_id = $employees['user_id'];
+                    $stmtHistory = $this->db->prepare("INSERT INTO login_history (user_id, login_time) VALUES ('$user_id', NOW())");
+                    $stmtHistory->execute();
+                    return json_encode([
+                        'status' => 1,
+                        'message' => 'Login successful.',
+                        'redirect_url' => 'src/UI-QA/index.php',
+                        'user_role' => $employees['first_name'] . " " . $employees['last_name']
+                    ]);
+                } else {
+                    return json_encode(['status' => 0, 'message' => 'Incorrect password.']);
+                }
+            }else if($employees['user_role'] === 'head' && $employees["is_active"] === 'Active'){
+                if (password_verify($password, $employees['password'])) {
+                    $_SESSION['headData'] = [
+                        'first_name' => $employees['first_name'],
+                        'last_name' => $employees['last_name'],
+                        'user_role' => $employees['user_role'],
+                        'user_id' => $employees['user_id']
+                    ];
+                    $user_id = $employees['user_id'];
+                    $stmtHistory = $this->db->prepare("INSERT INTO login_history (user_id, login_time) VALUES ('$user_id', NOW())");
+                    $stmtHistory->execute();
+                    return json_encode([
+                        'status' => 1,
+                        'message' => 'Login successful.',
+                        'redirect_url' => 'src/UI-Head/index.php',
+                        'user_role' => $employees['first_name'] . " " . $employees['last_name']
+                    ]);
+                } else {
+                    return json_encode(['status' => 0, 'message' => 'Incorrect password.']);
+                }
+            }
+
+            if ($employees['user_role'] === 'faculty' && $employees["is_active"] === 'Active') {
+
+                if (password_verify($password, $employees['password'])) {
+                    $_SESSION['facultyData'] = [
+                         'first_name' => $employees['first_name'],
+                        'last_name' => $employees['last_name'],
+                        'user_role' => $employees['user_role'],
+                        'user_id' => $employees['user_id']
+                    ];
+                    $user_id = $employees['user_id'];
+                    $stmtHistory = $this->db->prepare("INSERT INTO login_history (user_id, login_time) VALUES ('$user_id', NOW())");
+                    $stmtHistory->execute();
+                    return json_encode([
+                        'status' => 1,
+                        'message' => 'Login successful.',
+                        'redirect_url' => 'src/UI-Accreditor/index.php',
+                        'user_role' => $employees['first_name'] . " " . $employees['last_name']
+                    ]);
+                } else {
+                    return json_encode(['status' => 0, 'message' => 'Incorrect password.']);
+                }
+            }else if ($employees["is_active"] === 'Inactive') {
+
+                if (password_verify($password, $employees['password'])) {
+                    $_SESSION['inactiveData'] = [
+                        'first_name' => $employees['first_name'],
+                        'last_name' => $employees['last_name'],
+                        'user_role' => $employees['user_role'],
+                        'user_id' => $employees['user_id']
+                    ];
+                    return json_encode([
+                        'status' => 1,
+                        'message' => 'Login successful.',
+                        'redirect_url' => 'src/inactive.php',
+                        'user_role' => $employees['first_name'] . " " . $employees['last_name']
+                    ]);
+                } else {
+                    return json_encode(['status' => 0, 'message' => 'Incorrect password.']);
+                }
+            }else if ($employees["is_active"] === 'Pending') {
+
+                if (password_verify($password, $employees['password'])) {
+                    $_SESSION['pendingData'] = [
+                        'first_name' => $employees['first_name'],
+                        'last_name' => $employees['last_name'],
+                        'user_role' => $employees['user_role'],
+                        'user_id' => $employees['user_id']
+                    ];
+                    return json_encode([
+                        'status' => 1,
+                        'message' => 'Login successful.',
+                        'redirect_url' => 'src/pending.php',
+                        'user_role' => $employees['first_name'] . " " . $employees['last_name']
+                    ]);
+                } else {
+                    return json_encode(['status' => 0, 'message' => 'Incorrect password.']);
+                }
+            }
+
+            return json_encode([
+                'status' => 0,
+                'message' => 'User not found. Please check your username/email.'
+            ]);
+        } catch (Exception $e) {
+            return json_encode(['status' => 0, 'message' => 'Database error. Please try again later.']);
+        }
+    }
+    // ===============================================================================================
 
     function logout()
     {
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
+        }
+        // ✅ Get employee ID before destroying the session
+        $user_id = null;
+
+        if (!empty($_SESSION['QAData']['user_id'])) {
+            $user_id = $_SESSION['QAData']['user_id'];
+        } elseif (!empty($_SESSION['headData']['user_id'])) {
+            $user_id = $_SESSION['headData']['user_id'];
+        } elseif (!empty($_SESSION['facultyData']['user_id'])) {
+            $user_id = $_SESSION['facultyData']['user_id'];
+        } elseif (!empty($_SESSION['adminData']['user_id'])) {
+            $user_id = $_SESSION['adminData']['user_id'];
+        }
+
+        // ✅ Update logout_time only if we got an employee_id
+        if ($user_id !== null) {
+            $sql = "UPDATE login_history 
+                    SET logout_time = NOW() 
+                    WHERE user_id = :user_id 
+                    AND logout_time IS NULL 
+                    ORDER BY login_time DESC 
+                    LIMIT 1";
+
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute(['user_id' => $user_id]);
         }
         // ✅ Now clear and destroy the session
         $_SESSION = [];
@@ -328,148 +506,6 @@ class Action
             ]);
         }
     }
-
-    // ===============================================================================================
-    // login without verification code !!!!!!!!!! Uncomment to use!!!!!
-    function login()
-    {
-        $username = $_POST['username'] ?? '';
-        $password = $_POST['password'] ?? '';
-
-        $_SESSION["username"] = $username;
-        $_SESSION["password"] = $password;
-
-        if (empty($username) || empty($password)) {
-            return json_encode(['status' => 0, 'message' => 'Username and password are required.']);
-        }
-
-        try {
-            // ==== Employee Login ====
-            $stmt = $this->db->prepare("SELECT * FROM users WHERE username = ?");
-            $stmt->execute([$username]);
-            $employees = $stmt->fetch();
-
-
-
-            if ($employees['user_role'] === 'admin' && $employees["is_active"] === 'Active') {
-
-                if (password_verify($password, $employees['password'])) {
-                    $_SESSION['adminData'] = [
-                        'first_name' => $employees['first_name'],
-                        'last_name' => $employees['last_name'],
-                        'user_role' => $employees['user_role'],
-                        'user_id' => $employees['user_id']
-                    ];
-                    return json_encode([
-                        'status' => 1,
-                        'message' => 'Login successful.',
-                        'redirect_url' => 'src/UI-Admin/index.php',
-                        'user_role' => $employees['first_name'] . " " . $employees['last_name']
-                    ]);
-                } else {
-                    return json_encode(['status' => 0, 'message' => 'Incorrect password.']);
-                }
-            }else if($employees['user_role'] === 'qa' && $employees["is_active"] === 'Active'){
-                if (password_verify($password, $employees['password'])) {
-                    $_SESSION['QAData'] = [
-                        'first_name' => $employees['first_name'],
-                        'last_name' => $employees['last_name'],
-                        'user_role' => $employees['user_role'],
-                        'user_id' => $employees['user_id']
-                    ];
-                    return json_encode([
-                        'status' => 1,
-                        'message' => 'Login successful.',
-                        'redirect_url' => 'src/UI-QA/index.php',
-                        'user_role' => $employees['first_name'] . " " . $employees['last_name']
-                    ]);
-                } else {
-                    return json_encode(['status' => 0, 'message' => 'Incorrect password.']);
-                }
-            }else if($employees['user_role'] === 'head' && $employees["is_active"] === 'Active'){
-                if (password_verify($password, $employees['password'])) {
-                    $_SESSION['employeeData'] = [
-                        'first_name' => $employees['first_name'],
-                        'last_name' => $employees['last_name'],
-                        'user_role' => $employees['user_role'],
-                        'user_id' => $employees['user_id']
-                    ];
-                    return json_encode([
-                        'status' => 1,
-                        'message' => 'Login successful.',
-                        'redirect_url' => 'src/UI-Head/index.php',
-                        'user_role' => $employees['first_name'] . " " . $employees['last_name']
-                    ]);
-                } else {
-                    return json_encode(['status' => 0, 'message' => 'Incorrect password.']);
-                }
-            }
-
-            if ($employees['user_role'] === 'faculty' && $employees["is_active"] === 'Active') {
-
-                if (password_verify($password, $employees['password'])) {
-                    $_SESSION['facultyData'] = [
-                         'first_name' => $employees['first_name'],
-                        'last_name' => $employees['last_name'],
-                        'user_role' => $employees['user_role'],
-                        'user_id' => $employees['user_id']
-                    ];
-                    return json_encode([
-                        'status' => 1,
-                        'message' => 'Login successful.',
-                        'redirect_url' => 'src/UI-Accreditor/index.php',
-                        'user_role' => $employees['first_name'] . " " . $employees['last_name']
-                    ]);
-                } else {
-                    return json_encode(['status' => 0, 'message' => 'Incorrect password.']);
-                }
-            }else if ($employees["is_active"] === 'Inactive') {
-
-                if (password_verify($password, $employees['password'])) {
-                    $_SESSION['inactiveData'] = [
-                        'first_name' => $employees['first_name'],
-                        'last_name' => $employees['last_name'],
-                        'user_role' => $employees['user_role'],
-                        'user_id' => $employees['user_id']
-                    ];
-                    return json_encode([
-                        'status' => 1,
-                        'message' => 'Login successful.',
-                        'redirect_url' => 'src/inactive.php',
-                        'user_role' => $employees['first_name'] . " " . $employees['last_name']
-                    ]);
-                } else {
-                    return json_encode(['status' => 0, 'message' => 'Incorrect password.']);
-                }
-            }else if ($employees["is_active"] === 'Pending') {
-
-                if (password_verify($password, $employees['password'])) {
-                    $_SESSION['pendingData'] = [
-                        'first_name' => $employees['first_name'],
-                        'last_name' => $employees['last_name'],
-                        'user_role' => $employees['user_role'],
-                        'user_id' => $employees['user_id']
-                    ];
-                    return json_encode([
-                        'status' => 1,
-                        'message' => 'Login successful.',
-                        'redirect_url' => 'src/pending.php',
-                        'user_role' => $employees['first_name'] . " " . $employees['last_name']
-                    ]);
-                } else {
-                    return json_encode(['status' => 0, 'message' => 'Incorrect password.']);
-                }
-            }
-
-            return json_encode([
-                'status' => 0,
-                'message' => 'User not found. Please check your username/email.'
-            ]);
-        } catch (Exception $e) {
-            return json_encode(['status' => 0, 'message' => 'Database error. Please try again later.']);
-        }
-    }
-    // ===============================================================================================
     
     // ACCOUNT MANAGEMENT ========================================================
     function register_form(){
@@ -1176,6 +1212,46 @@ class Action
             ]);
         }
     }
+    function activate_cycle_form(){
+        try {
+            $cycle_id = $_POST["cycle_id"];
+
+            $stmt = $this->db->prepare("UPDATE accreditation_cycles SET status = 'active' WHERE cycle_id = :cycle_id");
+            $stmt->execute([
+                'cycle_id' => $cycle_id
+            ]);
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Cycle avticated successfully'
+            ]);
+        } catch (PDOException $e) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occured: ' . $e->getMessage()
+            ]);
+        }
+    }
+    function close_cycle_form(){
+        try {
+            $cycle_id = $_POST["cycle_id"];
+
+            $stmt = $this->db->prepare("UPDATE accreditation_cycles SET status = 'closed' WHERE cycle_id = :cycle_id");
+            $stmt->execute([
+                'cycle_id' => $cycle_id
+            ]);
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Cycle closed successfully'
+            ]);
+        } catch (PDOException $e) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occured: ' . $e->getMessage()
+            ]);
+        }
+    }
 
 // Document Management ==================================================
     function document_form() {
@@ -1306,6 +1382,12 @@ class Action
             }
             return json_encode(['status' => 0, 'message' => 'Error: ' . $e->getMessage()]);
         }
+    }
+    function edit_document_form() {
+        // UNDER CONTRUCTIONS ==========================================
+    }
+    function delete_document_form() {
+        // UNDER CONTRUCTIONS ==========================================
     }
     function approve_document_form() {
         try {
@@ -2229,98 +2311,98 @@ class Action
         }
     }
     function assignment_form() {
-    try {
-        // Get form data
-        $cycle_id = $_POST["cycle_id"] ?? '';
-        $user_id = $_POST["user_id"] ?? ''; 
-        $faculty_id = $_POST["faculty_id"] ?? ''; 
-        $indicator_id = $_POST["indicator_id"] ?? '';
-        $program_id = $_POST["program_id"] ?? '';
-        $status = $_POST["status"] ?? 'not_started';
-        
-        if (empty($cycle_id) || empty($faculty_id) || empty($indicator_id) || empty($program_id)) {
-            return json_encode([
-                'status' => 0,
-                'message' => 'All fields are required'
-            ]);
-        }
-        
-        // Check if assignment already exists
-        $checkStmt = $this->db->prepare("
-            SELECT assignment_id 
-            FROM assignments 
-            WHERE user_id = :faculty_id 
-            AND indicator_id = :indicator_id 
-            AND program_id = :program_id 
-            AND cycle_id = :cycle_id
-        ");
-        $checkStmt->execute([
-            ':faculty_id' => $faculty_id,
-            ':indicator_id' => $indicator_id,
-            ':program_id' => $program_id,
-            ':cycle_id' => $cycle_id
-        ]);
-        
-        if ($checkStmt->rowCount() > 0) {
-            return json_encode([
-                'status' => 0,
-                'message' => 'Assignment already exists for this faculty, indicator, program, and cycle'
-            ]);
-        }
-        
-        // Insert the assignment
-        $stmt = $this->db->prepare("
-            INSERT INTO assignments 
-            (user_id, indicator_id, program_id, status, cycle_id, assigned_by) 
-            VALUES (:faculty_id, :indicator_id, :program_id, :status, :cycle_id, :assigned_by)
-        ");
-        
-        $stmt->execute([
-            ':faculty_id' => $faculty_id,
-            ':indicator_id' => $indicator_id,
-            ':program_id' => $program_id,
-            ':status' => $status,
-            ':cycle_id' => $cycle_id,
-            ':assigned_by' => $user_id
-        ]);
-        
-        $assignmentId = $this->db->lastInsertId();
-        
-        // Create or get compliance record
-        $complianceId = $this->getComplianceId($program_id, $cycle_id, $indicator_id);
-        
-        // Optional: Send notification
         try {
-            $notifStmt = $this->db->prepare("
-                INSERT INTO notifications 
-                (user_id, title, message) 
-                VALUES (:user_id, 'New Assignment', 'You have been assigned a new accreditation task.')
+            // Get form data
+            $cycle_id = $_POST["cycle_id"] ?? '';
+            $user_id = $_POST["user_id"] ?? ''; 
+            $faculty_id = $_POST["faculty_id"] ?? ''; 
+            $indicator_id = $_POST["indicator_id"] ?? '';
+            $program_id = $_POST["program_id"] ?? '';
+            $status = $_POST["status"] ?? 'not_started';
+            
+            if (empty($cycle_id) || empty($faculty_id) || empty($indicator_id) || empty($program_id)) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'All fields are required'
+                ]);
+            }
+            
+            // Check if assignment already exists
+            $checkStmt = $this->db->prepare("
+                SELECT assignment_id 
+                FROM assignments 
+                WHERE user_id = :faculty_id 
+                AND indicator_id = :indicator_id 
+                AND program_id = :program_id 
+                AND cycle_id = :cycle_id
             ");
-            $notifStmt->execute([':user_id' => $faculty_id]);
-        } catch (Exception $e) {
-            // Continue even if notification fails
-            error_log("Notification error: " . $e->getMessage());
-        }
+            $checkStmt->execute([
+                ':faculty_id' => $faculty_id,
+                ':indicator_id' => $indicator_id,
+                ':program_id' => $program_id,
+                ':cycle_id' => $cycle_id
+            ]);
+            
+            if ($checkStmt->rowCount() > 0) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Assignment already exists for this faculty, indicator, program, and cycle'
+                ]);
+            }
+            
+            // Insert the assignment
+            $stmt = $this->db->prepare("
+                INSERT INTO assignments 
+                (user_id, indicator_id, program_id, status, cycle_id, assigned_by) 
+                VALUES (:faculty_id, :indicator_id, :program_id, :status, :cycle_id, :assigned_by)
+            ");
+            
+            $stmt->execute([
+                ':faculty_id' => $faculty_id,
+                ':indicator_id' => $indicator_id,
+                ':program_id' => $program_id,
+                ':status' => $status,
+                ':cycle_id' => $cycle_id,
+                ':assigned_by' => $user_id
+            ]);
+            
+            $assignmentId = $this->db->lastInsertId();
+            
+            // Create or get compliance record
+            $complianceId = $this->getComplianceId($program_id, $cycle_id, $indicator_id);
+            
+            // Optional: Send notification
+            try {
+                $notifStmt = $this->db->prepare("
+                    INSERT INTO notifications 
+                    (user_id, title, message) 
+                    VALUES (:user_id, 'New Assignment', 'You have been assigned a new accreditation task.')
+                ");
+                $notifStmt->execute([':user_id' => $faculty_id]);
+            } catch (Exception $e) {
+                // Continue even if notification fails
+                error_log("Notification error: " . $e->getMessage());
+            }
 
-        return json_encode([
-            'status' => 1,
-            'message' => 'Assignment created successfully',
-            'assignment_id' => $assignmentId,
-            'compliance_id' => $complianceId
-        ]);
-        
-    } catch (PDOException $e) {
-        return json_encode([
-            'status' => 0,
-            'message' => 'Database error: ' . $e->getMessage()
-        ]);
-    } catch (Exception $e) {
-        return json_encode([
-            'status' => 0,
-            'message' => 'An error occurred: ' . $e->getMessage()
-        ]);
+            return json_encode([
+                'status' => 1,
+                'message' => 'Assignment created successfully',
+                'assignment_id' => $assignmentId,
+                'compliance_id' => $complianceId
+            ]);
+            
+        } catch (PDOException $e) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'Database error: ' . $e->getMessage()
+            ]);
+        } catch (Exception $e) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred: ' . $e->getMessage()
+            ]);
+        }
     }
-}
     function update_assignment() {
         try {
             $assignment_id = $_POST["assignment_id"] ?? '';

@@ -1,5 +1,7 @@
 <?php
 include 'authentication/functions.php';
+include 'authentication/view.php';
+$employees = getEmployees();
 ?>
 <!DOCTYPE html>
 <html lang="en">

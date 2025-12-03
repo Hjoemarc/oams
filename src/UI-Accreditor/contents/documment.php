@@ -1,5 +1,4 @@
 <?php
-// Fetch Documents with related data
 $stmtDocuments = $pdo->prepare("
     SELECT 
         d.*,
@@ -15,11 +14,11 @@ $stmtDocuments = $pdo->prepare("
         ac.academic_year,
         dept.department_name
     FROM documents d
-    LEFT JOIN users u ON d.uploaded_by = u.user_id
-    LEFT JOIN accreditation_indicators ai ON d.indicator_id = ai.indicator_id
-    LEFT JOIN programs p ON d.program_id = p.program_id
-    LEFT JOIN accreditation_cycles ac ON d.cycle_id = ac.cycle_id
-    LEFT JOIN departments dept ON p.department_id = dept.department_id
+    INNER JOIN users u ON d.uploaded_by = u.user_id
+    INNER JOIN accreditation_indicators ai ON d.indicator_id = ai.indicator_id
+    INNER JOIN programs p ON d.program_id = p.program_id
+    INNER JOIN accreditation_cycles ac ON d.cycle_id = ac.cycle_id
+    INNER JOIN departments dept ON p.department_id = dept.department_id
     WHERE u.user_id = :user_id
     ORDER BY d.created_at DESC
 ");
@@ -27,6 +26,14 @@ $stmtDocuments->execute([
     'user_id' => $user_id
 ]);
 $documents = $stmtDocuments->fetchAll(PDO::FETCH_ASSOC);
+
+// DEBUG: Add this after fetching documents
+echo "<!-- DEBUG: User ID = " . $user_id . " -->\n";
+echo "<!-- DEBUG: Number of documents found = " . count($documents) . " -->\n";
+if (count($documents) === 0) {
+    echo "<!-- DEBUG: No documents found for user ID " . $user_id . " -->\n";
+    echo "<!-- DEBUG: Query executed successfully: " . ($stmtDocuments->rowCount() ? 'Yes' : 'No') . " -->\n";
+}
 
 // Fetch data for dropdowns
 $stmtIndicators = $pdo->prepare("
@@ -181,33 +188,21 @@ $cycles = $stmtCycles->fetch(PDO::FETCH_ASSOC);
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Program</label>
-                            <select name="program_id" id="editProgramId" class="form-select" required>
-                                <option value="">Select Program</option>
-                                <?php foreach($programs as $program) : ?>
-                                <option value="<?= $program['program_id'] ?>">
-                                    <?= htmlspecialchars($program['program_code']) . ' - ' . htmlspecialchars($program['program_name']) ?>
-                                </option>
-                                <?php endforeach; ?>
-                            </select>
+                            <input type="hidden" name="program_id" class="form-control" value="<?= $programs["program_id"] ?>">
+                            <p class="form-control" readonly><?= htmlspecialchars($programs['program_name']) . ' (' . htmlspecialchars($programs['program_code']) . ')' ?></p>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Accreditation Cycle</label>
-                            <select name="cycle_id" id="editCycleId" class="form-select" required>
-                                <option value="">Select Cycle</option>
-                                <?php foreach($cycles as $cycle) : ?>
-                                <option value="<?= $cycle['cycle_id'] ?>">
-                                    <?= htmlspecialchars($cycle['cycle_name']) . ' (' . htmlspecialchars($cycle['academic_year']) . ')' ?>
-                                </option>
-                                <?php endforeach; ?>
-                            </select>
+                            <input type="hidden" name="cycle_id" id="editCycleId"class="form-control" value="<?= $cycles["cycle_id"] ?>">
+                            <p class="form-control" readonly><?= htmlspecialchars($cycles['cycle_name']) . ' (' . htmlspecialchars($cycles['academic_year']) . ')' ?></p>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-3 d-none">
                             <label class="form-label">Version</label>
                             <input type="number" class="form-control" id="editVersion" name="version" min="1" required>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Status</label>
-                            <select name="status" id="editStatus" class="form-select" required>
+                            <select name="status" id="editStatus" class="form-select" disabled required>
                                 <option value="draft">Draft</option>
                                 <option value="submitted">Submitted</option>
                                 <option value="under_review">Under Review</option>
@@ -225,32 +220,6 @@ $cycles = $stmtCycles->fetch(PDO::FETCH_ASSOC);
         </div>
     </div>
 
-    <!-- Delete Document Modal -->
-    <div class="modal fade" id="deleteDocumentModal" tabindex="-1" aria-labelledby="deleteDocumentModalLabel"
-        aria-hidden="true">
-        <div class="modal-dialog">
-            <form id="delete-document-form" class="modal-content">
-                <div class="modal-header btn bg-gradient-primary text-white">
-                    <h5 class="modal-title text-white" id="deleteDocumentModalLabel">Confirm Delete</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="deleteDocumentMessage">
-                        Are you sure you want to delete this document? This action cannot be undone.
-                    </div>
-                    <input type="hidden" name="document_id" id="deleteDocumentId">
-                </div>
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn bg-gradient-primary">
-                        <i class="fas fa-trash me-1"></i> Yes, Delete
-                    </button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="fas fa-times me-1"></i> Cancel
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
     <!-- View Document Modal -->
     <div class="modal fade" id="viewDocumentModal" tabindex="-1" aria-labelledby="viewDocumentModalLabel"
         aria-hidden="true">
@@ -395,7 +364,7 @@ $cycles = $stmtCycles->fetch(PDO::FETCH_ASSOC);
                                 title="<?= htmlspecialchars($document['filename']) ?>">
                                 <div class="fw-bold"><?= htmlspecialchars($document['filename']) ?></div>
                                 <small class="text-muted">
-                                    <?= $document['version'] ?> • <?= formatFileSize($document['file_size']) ?>
+                                     • <?= formatFileSize($document['file_size']) ?>
                                 </small>
                             </div>
                         </div>
@@ -444,12 +413,12 @@ $cycles = $stmtCycles->fetch(PDO::FETCH_ASSOC);
                                 data-program="<?= htmlspecialchars($document['program_code'] . ' - ' . $document['program_name']) ?>"
                                 data-department="<?= htmlspecialchars($document['department_name']) ?>"
                                 data-cycle="<?= htmlspecialchars($document['cycle_name'] . ' (' . $document['academic_year'] . ')') ?>"
-                                data-version="<?= htmlspecialchars($document['version']) ?>"
+
                                 data-status="<?= htmlspecialchars($document['status']) ?>">
                                 <i class="fas fa-eye"></i>
                             </button>
 
-                            <a href="<?= htmlspecialchars('../../authentication/uploads/documents/' . basename($document['file_path'])) ?>"
+                            <a href="<?= htmlspecialchars('../../authentication/uploads/' . basename($document['file_path'])) ?>"
                                 class="btn btn-sm btn-light" data-bs-toggle="tooltip" data-bs-title="Download"
                                 download="<?= htmlspecialchars($document['filename']) ?>">
                                 <i class="fas fa-download"></i>
@@ -460,16 +429,9 @@ $cycles = $stmtCycles->fetch(PDO::FETCH_ASSOC);
                                 data-document-id="<?= $document['document_id'] ?>"
                                 data-filename="<?= htmlspecialchars($document['filename']) ?>"
                                 data-indicator-id="<?= $document['indicator_id'] ?>"
-                                data-program-id="<?= $document['program_id'] ?>"
                                 data-cycle-id="<?= $document['cycle_id'] ?>"
-                                data-version="<?= htmlspecialchars($document['version']) ?>"
                                 data-status="<?= htmlspecialchars($document['status']) ?>">
                                 <i class="fas fa-edit"></i>
-                            </button>
-
-                            <button type="button" class="btn btn-sm btn-light text-danger delete-document-btn" data-bs-toggle="modal"
-                                data-bs-target="#deleteDocumentModal" onclick="setDeleteDcoumentId(<?= $document['document_id'] ?>)">
-                                <i class="fas fa-trash"></i>
                             </button>
                         </div>
                     </td>
@@ -490,7 +452,7 @@ $cycles = $stmtCycles->fetch(PDO::FETCH_ASSOC);
             // Extract filename
             const filename = path.split('/').pop();
             // Return correct path
-            return '../../authentication/uploads/documents/' + filename;
+            return '../../authentication/uploads/' + filename;
         }
 
         // Set document information
@@ -775,11 +737,10 @@ $cycles = $stmtCycles->fetch(PDO::FETCH_ASSOC);
     }
 
     // Document Edit Function
-    function editDocument(documentId, filename, indicatorId, programId, cycleId, version, status) {
+    function editDocument(documentId, filename, indicatorId, cycleId, version, status) {
         document.getElementById('editDocumentId').value = documentId;
         document.getElementById('currentFileName').textContent = filename;
         document.getElementById('editIndicatorId').value = indicatorId;
-        document.getElementById('editProgramId').value = programId;
         document.getElementById('editCycleId').value = cycleId;
         document.getElementById('editVersion').value = version;
         document.getElementById('editStatus').value = status;
@@ -828,10 +789,9 @@ $cycles = $stmtCycles->fetch(PDO::FETCH_ASSOC);
                 const indicatorId = this.getAttribute('data-indicator-id');
                 const programId = this.getAttribute('data-program-id');
                 const cycleId = this.getAttribute('data-cycle-id');
-                const version = this.getAttribute('data-version');
                 const status = this.getAttribute('data-status');
 
-                editDocument(documentId, filename, indicatorId, programId, cycleId, version,
+                editDocument(documentId, filename, indicatorId, programId, cycleId,
                     status);
             });
         });

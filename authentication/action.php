@@ -161,6 +161,18 @@ if ($action === 'delete_cycle_form') {
 		echo $validation;
 	}
 }
+if ($action === 'activate_cycle_form') {
+	$validation = $crud->activate_cycle_form();
+	if ($validation) {
+		echo $validation;
+	}
+}
+if ($action === 'close_cycle_form') {
+	$validation = $crud->close_cycle_form();
+	if ($validation) {
+		echo $validation;
+	}
+}
 
 // Document Management ==================================================
 if ($action === 'document_form') {

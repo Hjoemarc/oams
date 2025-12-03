@@ -469,12 +469,25 @@ $documentCount = 1;
                     <input type="text" placeholder="Search documents..." id="searchDocuments" class="form-control">
                 </div>
                 <div class="col-md-3">
-                    <select id="filterDocStatus" class="form-select">
+                    <select id="filterDocStatusDocuments" class="form-select">
                         <option value="">All Status</option>
                         <option value="submitted">Submitted</option>
                         <option value="under_review">Under Review</option>
                         <option value="needs_revision">Needs Revision</option>
                         <option value="approved">Approved</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select id="filterProgramDocuments" class="form-select">
+                        <option value="">All Programs</option>
+                        <?php
+                        $stmtPrograms = $pdo->prepare("SELECT cycle_name FROM accreditation_cycles ORDER BY cycle_name");
+                        $stmtPrograms->execute();
+                        $programs = $stmtPrograms->fetchAll(PDO::FETCH_ASSOC);
+                        foreach($programs as $program) {
+                            echo '<option value="' . $program['cycle_name'] . '">' . htmlspecialchars($program['cycle_name']) . '</option>';
+                        }
+                        ?>
                     </select>
                 </div>
             </div>
@@ -833,10 +846,222 @@ $(document).ready(function() {
 
 });
 </script>
-<!-- filtering js -->
+<!-- filtering js assignments -->
  <script>
-    
- </script>
+    // DOM elements
+    const searchInput = document.getElementById('searchAssignments');
+    const statusFilter = document.getElementById('filterStatus');
+    const programFilter = document.getElementById('filterProgram');
+    const assignmentsTable = document.getElementById('assignmentsTable');
+
+    // Original assignments data (store for filtering)
+    let originalAssignmentsData = [];
+
+    // Store original table rows on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        // Store original rows data
+        const rows = assignmentsTable.querySelectorAll('tr');
+        rows.forEach(row => {
+            const rowData = {
+                html: row.outerHTML,
+                faculty: row.cells[1]?.textContent.toLowerCase() || '',
+                program: row.cells[2]?.textContent.toLowerCase() || '',
+                indicator: row.cells[3]?.textContent.toLowerCase() || '',
+                deadline: row.cells[4]?.textContent.toLowerCase() || '',
+                status: row.cells[5]?.textContent.toLowerCase() || ''
+            };
+            originalAssignmentsData.push(rowData);
+        });
+    });
+
+    // Search and filter function
+    function filterAssignments() {
+        const searchTerm = searchInput.value.toLowerCase();
+        const statusValue = statusFilter.value.toLowerCase();
+        const programValue = programFilter.value.toLowerCase();
+        
+        // Get all table rows
+        const rows = assignmentsTable.querySelectorAll('tr');
+        
+        // Loop through each row and check filters
+        rows.forEach((row, index) => {
+            const rowData = originalAssignmentsData[index];
+            let showRow = true;
+            
+            // Apply search filter
+            if (searchTerm) {
+                const matchesSearch = 
+                    rowData.faculty.includes(searchTerm) ||
+                    rowData.program.includes(searchTerm) ||
+                    rowData.indicator.includes(searchTerm) ||
+                    rowData.deadline.includes(searchTerm);
+                
+                if (!matchesSearch) {
+                    showRow = false;
+                }
+            }
+            
+            // Apply status filter
+            if (statusValue && showRow) {
+                const statusBadge = row.cells[5]?.querySelector('.badge');
+                const rowStatus = statusBadge?.textContent.toLowerCase().trim() || '';
+                
+                if (!rowStatus.includes(statusValue.replace('_', ' '))) {
+                    showRow = false;
+                }
+            }
+            
+            // Apply program filter
+            if (programValue && showRow) {
+                const programCell = row.cells[2];
+                const programCode = programCell?.querySelector('strong')?.textContent.toLowerCase() || '';
+                
+                if (programCode !== programValue) {
+                    showRow = false;
+                }
+            }
+            
+            // Show/hide row based on filter results
+            row.style.display = showRow ? '' : 'none';
+            
+            // Update row numbering for visible rows
+            updateRowNumbers();
+        });
+    }
+
+    // Update row numbers after filtering
+    function updateRowNumbers() {
+        let visibleRowNumber = 1;
+        const rows = assignmentsTable.querySelectorAll('tr');
+        
+        rows.forEach(row => {
+            if (row.style.display !== 'none') {
+                const firstCell = row.cells[0];
+                if (firstCell) {
+                    firstCell.textContent = visibleRowNumber;
+                }
+                visibleRowNumber++;
+            }
+        });
+    }
+
+    // Add event listeners
+    searchInput.addEventListener('keyup', filterAssignments);
+    statusFilter.addEventListener('change', filterAssignments);
+    programFilter.addEventListener('change', filterAssignments);
+
+    // Clear filters function (optional - can be called from a clear button)
+    function clearFilters() {
+        searchInput.value = '';
+        statusFilter.value = '';
+        programFilter.value = '';
+        
+        // Show all rows
+        const rows = assignmentsTable.querySelectorAll('tr');
+        rows.forEach(row => {
+            row.style.display = '';
+        });
+        
+        // Reset row numbers
+        updateRowNumbers();
+    }
+</script>
+<!-- filter js documents -->
+<script>
+    // DOM elements for documents
+    const searchDocumentsInput = document.getElementById('searchDocuments');
+    const statusFilterDocuments = document.getElementById('filterDocStatusDocuments');
+    const programFilterDocuments = document.getElementById('filterProgramDocuments');
+    const documentsTable = document.getElementById('documentsTable');
+
+    // Simple filter function
+    function filterDocumentsSimple() {
+        const searchTerm = searchDocumentsInput.value.toLowerCase();
+        const statusValue = statusFilterDocuments.value.toLowerCase();
+        const programValue = programFilterDocuments.value.toLowerCase();
+        
+        // Get all table rows
+        const rows = documentsTable.querySelectorAll('tr');
+        let visibleCount = 0;
+        
+        // Loop through each row
+        rows.forEach(row => {
+            let showRow = true;
+            
+            // Get row data
+            const uploadedBy = row.cells[1]?.textContent.toLowerCase() || '';
+            const indicator = row.cells[2]?.textContent.toLowerCase() || '';
+            const programCell = row.cells[3];
+            const programText = programCell?.textContent.toLowerCase() || '';
+            
+            // Extract cycle name - get the small text within program cell
+            let cycleName = '';
+            if (programCell) {
+                const smallElements = programCell.getElementsByTagName('small');
+                if (smallElements.length > 0) {
+                    cycleName = smallElements[smallElements.length - 1].textContent.toLowerCase().trim();
+                }
+            }
+            
+            const statusBadge = row.cells[4]?.querySelector('.badge');
+            const status = statusBadge?.textContent.toLowerCase().trim() || '';
+            const reviews = row.cells[5]?.textContent.toLowerCase() || '';
+            
+            // Apply search filter
+            if (searchTerm && showRow) {
+                const searchableText = uploadedBy + ' ' + indicator + ' ' + programText + ' ' + status + ' ' + reviews;
+                if (!searchableText.includes(searchTerm)) {
+                    showRow = false;
+                }
+            }
+            
+            // Apply status filter
+            if (statusValue && showRow) {
+                const normalizedStatus = statusValue.replace('_', ' ');
+                if (status !== normalizedStatus) {
+                    showRow = false;
+                }
+            }
+            
+            // Apply program/cycle filter
+            if (programValue && showRow) {
+                if (cycleName !== programValue.toLowerCase()) {
+                    showRow = false;
+                }
+            }
+            
+            // Show/hide row
+            row.style.display = showRow ? '' : 'none';
+            if (showRow) visibleCount++;
+            
+            // Update row number if visible
+            if (showRow && row.cells[0]) {
+                row.cells[0].textContent = visibleCount;
+            }
+        });
+    }
+
+    // Add event listeners
+    searchDocumentsInput.addEventListener('keyup', filterDocumentsSimple);
+    statusFilterDocuments.addEventListener('change', filterDocumentsSimple);
+    programFilterDocuments.addEventListener('change', filterDocumentsSimple);
+
+    // Clear filters
+    function clearDocumentFilters() {
+        searchDocumentsInput.value = '';
+        statusFilterDocuments.value = '';
+        programFilterDocuments.value = '';
+        
+        const rows = documentsTable.querySelectorAll('tr');
+        rows.forEach((row, index) => {
+            row.style.display = '';
+            if (row.cells[0]) {
+                row.cells[0].textContent = index + 1;
+            }
+        });
+    }
+</script>
+
 <style>
     /* Custom styles for Review Management */
     .card {

@@ -44,16 +44,42 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
     </div>
 
     <!-- DOCUMENTS ADD AND SEARCH -->
-    <div class="col-md-12 col-12 d-flex justify-content-between mb-3">
+    <div class="row col-md-12 col-12 d-flex justify-content-between mb-3">
         <div class="col-md-4 col-12">
             <input type="text" placeholder="Search by filename, program, or indicator" id="searchDocuments"
                 class="form-control">
         </div>
+        <div class="col-md-3 d-none" >
+             <select id="filterPrograms" class="form-select">
+                <option value="">All Programs</option>
+                <?php
+                        $stmtPrograms = $pdo->prepare("SELECT program_code FROM programs ORDER BY program_code");
+                        $stmtPrograms->execute();
+                        $programs = $stmtPrograms->fetchAll(PDO::FETCH_ASSOC);
+                        foreach($programs as $program) {
+                            echo '<option value="' . $program['program_code'] . '">' . htmlspecialchars($program['program_code']) . '</option>';
+                        }
+                        ?>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <select id="filterCycles" class="form-select">
+                <option value="">All Cycles</option>
+                <?php
+                        $stmtPrograms = $pdo->prepare("SELECT academic_year FROM accreditation_cycles ORDER BY academic_year");
+                        $stmtPrograms->execute();
+                        $programs = $stmtPrograms->fetchAll(PDO::FETCH_ASSOC);
+                        foreach($programs as $program) {
+                            echo '<option value="' . $program['academic_year'] . '">' . htmlspecialchars($program['academic_year']) . '</option>';
+                        }
+                        ?>
+            </select>
+        </div>
         <div class="col-md-3 d-flex justify-content-end">
-                <button type="button" class="btn bg-gradient-primary" data-bs-toggle="modal"
-                    data-bs-target="#addDocumentModal" id="add_new_document">
-                    <i class="fa fa-upload"></i> Upload Document
-                </button>
+            <button type="button" class="btn bg-gradient-primary" data-bs-toggle="modal"
+                data-bs-target="#addDocumentModal" id="add_new_document">
+                <i class="fa fa-upload"></i> Upload Document
+            </button>
         </div>
     </div>
 
@@ -71,9 +97,9 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
                     <form class="row g-3" id="document-form" enctype="multipart/form-data">
                         <div class="col-md-6">
                             <label class="form-label">Document File</label>
-                           <input type="file" class="form-control" name="document_file"
-       accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/zip,application/x-zip-compressed" 
-       required />
+                            <input type="file" class="form-control" name="document_file"
+                                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/zip,application/x-zip-compressed"
+                                required />
                             <small class="text-muted">Accepted formats: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX</small>
                         </div>
                         <input type="hidden" name="user_id" value="<?= htmlspecialchars($admin_id) ?>">
@@ -144,10 +170,8 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
                     <h5 class="modal-title text-white" id="editDocumentModalLabel">Edit Document</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <input type="hidden" name="user_id" value="<?= htmlspecialchars($admin_id) ?>">
                 <div class="modal-body">
                     <input type="hidden" name="document_id" id="editDocumentId">
-                    <input type="hidden" name="user_id" value="<?= htmlspecialchars($admin_id) ?>">
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label">Current File</label>
@@ -192,7 +216,7 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-3 d-none">
                             <label class="form-label">Version</label>
                             <input type="number" class="form-control" id="editVersion" name="version" min="1" required>
                         </div>
@@ -260,7 +284,7 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
                                     <th>Filename:</th>
                                     <td id="viewFilename"></td>
                                 </tr>
-                                 <tr>
+                                <tr>
                                     <th>File Type:</th>
                                     <td id="fileType"></td>
                                 </tr>
@@ -390,7 +414,7 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
                                 title="<?= htmlspecialchars($document['filename']) ?>">
                                 <div class="fw-bold"><?= htmlspecialchars($document['filename']) ?></div>
                                 <small class="text-muted">
-                                     • <?= formatFileSize($document['file_size']) ?>
+                                    • <?= formatFileSize($document['file_size']) ?>
                                 </small>
                             </div>
                         </div>
@@ -439,7 +463,6 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
                                 data-program="<?= htmlspecialchars($document['program_code'] . ' - ' . $document['program_name']) ?>"
                                 data-department="<?= htmlspecialchars($document['department_name']) ?>"
                                 data-cycle="<?= htmlspecialchars($document['cycle_name'] . ' (' . $document['academic_year'] . ')') ?>"
-
                                 data-status="<?= htmlspecialchars($document['status']) ?>">
                                 <i class="fas fa-eye"></i>
                             </button>
@@ -451,6 +474,7 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
                             </a>
 
                             <button type="button" class="btn btn-sm btn-light edit-document-btn"
+                                id="get_docuemnt_id"
                                 data-bs-toggle="tooltip" data-bs-title="Edit"
                                 data-document-id="<?= $document['document_id'] ?>"
                                 data-filename="<?= htmlspecialchars($document['filename']) ?>"
@@ -461,8 +485,9 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
                                 <i class="fas fa-edit"></i>
                             </button>
 
-                            <button type="button" class="btn btn-sm btn-light text-danger delete-document-btn" data-bs-toggle="modal"
-                                data-bs-target="#deleteDocumentModal" onclick="setDeleteDcoumentId(<?= $document['document_id'] ?>)">
+                            <button type="button" class="btn btn-sm btn-light text-danger delete-document-btn"
+                                data-bs-toggle="modal" data-bs-target="#deleteDocumentModal"
+                                onclick="setDeleteDcoumentId(<?= $document['document_id'] ?>)">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>
@@ -476,467 +501,651 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
 
 <script>
 // Document View Function
-function viewDocument(documentId, filename, filePath, fileSize, uploadedBy, createdAt, updatedAt,
-    indicator, program, department, cycle, version, status) {
+    function viewDocument(documentId, filename, filePath, fileSize, uploadedBy, createdAt, updatedAt,
+        indicator, program, department, cycle, version, status) {
 
-    // Helper function to get correct path
-    function getCorrectFilePath(path) {
-        // Remove any date-based folders from the path and just get the filename
-        const filename = path.split('/').pop();
-        // Return correct path - always in uploads/documents/
-        return '../../authentication/uploads/' + filename;
-    }
-
-    // Get file extension
-    function getFileExtension(filename) {
-        return filename.split('.').pop().toLowerCase();
-    }
-
-    // Get file type name
-    function getFileTypeName(extension) {
-        const fileTypes = {
-            'pdf': 'PDF Document',
-            'doc': 'Microsoft Word Document',
-            'docx': 'Microsoft Word Document',
-            'xls': 'Microsoft Excel Spreadsheet',
-            'xlsx': 'Microsoft Excel Spreadsheet',
-            'ppt': 'Microsoft PowerPoint Presentation',
-            'pptx': 'Microsoft PowerPoint Presentation',
-            'zip': 'ZIP Archive',
-            'jpg': 'JPEG Image',
-            'jpeg': 'JPEG Image',
-            'png': 'PNG Image',
-            'gif': 'GIF Image',
-            'txt': 'Text File'
-        };
-        return fileTypes[extension] || 'File';
-    }
-
-    // Set document information
-    document.getElementById('viewFilename').textContent = filename;
-    document.getElementById('viewFileSize').textContent = formatFileSize(fileSize);
-    document.getElementById('viewUploadedBy').textContent = uploadedBy;
-    document.getElementById('viewCreatedAt').textContent = new Date(createdAt).toLocaleString();
-    document.getElementById('viewUpdatedAt').textContent = new Date(updatedAt).toLocaleString();
-    document.getElementById('viewIndicator').textContent = indicator;
-    document.getElementById('viewProgram').textContent = program;
-    document.getElementById('viewDepartment').textContent = department;
-    document.getElementById('viewCycle').textContent = cycle;
-    document.getElementById('viewVersion').textContent = version;
-
-    // Get file extension and set file type
-    const fileExtension = getFileExtension(filename);
-    const fileTypeName = getFileTypeName(fileExtension);
-    document.getElementById('fileType').textContent = fileTypeName + ' (.' + fileExtension + ')';
-
-    // Set status with appropriate badge
-    const statusText = status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ');
-    let statusClass = '';
-    switch (status) {
-        case 'approved':
-            statusClass = 'badge bg-success';
-            break;
-        case 'submitted':
-            statusClass = 'badge bg-primary';
-            break;
-        case 'under_review':
-            statusClass = 'badge bg-info';
-            break;
-        case 'needs_revision':
-            statusClass = 'badge bg-warning';
-            break;
-        case 'draft':
-            statusClass = 'badge bg-secondary';
-            break;
-    }
-    document.getElementById('viewStatus').innerHTML = `<span class="${statusClass}">${statusText}</span>`;
-
-    // Get the CORRECT web-accessible path
-    const webFilePath = getCorrectFilePath(filePath);
-
-    // Debug log
-    console.log('Original path:', filePath);
-    console.log('Corrected path:', webFilePath);
-    console.log('File extension:', fileExtension);
-
-    // Now set the download link
-    const downloadLink = document.getElementById('downloadDocumentLink');
-    downloadLink.href = webFilePath;
-    downloadLink.download = filename;
-
-    // Set the preview link based on file type
-    const previewLink = document.getElementById('previewDocumentLink');
-    const basePath = '../../authentication/uploads/';
-    const actualFilename = filename.split('/').pop(); // In case filename has path
-
-    // Always show the button
-    previewLink.style.display = 'inline-block';
-
-    // Reset button to default
-    previewLink.className = 'btn btn-secondary';
-    previewLink.innerHTML = '<i class="fas fa-eye"></i> Preview';
-    previewLink.onclick = null;
-    previewLink.removeAttribute('download');
-
-    // File type mapping
-    const fileTypeConfig = {
-        'pdf': {
-            type: 'preview',
-            icon: 'fa-file-pdf',
-            color: 'btn-danger',
-            action: function() {
-                previewLink.href = webFilePath;
-                previewLink.setAttribute('target', '_blank');
-            }
-        },
-        'doc': {
-            type: 'office',
-            icon: 'fa-file-word',
-            color: 'btn-primary',
-            action: function() {
-                // Get absolute URL for Office Online Viewer
-                const baseUrl = window.location.origin;
-                const projectPath = window.location.pathname.split('/').slice(0, -2).join('/') + '/';
-                const absolutePath = baseUrl + projectPath + webFilePath.replace('../../', '');
-                previewLink.href = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absolutePath)}`;
-                previewLink.setAttribute('target', '_blank');
-                previewLink.innerHTML = '<i class="fas fa-external-link-alt"></i> Open in Office Online';
-            }
-        },
-        'docx': {
-            type: 'office',
-            icon: 'fa-file-word',
-            color: 'btn-primary',
-            action: function() {
-                const baseUrl = window.location.origin;
-                const projectPath = window.location.pathname.split('/').slice(0, -2).join('/') + '/';
-                const absolutePath = baseUrl + projectPath + webFilePath.replace('../../', '');
-                previewLink.href = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absolutePath)}`;
-                previewLink.setAttribute('target', '_blank');
-                previewLink.innerHTML = '<i class="fas fa-external-link-alt"></i> Open in Office Online';
-            }
-        },
-        'xls': {
-            type: 'office',
-            icon: 'fa-file-excel',
-            color: 'btn-success',
-            action: function() {
-                const baseUrl = window.location.origin;
-                const projectPath = window.location.pathname.split('/').slice(0, -2).join('/') + '/';
-                const absolutePath = baseUrl + projectPath + webFilePath.replace('../../', '');
-                previewLink.href = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absolutePath)}`;
-                previewLink.setAttribute('target', '_blank');
-                previewLink.innerHTML = '<i class="fas fa-external-link-alt"></i> Open in Office Online';
-            }
-        },
-        'xlsx': {
-            type: 'office',
-            icon: 'fa-file-excel',
-            color: 'btn-success',
-            action: function() {
-                const baseUrl = window.location.origin;
-                const projectPath = window.location.pathname.split('/').slice(0, -2).join('/') + '/';
-                const absolutePath = baseUrl + projectPath + webFilePath.replace('../../', '');
-                previewLink.href = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absolutePath)}`;
-                previewLink.setAttribute('target', '_blank');
-                previewLink.innerHTML = '<i class="fas fa-external-link-alt"></i> Open in Office Online';
-            }
-        },
-        'ppt': {
-            type: 'office',
-            icon: 'fa-file-powerpoint',
-            color: 'btn-warning',
-            action: function() {
-                const baseUrl = window.location.origin;
-                const projectPath = window.location.pathname.split('/').slice(0, -2).join('/') + '/';
-                const absolutePath = baseUrl + projectPath + webFilePath.replace('../../', '');
-                previewLink.href = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absolutePath)}`;
-                previewLink.setAttribute('target', '_blank');
-                previewLink.innerHTML = '<i class="fas fa-external-link-alt"></i> Open in Office Online';
-            }
-        },
-        'pptx': {
-            type: 'office',
-            icon: 'fa-file-powerpoint',
-            color: 'btn-warning',
-            action: function() {
-                const baseUrl = window.location.origin;
-                const projectPath = window.location.pathname.split('/').slice(0, -2).join('/') + '/';
-                const absolutePath = baseUrl + projectPath + webFilePath.replace('../../', '');
-                previewLink.href = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absolutePath)}`;
-                previewLink.setAttribute('target', '_blank');
-                previewLink.innerHTML = '<i class="fas fa-external-link-alt"></i> Open in Office Online';
-            }
-        },
-        'zip': {
-            type: 'archive',
-            icon: 'fa-file-archive',
-            color: 'btn-secondary',
-            action: function() {
-                // ZIP files can't be previewed, make it a download button
-                previewLink.className = 'btn btn-secondary';
-                previewLink.innerHTML = '<i class="fas fa-download"></i> Download ZIP';
-                previewLink.href = webFilePath;
-                previewLink.setAttribute('download', filename);
-            }
-        },
-        'jpg': {
-            type: 'image',
-            icon: 'fa-file-image',
-            color: 'btn-info',
-            action: function() {
-                previewLink.onclick = function(e) {
-                    e.preventDefault();
-                    previewImage(webFilePath, filename);
-                    return false;
-                };
-            }
-        },
-        'jpeg': {
-            type: 'image',
-            icon: 'fa-file-image',
-            color: 'btn-info',
-            action: function() {
-                previewLink.onclick = function(e) {
-                    e.preventDefault();
-                    previewImage(webFilePath, filename);
-                    return false;
-                };
-            }
-        },
-        'png': {
-            type: 'image',
-            icon: 'fa-file-image',
-            color: 'btn-info',
-            action: function() {
-                previewLink.onclick = function(e) {
-                    e.preventDefault();
-                    previewImage(webFilePath, filename);
-                    return false;
-                };
-            }
-        },
-        'gif': {
-            type: 'image',
-            icon: 'fa-file-image',
-            color: 'btn-info',
-            action: function() {
-                previewLink.onclick = function(e) {
-                    e.preventDefault();
-                    previewImage(webFilePath, filename);
-                    return false;
-                };
-            }
-        },
-        'txt': {
-            type: 'text',
-            icon: 'fa-file-alt',
-            color: 'btn-light',
-            action: function() {
-                previewLink.href = webFilePath;
-                previewLink.setAttribute('target', '_blank');
-            }
+        // Helper function to get correct path
+        function getCorrectFilePath(path) {
+            // Remove any date-based folders from the path and just get the filename
+            const filename = path.split('/').pop();
+            // Return correct path - always in uploads/documents/
+            return '../../authentication/uploads/' + filename;
         }
-    };
 
-    // Apply configuration based on file extension
-    if (fileTypeConfig[fileExtension]) {
-        const config = fileTypeConfig[fileExtension];
-        previewLink.className = 'btn ' + config.color;
-        previewLink.innerHTML = `<i class="fas ${config.icon}"></i> ${config.type === 'office' ? 'Open Online' : 'Preview'}`;
-        config.action();
-    } else {
-        // For unknown file types, make it a download button
-        previewLink.className = 'btn btn-info';
-        previewLink.innerHTML = '<i class="fas fa-download"></i> Download';
-        previewLink.href = webFilePath;
-        previewLink.setAttribute('download', filename);
+        // Get file extension
+        function getFileExtension(filename) {
+            return filename.split('.').pop().toLowerCase();
+        }
+
+        // Get file type name
+        function getFileTypeName(extension) {
+            const fileTypes = {
+                'pdf': 'PDF Document',
+                'doc': 'Microsoft Word Document',
+                'docx': 'Microsoft Word Document',
+                'xls': 'Microsoft Excel Spreadsheet',
+                'xlsx': 'Microsoft Excel Spreadsheet',
+                'ppt': 'Microsoft PowerPoint Presentation',
+                'pptx': 'Microsoft PowerPoint Presentation',
+                'zip': 'ZIP Archive',
+                'jpg': 'JPEG Image',
+                'jpeg': 'JPEG Image',
+                'png': 'PNG Image',
+                'gif': 'GIF Image',
+                'txt': 'Text File'
+            };
+            return fileTypes[extension] || 'File';
+        }
+
+        // Set document information
+        document.getElementById('viewFilename').textContent = filename;
+        document.getElementById('viewFileSize').textContent = formatFileSize(fileSize);
+        document.getElementById('viewUploadedBy').textContent = uploadedBy;
+        document.getElementById('viewCreatedAt').textContent = new Date(createdAt).toLocaleString();
+        document.getElementById('viewUpdatedAt').textContent = new Date(updatedAt).toLocaleString();
+        document.getElementById('viewIndicator').textContent = indicator;
+        document.getElementById('viewProgram').textContent = program;
+        document.getElementById('viewDepartment').textContent = department;
+        document.getElementById('viewCycle').textContent = cycle;
+        document.getElementById('viewVersion').textContent = version;
+
+        // Get file extension and set file type
+        const fileExtension = getFileExtension(filename);
+        const fileTypeName = getFileTypeName(fileExtension);
+        document.getElementById('fileType').textContent = fileTypeName + ' (.' + fileExtension + ')';
+
+        // Set status with appropriate badge
+        const statusText = status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ');
+        let statusClass = '';
+        switch (status) {
+            case 'approved':
+                statusClass = 'badge bg-success';
+                break;
+            case 'submitted':
+                statusClass = 'badge bg-primary';
+                break;
+            case 'under_review':
+                statusClass = 'badge bg-info';
+                break;
+            case 'needs_revision':
+                statusClass = 'badge bg-warning';
+                break;
+            case 'draft':
+                statusClass = 'badge bg-secondary';
+                break;
+        }
+        document.getElementById('viewStatus').innerHTML = `<span class="${statusClass}">${statusText}</span>`;
+
+        // Get the CORRECT web-accessible path
+        const webFilePath = getCorrectFilePath(filePath);
+
+        // Debug log
+        console.log('Original path:', filePath);
+        console.log('Corrected path:', webFilePath);
+        console.log('File extension:', fileExtension);
+
+        // Now set the download link
+        const downloadLink = document.getElementById('downloadDocumentLink');
+        downloadLink.href = webFilePath;
+        downloadLink.download = filename;
+
+        // Set the preview link based on file type
+        const previewLink = document.getElementById('previewDocumentLink');
+        const basePath = '../../authentication/uploads/';
+        const actualFilename = filename.split('/').pop(); // In case filename has path
+
+        // Always show the button
+        previewLink.style.display = 'inline-block';
+
+        // Reset button to default
+        previewLink.className = 'btn btn-secondary';
+        previewLink.innerHTML = '<i class="fas fa-eye"></i> Preview';
+        previewLink.onclick = null;
+        previewLink.removeAttribute('download');
+
+        // File type mapping
+        const fileTypeConfig = {
+            'pdf': {
+                type: 'preview',
+                icon: 'fa-file-pdf',
+                color: 'btn-danger',
+                action: function() {
+                    previewLink.href = webFilePath;
+                    previewLink.setAttribute('target', '_blank');
+                }
+            },
+            'doc': {
+                type: 'office',
+                icon: 'fa-file-word',
+                color: 'btn-primary',
+                action: function() {
+                    // Get absolute URL for Office Online Viewer
+                    const baseUrl = window.location.origin;
+                    const projectPath = window.location.pathname.split('/').slice(0, -2).join('/') + '/';
+                    const absolutePath = baseUrl + projectPath + webFilePath.replace('../../', '');
+                    previewLink.href =
+                        `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absolutePath)}`;
+                    previewLink.setAttribute('target', '_blank');
+                    previewLink.innerHTML = '<i class="fas fa-external-link-alt"></i> Open in Office Online';
+                }
+            },
+            'docx': {
+                type: 'office',
+                icon: 'fa-file-word',
+                color: 'btn-primary',
+                action: function() {
+                    const baseUrl = window.location.origin;
+                    const projectPath = window.location.pathname.split('/').slice(0, -2).join('/') + '/';
+                    const absolutePath = baseUrl + projectPath + webFilePath.replace('../../', '');
+                    previewLink.href =
+                        `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absolutePath)}`;
+                    previewLink.setAttribute('target', '_blank');
+                    previewLink.innerHTML = '<i class="fas fa-external-link-alt"></i> Open in Office Online';
+                }
+            },
+            'xls': {
+                type: 'office',
+                icon: 'fa-file-excel',
+                color: 'btn-success',
+                action: function() {
+                    const baseUrl = window.location.origin;
+                    const projectPath = window.location.pathname.split('/').slice(0, -2).join('/') + '/';
+                    const absolutePath = baseUrl + projectPath + webFilePath.replace('../../', '');
+                    previewLink.href =
+                        `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absolutePath)}`;
+                    previewLink.setAttribute('target', '_blank');
+                    previewLink.innerHTML = '<i class="fas fa-external-link-alt"></i> Open in Office Online';
+                }
+            },
+            'xlsx': {
+                type: 'office',
+                icon: 'fa-file-excel',
+                color: 'btn-success',
+                action: function() {
+                    const baseUrl = window.location.origin;
+                    const projectPath = window.location.pathname.split('/').slice(0, -2).join('/') + '/';
+                    const absolutePath = baseUrl + projectPath + webFilePath.replace('../../', '');
+                    previewLink.href =
+                        `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absolutePath)}`;
+                    previewLink.setAttribute('target', '_blank');
+                    previewLink.innerHTML = '<i class="fas fa-external-link-alt"></i> Open in Office Online';
+                }
+            },
+            'ppt': {
+                type: 'office',
+                icon: 'fa-file-powerpoint',
+                color: 'btn-warning',
+                action: function() {
+                    const baseUrl = window.location.origin;
+                    const projectPath = window.location.pathname.split('/').slice(0, -2).join('/') + '/';
+                    const absolutePath = baseUrl + projectPath + webFilePath.replace('../../', '');
+                    previewLink.href =
+                        `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absolutePath)}`;
+                    previewLink.setAttribute('target', '_blank');
+                    previewLink.innerHTML = '<i class="fas fa-external-link-alt"></i> Open in Office Online';
+                }
+            },
+            'pptx': {
+                type: 'office',
+                icon: 'fa-file-powerpoint',
+                color: 'btn-warning',
+                action: function() {
+                    const baseUrl = window.location.origin;
+                    const projectPath = window.location.pathname.split('/').slice(0, -2).join('/') + '/';
+                    const absolutePath = baseUrl + projectPath + webFilePath.replace('../../', '');
+                    previewLink.href =
+                        `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absolutePath)}`;
+                    previewLink.setAttribute('target', '_blank');
+                    previewLink.innerHTML = '<i class="fas fa-external-link-alt"></i> Open in Office Online';
+                }
+            },
+            'zip': {
+                type: 'archive',
+                icon: 'fa-file-archive',
+                color: 'btn-secondary',
+                action: function() {
+                    // ZIP files can't be previewed, make it a download button
+                    previewLink.className = 'btn btn-secondary';
+                    previewLink.innerHTML = '<i class="fas fa-download"></i> Download ZIP';
+                    previewLink.href = webFilePath;
+                    previewLink.setAttribute('download', filename);
+                }
+            },
+            'jpg': {
+                type: 'image',
+                icon: 'fa-file-image',
+                color: 'btn-info',
+                action: function() {
+                    previewLink.onclick = function(e) {
+                        e.preventDefault();
+                        previewImage(webFilePath, filename);
+                        return false;
+                    };
+                }
+            },
+            'jpeg': {
+                type: 'image',
+                icon: 'fa-file-image',
+                color: 'btn-info',
+                action: function() {
+                    previewLink.onclick = function(e) {
+                        e.preventDefault();
+                        previewImage(webFilePath, filename);
+                        return false;
+                    };
+                }
+            },
+            'png': {
+                type: 'image',
+                icon: 'fa-file-image',
+                color: 'btn-info',
+                action: function() {
+                    previewLink.onclick = function(e) {
+                        e.preventDefault();
+                        previewImage(webFilePath, filename);
+                        return false;
+                    };
+                }
+            },
+            'gif': {
+                type: 'image',
+                icon: 'fa-file-image',
+                color: 'btn-info',
+                action: function() {
+                    previewLink.onclick = function(e) {
+                        e.preventDefault();
+                        previewImage(webFilePath, filename);
+                        return false;
+                    };
+                }
+            },
+            'txt': {
+                type: 'text',
+                icon: 'fa-file-alt',
+                color: 'btn-light',
+                action: function() {
+                    previewLink.href = webFilePath;
+                    previewLink.setAttribute('target', '_blank');
+                }
+            }
+        };
+
+        // Apply configuration based on file extension
+        if (fileTypeConfig[fileExtension]) {
+            const config = fileTypeConfig[fileExtension];
+            previewLink.className = 'btn ' + config.color;
+            previewLink.innerHTML =
+                `<i class="fas ${config.icon}"></i> ${config.type === 'office' ? 'Open Online' : 'Preview'}`;
+            config.action();
+        } else {
+            // For unknown file types, make it a download button
+            previewLink.className = 'btn btn-info';
+            previewLink.innerHTML = '<i class="fas fa-download"></i> Download';
+            previewLink.href = webFilePath;
+            previewLink.setAttribute('download', filename);
+        }
+
+        // Open modal
+        var modal = new bootstrap.Modal(document.getElementById('viewDocumentModal'));
+        modal.show();
     }
 
-    // Open modal
-    var modal = new bootstrap.Modal(document.getElementById('viewDocumentModal'));
-    modal.show();
-}
-
-// Helper function to preview images in a lightbox - UPDATED
-function previewImage(imageUrl, title) {
-    // Create lightbox modal
-    const lightboxHTML = `
-        <div class="modal fade" id="imagePreviewModal" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered modal-lg">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">${title}</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body text-center">
-                        <img src="${imageUrl}" class="img-fluid" alt="${title}" style="max-height: 70vh;">
-                    </div>
-                    <div class="modal-footer">
-                        <a href="${imageUrl}" class="btn btn-primary" download="${title}">
-                            <i class="fas fa-download"></i> Download
-                        </a>
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+    // Helper function to preview images in a lightbox - UPDATED
+    function previewImage(imageUrl, title) {
+        // Create lightbox modal
+        const lightboxHTML = `
+            <div class="modal fade" id="imagePreviewModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">${title}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body text-center">
+                            <img src="${imageUrl}" class="img-fluid" alt="${title}" style="max-height: 70vh;">
+                        </div>
+                        <div class="modal-footer">
+                            <a href="${imageUrl}" class="btn btn-primary" download="${title}">
+                                <i class="fas fa-download"></i> Download
+                            </a>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-    `;
+        `;
 
-    // Remove existing lightbox if any
-    const existingLightbox = document.getElementById('imagePreviewModal');
-    if (existingLightbox) {
-        existingLightbox.remove();
-    }
+        // Remove existing lightbox if any
+        const existingLightbox = document.getElementById('imagePreviewModal');
+        if (existingLightbox) {
+            existingLightbox.remove();
+        }
 
-    // Add lightbox to body
-    document.body.insertAdjacentHTML('beforeend', lightboxHTML);
+        // Add lightbox to body
+        document.body.insertAdjacentHTML('beforeend', lightboxHTML);
 
-    // Show lightbox
-    const lightboxModal = new bootstrap.Modal(document.getElementById('imagePreviewModal'));
-    lightboxModal.show();
+        // Show lightbox
+        const lightboxModal = new bootstrap.Modal(document.getElementById('imagePreviewModal'));
+        lightboxModal.show();
 
-    // Remove modal from DOM when hidden
-    document.getElementById('imagePreviewModal').addEventListener('hidden.bs.modal', function() {
-        this.remove();
-    });
-}
-
-// Helper function to format file size
-function formatFileSize(bytes) {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
-
-// Document Edit Function
-function editDocument(documentId, filename, indicatorId, programId, cycleId, version, status) {
-    document.getElementById('editDocumentId').value = documentId;
-    document.getElementById('currentFileName').textContent = filename;
-    document.getElementById('editIndicatorId').value = indicatorId;
-    document.getElementById('editProgramId').value = programId;
-    document.getElementById('editCycleId').value = cycleId;
-    document.getElementById('editVersion').value = version;
-    document.getElementById('editStatus').value = status;
-
-    var modal = new bootstrap.Modal(document.getElementById('editDocumentModal'));
-    modal.show();
-}
-// Document delete Function
-function setDeleteDcoumentId(indicatorId) {
-    document.getElementById('deleteDocumentId').value = indicatorId;
-}
-
-
-// Event listeners for document buttons
-document.addEventListener('DOMContentLoaded', function() {
-    // View document buttons
-    // Event listeners for view document buttons
-    document.querySelectorAll('.view-document-btn').forEach(button => {
-        button.addEventListener('click', function() {
-            const documentId = this.getAttribute('data-document-id');
-            const filename = this.getAttribute('data-filename');
-            const filePath = this.getAttribute('data-file-path');
-            const fileSize = this.getAttribute('data-file-size');
-            const uploadedBy = this.getAttribute('data-uploaded-by');
-            const createdAt = this.getAttribute('data-created-at');
-            const updatedAt = this.getAttribute('data-updated-at');
-            const indicator = this.getAttribute('data-indicator');
-            const program = this.getAttribute('data-program');
-            const department = this.getAttribute('data-department');
-            const cycle = this.getAttribute('data-cycle');
-            const version = this.getAttribute('data-version');
-            const status = this.getAttribute('data-status');
-
-            // Call the view function
-            viewDocument(documentId, filename, filePath, fileSize, uploadedBy, createdAt,
-                updatedAt,
-                indicator, program, department, cycle, version, status);
-        });
-    });
-
-    // Edit document buttons
-    document.querySelectorAll('.edit-document-btn').forEach(button => {
-        button.addEventListener('click', function() {
-            const documentId = this.getAttribute('data-document-id');
-            const filename = this.getAttribute('data-filename');
-            const indicatorId = this.getAttribute('data-indicator-id');
-            const programId = this.getAttribute('data-program-id');
-            const cycleId = this.getAttribute('data-cycle-id');
-            const version = this.getAttribute('data-version');
-            const status = this.getAttribute('data-status');
-
-            editDocument(documentId, filename, indicatorId, programId, cycleId, version,
-                status);
-        });
-    });
-
-    // Search functionality for Documents
-    const searchDocuments = document.getElementById('searchDocuments');
-    if (searchDocuments) {
-        searchDocuments.addEventListener('input', function(e) {
-            const searchTerm = e.target.value.toLowerCase().trim();
-            searchTable('documentsTable', searchTerm);
+        // Remove modal from DOM when hidden
+        document.getElementById('imagePreviewModal').addEventListener('hidden.bs.modal', function() {
+            this.remove();
         });
     }
 
-    // Search table function
-    function searchTable(tableId, searchTerm) {
-        const table = document.getElementById(tableId);
-        if (!table) return;
+    // Helper function to format file size
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
 
-        const rows = table.getElementsByTagName('tr');
-        let hasVisibleRows = false;
+    // Document Edit Function
+    function editDocument(documentId, filename, indicatorId, programId, cycleId, version, status) {
+        document.getElementById('editDocumentId').value = documentId;
+        document.getElementById('currentFileName').textContent = filename;
+        document.getElementById('editIndicatorId').value = indicatorId;
+        document.getElementById('editProgramId').value = programId;
+        document.getElementById('editCycleId').value = cycleId;
+        document.getElementById('editVersion').value = version;
+        document.getElementById('editStatus').value = status;
 
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-            const cells = row.getElementsByTagName('td');
-            let found = false;
+        var modal = new bootstrap.Modal(document.getElementById('editDocumentModal'));
+        modal.show();
+    }
+    // Document delete Function
+    function setDeleteDcoumentId(document_id) {
+        document.getElementById('deleteDocumentId').value = document_id;
+    }
 
-            if (cells.length === 0) continue;
 
-            for (let j = 0; j < cells.length; j++) {
-                const cell = cells[j];
+    // Event listeners for document buttons
+    document.addEventListener('DOMContentLoaded', function() {
+        // View document buttons
+        // Event listeners for view document buttons
+        document.querySelectorAll('.view-document-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const documentId = this.getAttribute('data-document-id');
+                const filename = this.getAttribute('data-filename');
+                const filePath = this.getAttribute('data-file-path');
+                const fileSize = this.getAttribute('data-file-size');
+                const uploadedBy = this.getAttribute('data-uploaded-by');
+                const createdAt = this.getAttribute('data-created-at');
+                const updatedAt = this.getAttribute('data-updated-at');
+                const indicator = this.getAttribute('data-indicator');
+                const program = this.getAttribute('data-program');
+                const department = this.getAttribute('data-department');
+                const cycle = this.getAttribute('data-cycle');
+                const version = this.getAttribute('data-version');
+                const status = this.getAttribute('data-status');
 
-                // Skip action cells
-                if (cell.querySelector('button') || cell.querySelector('a')) {
-                    continue;
+                // Call the view function
+                viewDocument(documentId, filename, filePath, fileSize, uploadedBy, createdAt,
+                    updatedAt,
+                    indicator, program, department, cycle, version, status);
+            });
+        });
+
+        // Edit document buttons
+        document.querySelectorAll('.edit-document-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const documentId = this.getAttribute('data-document-id');
+                const filename = this.getAttribute('data-filename');
+                const indicatorId = this.getAttribute('data-indicator-id');
+                const programId = this.getAttribute('data-program-id');
+                const cycleId = this.getAttribute('data-cycle-id');
+                const version = this.getAttribute('data-version');
+                const status = this.getAttribute('data-status');
+
+                editDocument(documentId, filename, indicatorId, programId, cycleId, version,
+                    status);
+            });
+        });
+
+        // Search functionality for Documents
+        const searchDocuments = document.getElementById('searchDocuments');
+        if (searchDocuments) {
+            searchDocuments.addEventListener('input', function(e) {
+                const searchTerm = e.target.value.toLowerCase().trim();
+                searchTable('documentsTable', searchTerm);
+            });
+        }
+
+        // Search table function
+        function searchTable(tableId, searchTerm) {
+            const table = document.getElementById(tableId);
+            if (!table) return;
+
+            const rows = table.getElementsByTagName('tr');
+            let hasVisibleRows = false;
+
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                const cells = row.getElementsByTagName('td');
+                let found = false;
+
+                if (cells.length === 0) continue;
+
+                for (let j = 0; j < cells.length; j++) {
+                    const cell = cells[j];
+
+                    // Skip action cells
+                    if (cell.querySelector('button') || cell.querySelector('a')) {
+                        continue;
+                    }
+
+                    const cellText = cell.textContent.toLowerCase();
+                    if (cellText.includes(searchTerm)) {
+                        found = true;
+                        hasVisibleRows = true;
+                        break;
+                    }
                 }
 
-                const cellText = cell.textContent.toLowerCase();
-                if (cellText.includes(searchTerm)) {
-                    found = true;
-                    hasVisibleRows = true;
-                    break;
-                }
+                row.style.display = found ? '' : 'none';
             }
 
-            row.style.display = found ? '' : 'none';
+            // Show "no results" message if needed
+            showNoResultsMessage(tableId, hasVisibleRows);
         }
 
-        // Show "no results" message if needed
-        showNoResultsMessage(tableId, hasVisibleRows);
-    }
+        function showNoResultsMessage(tableId, hasVisibleRows) {
+            let noResultsRow = document.getElementById(`no-results-${tableId}`);
 
-    function showNoResultsMessage(tableId, hasVisibleRows) {
-        let noResultsRow = document.getElementById(`no-results-${tableId}`);
-
-        if (!hasVisibleRows && !noResultsRow) {
-            const table = document.getElementById(tableId);
-            noResultsRow = document.createElement('tr');
-            noResultsRow.id = `no-results-${tableId}`;
-            noResultsRow.innerHTML =
-                `<td colspan="11" class="text-center text-muted py-3">No documents found matching your search</td>`;
-            table.appendChild(noResultsRow);
-        } else if (hasVisibleRows && noResultsRow) {
-            noResultsRow.remove();
+            if (!hasVisibleRows && !noResultsRow) {
+                const table = document.getElementById(tableId);
+                noResultsRow = document.createElement('tr');
+                noResultsRow.id = `no-results-${tableId}`;
+                noResultsRow.innerHTML =
+                    `<td colspan="11" class="text-center text-muted py-3">No documents found matching your search</td>`;
+                table.appendChild(noResultsRow);
+            } else if (hasVisibleRows && noResultsRow) {
+                noResultsRow.remove();
+            }
         }
-    }
-});
+    });
 </script>
+<!-- JS FILTERING -->
+<script>
+    // DOM elements for documents table with multiple filters
+    const searchDocumentsInput = document.getElementById('searchDocuments');
+    const filterProgramsSelect = document.getElementById('filterPrograms');
+    const filterCyclesSelect = document.getElementById('filterCycles');
+    const documentsTable = document.getElementById('documentsTable');
 
+    // Store original table data
+    let originalDocumentsData = [];
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        // Store original table data
+        const rows = documentsTable.querySelectorAll('tr');
+        rows.forEach(row => {
+            // Extract data from each cell
+            const programCell = row.cells[2];
+            const cycleCell = row.cells[3];
+            
+            // Get program CODE from "Details" cell
+            let programCode = '';
+            if (programCell) {
+                const programDivs = programCell.querySelectorAll('div');
+                if (programDivs.length >= 2) {
+                    // Get text after "Program:" in the second div
+                    const programText = programDivs[1].textContent;
+                    // Extract just the program code (like "CS", "EE", etc.)
+                    const match = programText.match(/Program:\s*(.+)/);
+                    programCode = match ? match[1].trim().toLowerCase() : '';
+                }
+            }
+            
+            // Get academic year from cycle cell
+            let academicYear = '';
+            if (cycleCell) {
+                const badge = cycleCell.querySelector('.badge');
+                academicYear = badge ? badge.textContent.trim().toLowerCase() : '';
+            }
+            
+            const rowData = {
+                html: row.outerHTML,
+                documentName: row.cells[1]?.textContent.toLowerCase() || '',
+                details: row.cells[2]?.textContent.toLowerCase() || '',
+                programCode: programCode, // Changed from programName to programCode
+                academicYear: academicYear, // Changed from cycleName to academicYear
+                status: row.cells[4]?.textContent.toLowerCase() || '',
+                uploadInfo: row.cells[5]?.textContent.toLowerCase() || '',
+                allText: row.textContent.toLowerCase() // For general searching
+            };
+            originalDocumentsData.push(rowData);
+        });
+        
+        console.log('Documents table initialized with', originalDocumentsData.length, 'rows');
+    });
+
+    // Filter function for documents table
+    function filterDocumentsTable() {
+        const searchTerm = searchDocumentsInput.value.toLowerCase();
+        const programValue = filterProgramsSelect.value.toLowerCase();
+        const cycleValue = filterCyclesSelect.value.toLowerCase();
+        
+        console.log('Filtering - Program:', programValue, 'Cycle:', cycleValue);
+        
+        // Get all table rows
+        const rows = documentsTable.querySelectorAll('tr');
+        let visibleCount = 0;
+        
+        // Loop through each row
+        rows.forEach((row, index) => {
+            const rowData = originalDocumentsData[index];
+            let showRow = true;
+            
+            // Debug: Log what we have
+            console.log(`Row ${index} - Program Code: "${rowData.programCode}", Academic Year: "${rowData.academicYear}"`);
+            
+            // Apply search filter
+            if (searchTerm && showRow) {
+                if (!rowData.allText.includes(searchTerm)) {
+                    showRow = false;
+                }
+            }
+            
+            // Apply program filter - compare program CODES
+            if (programValue && showRow) {
+                console.log(`Program check: "${rowData.programCode}" === "${programValue}" ?`, rowData.programCode === programValue);
+                if (rowData.programCode !== programValue) {
+                    showRow = false;
+                }
+            }
+            
+            // Apply cycle filter - compare academic years
+            if (cycleValue && showRow) {
+                console.log(`Cycle check: "${rowData.academicYear}" === "${cycleValue}" ?`, rowData.academicYear === cycleValue);
+                if (rowData.academicYear !== cycleValue) {
+                    showRow = false;
+                }
+            }
+            
+            // Show/hide row
+            row.style.display = showRow ? '' : 'none';
+            
+            // Update row number if visible
+            if (showRow && row.cells[0]) {
+                row.cells[0].textContent = ++visibleCount;
+            }
+        });
+        
+        // Show message if no results
+        showNoResultsMessage(visibleCount);
+    }
+
+    // Show "no results" message
+    function showNoResultsMessage(visibleCount) {
+        // Remove existing no results message
+        const existingMessage = documentsTable.querySelector('.no-results-message');
+        if (existingMessage) {
+            existingMessage.remove();
+        }
+        
+        // Add message if no rows visible
+        if (visibleCount === 0 && (searchDocumentsInput.value || filterProgramsSelect.value || filterCyclesSelect.value)) {
+            const noResultsRow = document.createElement('tr');
+            noResultsRow.className = 'no-results-message';
+            noResultsRow.innerHTML = `
+                <td colspan="7" class="text-center py-4 text-muted">
+                    <i class="fas fa-search fa-2x mb-2"></i>
+                    <p class="mb-0">No documents found matching your criteria.</p>
+                    <small>Try adjusting your search or filters.</small>
+                </td>
+            `;
+            documentsTable.appendChild(noResultsRow);
+        }
+    }
+
+    // Clear all filters
+    function clearDocumentFilters() {
+        searchDocumentsInput.value = '';
+        filterProgramsSelect.value = '';
+        filterCyclesSelect.value = '';
+        
+        // Reset table to show all rows
+        const rows = documentsTable.querySelectorAll('tr');
+        rows.forEach((row, index) => {
+            row.style.display = '';
+            if (row.cells[0]) {
+                row.cells[0].textContent = index + 1;
+            }
+        });
+        
+        // Remove no results message
+        const existingMessage = documentsTable.querySelector('.no-results-message');
+        if (existingMessage) {
+            existingMessage.remove();
+        }
+    }
+
+    // Event listeners
+    searchDocumentsInput.addEventListener('keyup', filterDocumentsTable);
+    filterProgramsSelect.addEventListener('change', filterDocumentsTable);
+    filterCyclesSelect.addEventListener('change', filterDocumentsTable);
+
+    // Initialize tooltips (if Bootstrap tooltips are used)
+    function initTooltips() {
+        const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+        if (tooltipTriggerList.length > 0 && typeof bootstrap !== 'undefined') {
+            const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
+        }
+    }
+
+    // Initialize everything when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize tooltips
+        initTooltips();
+        
+        console.log('Document filtering system initialized');
+    });
+</script>
 <?php
 // Helper function to format file size
 function formatFileSize($bytes) {

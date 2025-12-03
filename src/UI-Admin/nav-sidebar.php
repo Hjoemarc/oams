@@ -39,9 +39,6 @@
                 <a href="index.php?page=contents/review_management" class="nav-item nav-review_management my-1 rounded-2">
                     <span class=""><i class="fa-solid fa-magnifying-glass"></i></span> Review Management
                 </a>
-                <a href="index.php?page=contents/notifications" class="nav-item nav-notifications my-1 rounded-2">
-                    <span class=""><i class="fa-solid fa-bell"></i></span> Notifications
-                </a>
             </div>
             <a href="index.php?page=contents/setting" class="nav-item nav-setting rounded-2 my-1">
                 <span class=""><i class=""></i></span> Account Settings

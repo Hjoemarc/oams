@@ -389,13 +389,13 @@
                             </thead>
                             <tbody id="indicatorsTable">
                                 <?php 
-            $indicatorCount = 1;
-            foreach($indicatorsData as $indicator) : 
-                // Truncate long descriptions
-                $shortDesc = strlen($indicator["indicator_description"]) > 80 
-                    ? substr($indicator["indicator_description"], 0, 80) . '...' 
-                    : $indicator["indicator_description"];
-            ?>
+                                    $indicatorCount = 1;
+                                    foreach($indicatorsData as $indicator) : 
+                                        // Truncate long descriptions
+                                        $shortDesc = strlen($indicator["indicator_description"]) > 80 
+                                            ? substr($indicator["indicator_description"], 0, 80) . '...' 
+                                            : $indicator["indicator_description"];
+                                    ?>
                                 <tr>
                                     <td><?= $indicatorCount++ ?></td>
                                     <td><span

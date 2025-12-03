@@ -11,9 +11,6 @@
             <a href="index.php?page=contents/documment" class="nav-item nav-documment rounded-2 my-1">
                 <span class=""><i class=""></i></span> Documment Management
             </a>
-            <a href="index.php?page=contents/notifications" class="nav-item nav-notifications rounded-2 my-1">
-                <span class=""><i class=""></i></span> Notifications
-            </a>
             <a href="index.php?page=contents/setting" class="nav-item nav-setting rounded-2 my-1">
                 <span class=""><i class=""></i></span> Account Settings
             </a>

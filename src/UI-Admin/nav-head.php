@@ -6,6 +6,7 @@ if (!isset($_SESSION['adminData'])) {
 }
 
 $admin_id = $_SESSION['adminData']['user_id'];
+$getEmployee = $employees["employee_data"];
 ?>
 
 <div class="bg-gradient-primary justify-content-between d-flex">

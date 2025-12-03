@@ -99,7 +99,7 @@
                                 placeholder="YYYY-YYYY" required>
                         </div>
 
-                        <div class="col-md-6">
+                        <div class="col-md-6 d-none">
                             <label class="form-label">Status</label>
                             <select name="status" id="editCycleStatus" class="form-select" required>
                                 <option value="upcoming">Upcoming</option>
@@ -168,8 +168,8 @@
                                     $statusClass = '';
                                     switch($cycle['status']) {
                                         case 'active': $statusClass = 'badge bg-success'; break;
-                                        case 'upcoming': $statusClass = 'badge bg-warning'; break;
-                                        case 'closed': $statusClass = 'badge bg-secondary'; break;
+                                        case 'upcoming': $statusClass = 'badge bg-info'; break;
+                                        case 'closed': $statusClass = 'badge bg-danger'; break;
                                     }
                                 ?>
                 <tr>
