@@ -10,12 +10,15 @@ $stmtDocuments = $pdo->prepare("
         ai.indicator_description,
         p.program_code,
         p.program_name,
+        aa.area_number,
+        aa.area_name,
         ac.cycle_name,
         ac.academic_year,
         dept.department_name
     FROM documents d
     INNER JOIN users u ON d.uploaded_by = u.user_id
     INNER JOIN accreditation_indicators ai ON d.indicator_id = ai.indicator_id
+    LEFT JOIN accreditation_areas aa ON ai.area_id = aa.area_id
     INNER JOIN programs p ON d.program_id = p.program_id
     INNER JOIN accreditation_cycles ac ON d.cycle_id = ac.cycle_id
     INNER JOIN departments dept ON p.department_id = dept.department_id
@@ -283,6 +286,10 @@ $cycles = $stmtCycles->fetch(PDO::FETCH_ASSOC);
                             <h6>Accreditation Details</h6>
                             <table class="table table-sm">
                                 <tr>
+                                    <th>Area:</th>
+                                    <td id="viewArea" class="truncate-text"></td>
+                                </tr>
+                                <tr>
                                     <th>Indicator:</th>
                                     <td id="viewIndicator" class="truncate-text"></td>
                                 </tr>
@@ -428,6 +435,7 @@ $cycles = $stmtCycles->fetch(PDO::FETCH_ASSOC);
                                 data-uploaded-by="<?= htmlspecialchars($uploadedByName) ?>"
                                 data-created-at="<?= htmlspecialchars($document['created_at']) ?>"
                                 data-updated-at="<?= htmlspecialchars($document['updated_at']) ?>"
+                                data-area="<?= htmlspecialchars($document['area_number'] . ' - ' . $document['area_name']) ?>"
                                 data-indicator="<?= htmlspecialchars($document['indicator_code'] . ' - ' . $document['indicator_description']) ?>"
                                 data-program="<?= htmlspecialchars($document['program_code'] . ' - ' . $document['program_name']) ?>"
                                 data-department="<?= htmlspecialchars($document['department_name']) ?>"
@@ -464,7 +472,7 @@ $cycles = $stmtCycles->fetch(PDO::FETCH_ASSOC);
 <script>
     // Document View Function
     function viewDocument(documentId, filename, filePath, fileSize, uploadedBy, createdAt, updatedAt,
-        indicator, program, department, cycle, version, status) {
+        area, indicator, program, department, cycle, version, status) {
 
         // Helper function to get correct path
         function getCorrectFilePath(path) {
@@ -480,6 +488,7 @@ $cycles = $stmtCycles->fetch(PDO::FETCH_ASSOC);
         document.getElementById('viewUploadedBy').textContent = uploadedBy;
         document.getElementById('viewCreatedAt').textContent = new Date(createdAt).toLocaleString();
         document.getElementById('viewUpdatedAt').textContent = new Date(updatedAt).toLocaleString();
+        document.getElementById('viewArea').textContent = area;
         document.getElementById('viewIndicator').textContent = indicator;
         document.getElementById('viewProgram').textContent = program;
         document.getElementById('viewDepartment').textContent = department;
@@ -784,6 +793,7 @@ $cycles = $stmtCycles->fetch(PDO::FETCH_ASSOC);
                 const uploadedBy = this.getAttribute('data-uploaded-by');
                 const createdAt = this.getAttribute('data-created-at');
                 const updatedAt = this.getAttribute('data-updated-at');
+                const area = this.getAttribute('data-area');
                 const indicator = this.getAttribute('data-indicator');
                 const program = this.getAttribute('data-program');
                 const department = this.getAttribute('data-department');
@@ -793,7 +803,7 @@ $cycles = $stmtCycles->fetch(PDO::FETCH_ASSOC);
 
                 // Call the view function
                 viewDocument(documentId, filename, filePath, fileSize, uploadedBy, createdAt,
-                    updatedAt,
+                    updatedAt, area,
                     indicator, program, department, cycle, version, status);
             });
         });

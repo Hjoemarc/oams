@@ -26,7 +26,7 @@ $assignments = $stmtAssignments->fetchAll(PDO::FETCH_ASSOC);
 // Fetch reviewers (users with QA role)
 $stmtReviewers = $pdo->prepare("SELECT user_id, CONCAT(first_name, ' ', last_name) as name, user_role 
                                FROM users 
-                               WHERE user_role = 'qa' OR user_role = 'head'
+                               WHERE user_role = 'qa'
                                AND is_active = 'Active'
                                ORDER BY first_name");
 $stmtReviewers->execute();

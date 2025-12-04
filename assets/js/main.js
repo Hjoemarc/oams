@@ -2289,7 +2289,7 @@ $(document).ready(function () {
           },
           complete: function () {
               $form.data("isSubmitted", false);
-              $btn.prop("disabled", false).html('Create Account');
+              $btn.prop("disabled", false).html('Assign faculty');
           }
       });
     });
@@ -2350,7 +2350,7 @@ $(document).ready(function () {
           },
           complete: function () {
               $form.data("isSubmitted", false);
-              $btn.prop("disabled", false).html('Create Account');
+              $btn.prop("disabled", false).html('EDIT');
           }
       });
     }); 
@@ -2411,7 +2411,7 @@ $(document).ready(function () {
           },
           complete: function () {
               $form.data("isSubmitted", false);
-              $btn.prop("disabled", false).html('Create Account');
+              $btn.prop("disabled", false).html('DELETE');
           }
       });
     });  
@@ -2481,7 +2481,7 @@ $(document).ready(function () {
           },
           complete: function () {
               $form.data("isSubmitted", false);
-              $btn.prop("disabled", false).html('Create Account');
+              $btn.prop("disabled", false).html('Assign Reviewer');
           }
       });
     }); 
@@ -2544,7 +2544,7 @@ $(document).ready(function () {
           },
           complete: function () {
               $form.data("isSubmitted", false);
-              $btn.prop("disabled", false).html('Create Account');
+              $btn.prop("disabled", false).html('Profile Updated');
           }
       });
     });

@@ -11,12 +11,15 @@ $stmtDocuments = $pdo->prepare("
         ai.indicator_description,
         p.program_code,
         p.program_name,
+        aa.area_number,
+        aa.area_name,
         ac.cycle_name,
         ac.academic_year,
         dept.department_name
     FROM documents d
     LEFT JOIN users u ON d.uploaded_by = u.user_id
     LEFT JOIN accreditation_indicators ai ON d.indicator_id = ai.indicator_id
+    LEFT JOIN accreditation_areas aa ON ai.area_id = aa.area_id
     LEFT JOIN programs p ON d.program_id = p.program_id
     LEFT JOIN accreditation_cycles ac ON d.cycle_id = ac.cycle_id
     LEFT JOIN departments dept ON p.department_id = dept.department_id
@@ -275,56 +278,65 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
                             <table class="table table-sm">
                                 <tr>
                                     <th>Filename:</th>
-                                    <td id="viewFilename"></td>
+                                    <style>
+                                        .truncate-text {
+                                            display: inline-block;
+                                            max-width: 20rem;  
+                                            white-space: nowrap; 
+                                            overflow: hidden;
+                                            text-overflow: ellipsis;
+                                        }
+                                    </style>
+                                    <td id="viewFilename" class="truncate-text"></td>
                                 </tr>
                                 <tr>
                                     <th>File Type:</th>
-                                    <td id="fileType"></td>
+                                    <td id="fileType" class="truncate-text"></td>
                                 </tr>
                                 <tr>
                                     <th>File Size:</th>
-                                    <td id="viewFileSize"></td>
+                                    <td id="viewFileSize" class="truncate-text"></td>
                                 </tr>
                                 <tr>
                                     <th>Uploaded By:</th>
-                                    <td id="viewUploadedBy"></td>
+                                    <td id="viewUploadedBy"class="truncate-text"></td>
                                 </tr>
                                 <tr>
                                     <th>Uploaded On:</th>
-                                    <td id="viewCreatedAt"></td>
+                                    <td id="viewCreatedAt" class="truncate-text"></td>
                                 </tr>
                                 <tr>
                                     <th>Last Updated:</th>
-                                    <td id="viewUpdatedAt"></td>
+                                    <td id="viewUpdatedAt" class="truncate-text"></td>
                                 </tr>
                             </table>
                         </div>
                         <div class="col-md-6">
                             <h6>Accreditation Details</h6>
                             <table class="table table-sm">
+                                 <tr>
+                                    <th>Area:</th>
+                                    <td id="viewArea" class="truncate-text"></td>
+                                </tr>
                                 <tr>
                                     <th>Indicator:</th>
-                                    <td id="viewIndicator"></td>
+                                    <td id="viewIndicator" class="truncate-text"></td>
                                 </tr>
                                 <tr>
                                     <th>Program:</th>
-                                    <td id="viewProgram"></td>
+                                    <td id="viewProgram" class="truncate-text"></td>
                                 </tr>
                                 <tr>
                                     <th>Department:</th>
-                                    <td id="viewDepartment"></td>
+                                    <td id="viewDepartment" class="truncate-text"></td>
                                 </tr>
                                 <tr>
                                     <th>Cycle:</th>
-                                    <td id="viewCycle"></td>
-                                </tr>
-                                <tr>
-                                    <th>Version:</th>
-                                    <td id="viewVersion"></td>
+                                    <td id="viewCycle" class="truncate-text"></td>
                                 </tr>
                                 <tr>
                                     <th>Status:</th>
-                                    <td id="viewStatus"></td>
+                                    <td id="viewStatus" class="truncate-text"></td>
                                 </tr>
                             </table>
                         </div>
@@ -452,6 +464,7 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
                                 data-uploaded-by="<?= htmlspecialchars($uploadedByName) ?>"
                                 data-created-at="<?= htmlspecialchars($document['created_at']) ?>"
                                 data-updated-at="<?= htmlspecialchars($document['updated_at']) ?>"
+                                data-area="<?= htmlspecialchars($document['area_number'] . ' - ' . $document['area_name']) ?>"
                                 data-indicator="<?= htmlspecialchars($document['indicator_code'] . ' - ' . $document['indicator_description']) ?>"
                                 data-program="<?= htmlspecialchars($document['program_code'] . ' - ' . $document['program_name']) ?>"
                                 data-department="<?= htmlspecialchars($document['department_name']) ?>"
@@ -495,7 +508,7 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
 <script>
 // Document View Function
     function viewDocument(documentId, filename, filePath, fileSize, uploadedBy, createdAt, updatedAt,
-        indicator, program, department, cycle, version, status) {
+        area, indicator, program, department, cycle, version, status) {
 
         // Helper function to get correct path
         function getCorrectFilePath(path) {
@@ -536,11 +549,11 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
         document.getElementById('viewUploadedBy').textContent = uploadedBy;
         document.getElementById('viewCreatedAt').textContent = new Date(createdAt).toLocaleString();
         document.getElementById('viewUpdatedAt').textContent = new Date(updatedAt).toLocaleString();
+        document.getElementById('viewArea').textContent = area;
         document.getElementById('viewIndicator').textContent = indicator;
         document.getElementById('viewProgram').textContent = program;
         document.getElementById('viewDepartment').textContent = department;
         document.getElementById('viewCycle').textContent = cycle;
-        document.getElementById('viewVersion').textContent = version;
 
         // Get file extension and set file type
         const fileExtension = getFileExtension(filename);
@@ -867,6 +880,7 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
                 const uploadedBy = this.getAttribute('data-uploaded-by');
                 const createdAt = this.getAttribute('data-created-at');
                 const updatedAt = this.getAttribute('data-updated-at');
+                const area = this.getAttribute('data-area');
                 const indicator = this.getAttribute('data-indicator');
                 const program = this.getAttribute('data-program');
                 const department = this.getAttribute('data-department');
@@ -876,7 +890,7 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
 
                 // Call the view function
                 viewDocument(documentId, filename, filePath, fileSize, uploadedBy, createdAt,
-                    updatedAt,
+                    updatedAt, area,
                     indicator, program, department, cycle, version, status);
             });
         });
