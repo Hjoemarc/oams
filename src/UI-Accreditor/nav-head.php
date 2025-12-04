@@ -27,8 +27,8 @@ $getEmployee = $employees["employee_data"];
         <i class="fa-solid fw-solid fa-bars"></i>
     </div>
     <div class="mx-3 d-flex align-items-center justify-content-center col-md-6 col-7 no-media-margin">
-        <img src="../../assets/image/system_logo/pueri-logo.png" class="image-header me-2">
-        <h4 class="w-100 text-white m-0 system-title">Zamboanga Puericulture Center</h4>
+        <img src="../../assets/image/system_logo/zppsu-logo.png" class="image-header me-2">
+        <h4 class="w-100 text-white m-0 system-title">Online Accreditation Management System for Zamboanga Peninsula Polytechnic State University </h4>
     </div>
     <div class="justify-content-end p-4 mx-2 d-flex col-md-6 col-5 media-header-padding no-media-margin">
         <div class="col-md-4 col-9 d-flex justify-content-end align-items-center">

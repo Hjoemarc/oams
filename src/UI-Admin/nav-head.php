@@ -11,7 +11,7 @@ $getEmployee = $employees["employee_data"];
 
 <div class="bg-gradient-primary justify-content-between d-flex">
     <div class="mx-3 d-flex align-items-center justify-content-center ">
-        <img src="../../assets/image/system_logo/pueri-logo.png" class="image-header me-2">
+        <img src="../../assets/image/system_logo/zppsu-logo.png" class="image-header me-2">
         <h4 class="text-white m-0 ">Online Accreditation Management System for Zamboanga Peninsula Polytechnic State University </h4>
     </div>
     <div class="justify-content-between p-4 mx-2 d-flex">

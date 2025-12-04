@@ -5,7 +5,7 @@ initInstaller()
 <div class="header col-md-12 col-12 d-flex justify-content-center align-items-center py-2">
     <div class="bg-gradient-primary rounded-2 col-md-11 col-11 py-2 px-3">
         <h4 class="card-title text-white m-0">
-            <img src="../assets/image/system_logo/pueri-logo.png" class="me-1 ">
+            <img src="../assets/image/system_logo/zppsu-logo.png" class="me-1 ">
             Online Accreditation Management System for Zamboanga Peninsula Polytechnic State University 
         </h4>
     </div>
