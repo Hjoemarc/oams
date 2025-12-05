@@ -2657,7 +2657,7 @@ class Action
                 // Continue even if notification deletion fails
                 error_log("Notification cleanup error: " . $e->getMessage());
             }
-            
+
             return json_encode([
                 'status' => 1,
                 'message' => 'Assignment deleted successfully'

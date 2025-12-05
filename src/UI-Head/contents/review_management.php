@@ -39,10 +39,13 @@ $assignments = $stmtAssignments->fetchAll(PDO::FETCH_ASSOC);
 // Fetch reviewers (users with QA role)
 $stmtReviewers = $pdo->prepare("SELECT user_id, CONCAT(first_name, ' ', last_name) as name, user_role 
                                FROM users 
-                               WHERE user_role = 'qa'
+                               INNER JOIN departments ON users.department_id = departments.department_id
+                               WHERE user_role = 'qa' AND departments.department_id = :department_id
                                AND is_active = 'Active' 
                                ORDER BY first_name");
-$stmtReviewers->execute();
+$stmtReviewers->execute([
+    'department_id' => $department_id
+]);
 $reviewers = $stmtReviewers->fetchAll(PDO::FETCH_ASSOC);
 
 // Fetch submitted documents for review
@@ -173,8 +176,12 @@ $documentCount = 1;
                                 $stmt->execute();
                                 $indicators = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-                                $stmt = $pdo->prepare("SELECT * FROM programs");
-                                $stmt->execute();
+                                $stmt = $pdo->prepare("SELECT * FROM programs 
+                                INNER JOIN departments ON programs.department_id = departments.department_id
+                                WHERE departments.department_id = :department_id");
+                                $stmt->execute([
+                                    'department_id' => $department_id
+                                ]);
                                 $programs = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             ?>
                             <label class="form-label">Cycle</label>
@@ -184,7 +191,7 @@ $documentCount = 1;
                                 <?= htmlspecialchars($cycles["cycle_name"] . '(' . $cycles["academic_year"] . ')') ?>
                             </p>
                         </div>
-                        <input type="hidden" name="user_id" value="<?= htmlspecialchars($admin_id) ?>">
+                        <input type="hidden" name="user_id" value="<?= htmlspecialchars($user_id) ?>">
                         <div class="mx-2">
                             <label class="form-label">Indicator</label>
                             <select name="indicator_id" id="indicator_id" class="form-select">

@@ -1,3 +1,6 @@
+<?php 
+   $stmt = $pdo->prepare();
+?>
 <body>
    <section class="">
       <div class="mb-4">

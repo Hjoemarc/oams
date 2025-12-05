@@ -89,10 +89,6 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
             </select>
         </div>
         <div class="col-md-3 d-flex justify-content-end">
-            <button type="button" class="btn bg-gradient-primary" data-bs-toggle="modal"
-                data-bs-target="#addDocumentModal" id="add_new_document">
-                <i class="fa fa-upload"></i> Upload Document
-            </button>
         </div>
     </div>
 
