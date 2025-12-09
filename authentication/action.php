@@ -1,5 +1,5 @@
 <?php
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
 /* header('x-powered-by : PHP/8.0.30'); */
 $action = isset($_GET['action']) ? htmlspecialchars($_GET['action']) : '';
 
@@ -276,4 +276,30 @@ if ($action === 'profile_update') {
     $result = $crud->profile_update();
     echo $result;
 }
+
+// Program Accreditation Status =======================================
+if ($action === 'GetSummaryCounts') {
+    $result = $crud->GetSummaryCounts();
+    echo $result;
+    exit;
+}
+
+if ($action === 'add_accreditation_form') {
+    $result = $crud->add_accreditation_form();
+    echo $result;
+    exit;
+}
+
+if ($action === 'viewProgramHistory') {
+    $result = $crud->viewProgramHistory();
+    echo $result;
+    exit;
+}
+
+if ($action === 'viewNextLevelInfo') {
+    $result = $crud->viewNextLevelInfo();
+    echo $result;
+    exit;
+}
+
 ?>

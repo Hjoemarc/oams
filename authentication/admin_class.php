@@ -1003,13 +1003,14 @@ class Action
         try {
             $cycle_name = $_POST["cycle_name"] ?? '';
             $academic_year = $_POST["academic_year"] ?? '';
+            $program_id = $_POST["program_id"] ?? '';
             $status = $_POST["status"] ?? 'upcoming';
             $deadline = $_POST["deadline"] ?? null;
 
-            if (empty($cycle_name) || empty($academic_year)) {
+            if (empty($cycle_name) || empty($academic_year) || empty($program_id)) {
                 return json_encode([
                     'status' => 0,
-                    'message' => 'Cycle name and academic year are required.'
+                    'message' => 'Cycle name, program and academic year are required.'
                 ]);
             }
 
@@ -1040,14 +1041,15 @@ class Action
 
             $stmt = $this->db->prepare("
                 INSERT INTO accreditation_cycles 
-                    (cycle_name, academic_year, status, deadline)
+                    (cycle_name, academic_year, program_id, status, deadline)
                 VALUES 
-                    (:cycle_name, :academic_year, :status, :deadline)
+                    (:cycle_name, :academic_year, :program_id, :status, :deadline)
             ");
 
             $stmt->execute([
                 ':cycle_name' => $cycle_name,
                 ':academic_year' => $academic_year,
+                ':program_id' => $program_id,
                 ':status' => $status,
                 ':deadline' => $deadline ?: null
             ]);
@@ -1070,6 +1072,7 @@ class Action
             $cycle_id = $_POST["cycle_id"] ?? '';
             $cycle_name = $_POST["cycle_name"] ?? '';
             $academic_year = $_POST["academic_year"] ?? '';
+            $program_id = $_POST["program_id"] ?? '';
             $status = $_POST["status"] ?? 'upcoming';
             $deadline = $_POST["deadline"] ?? null;
 
@@ -1105,10 +1108,11 @@ class Action
                 }
             }
 
-            $stmt = $this->db->prepare("
+            $stmt = $this->db->prepare(" 
                 UPDATE accreditation_cycles
                 SET cycle_name = :cycle_name,
                     academic_year = :academic_year,
+                    program_id = :program_id,
                     status = :status,
                     deadline = :deadline
                 WHERE cycle_id = :cycle_id
@@ -1118,6 +1122,7 @@ class Action
                 ':cycle_id' => $cycle_id,
                 ':cycle_name' => $cycle_name,
                 ':academic_year' => $academic_year,
+                ':program_id' => $program_id,
                 ':status' => $status,
                 ':deadline' => $deadline ?: null
             ]);
@@ -2851,4 +2856,418 @@ class Action
         }
     }
 
+// Program Accreditation Status =======================================
+    function GetSummaryCounts() {
+        try {
+            // Test database connection first
+            $testQuery = $this->db->query("SELECT 1 as test");
+            if (!$testQuery) {
+                throw new Exception("Database connection failed");
+            }
+
+            // Initialize summary array
+            $summary = [
+                'total_programs' => 0,
+                'level1' => 0,
+                'level2' => 0,
+                'level3' => 0,
+                'level4' => 0,
+                'phase1' => 0,
+                'phase2' => 0,
+                'not_accredited' => 0,
+                'upcoming_surveys' => 0,
+                'accreditation_rate' => 0
+            ];
+
+            // 1. Get total programs count
+            $programsQuery = "SELECT COUNT(*) as total FROM programs";
+            $programsStmt = $this->db->query($programsQuery);
+            if ($programsStmt) {
+                $result = $programsStmt->fetch(PDO::FETCH_ASSOC);
+                $summary['total_programs'] = (int)($result['total'] ?? 0);
+            }
+
+            // 2. Get programs with their latest accreditation
+            $query = "
+                SELECT p.program_id, 
+                    (SELECT pa.accreditation_level 
+                        FROM program_accreditation pa 
+                        WHERE pa.program_id = p.program_id 
+                        ORDER BY pa.survey_date DESC 
+                        LIMIT 1) as latest_level
+                FROM programs p
+            ";
+
+            $stmt = $this->db->query($query);
+            if ($stmt) {
+                $accreditedCount = 0;
+                
+                while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                    $level = strtolower($row['latest_level'] ?? '');
+                    
+                    if (empty($level)) {
+                        $summary['not_accredited']++;
+                    } else {
+                        $accreditedCount++;
+                        
+                        // Count by level
+                        if (in_array($level, ['1', 'i', 'level i', 'level 1'])) {
+                            $summary['level1']++;
+                        } elseif (in_array($level, ['2', 'ii', 'level ii', 'level 2'])) {
+                            $summary['level2']++;
+                        } elseif (in_array($level, ['3', 'iii', 'level iii', 'level 3'])) {
+                            $summary['level3']++;
+                        } elseif (in_array($level, ['4', 'iv', 'level iv', 'level 4'])) {
+                            $summary['level4']++;
+                        } elseif (strpos($level, 'phase1') !== false || strpos($level, 'phase 1') !== false) {
+                            $summary['phase1']++;
+                        } elseif (strpos($level, 'phase2') !== false || strpos($level, 'phase 2') !== false) {
+                            $summary['phase2']++;
+                        }
+                    }
+                }
+                
+                // Calculate accreditation rate
+                if ($summary['total_programs'] > 0) {
+                    $summary['accreditation_rate'] = round(
+                        ($accreditedCount / $summary['total_programs']) * 100, 
+                        1
+                    );
+                }
+            }
+
+            // 3. Get upcoming surveys
+            $upcomingQuery = "
+                SELECT COUNT(DISTINCT program_id) as count
+                FROM program_accreditation 
+                WHERE survey_date >= CURDATE() 
+                AND survey_date <= DATE_ADD(CURDATE(), INTERVAL 60 DAY)
+            ";
+            
+            $upcomingStmt = $this->db->query($upcomingQuery);
+            if ($upcomingStmt) {
+                $result = $upcomingStmt->fetch(PDO::FETCH_ASSOC);
+                $summary['upcoming_surveys'] = (int)($result['count'] ?? 0);
+            }
+
+            // Return JSON response
+            return json_encode([
+                'status' => 1,
+                'data' => $summary,
+                'message' => 'Summary counts retrieved successfully'
+            ], JSON_UNESCAPED_UNICODE);
+
+        } catch (Exception $e) {
+            // Return error in JSON format
+            return json_encode([
+                'status' => 0,
+                'data' => null,
+                'message' => 'An error occurred: ' . $e->getMessage()
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    function add_accreditation_form(){
+        try {
+            // Get POST data
+            $program_id = isset($_POST['program_id']) ? $_POST['program_id'] : 
+                         (isset($_POST['program_id_select']) ? $_POST['program_id_select'] : null);
+            
+            if (!$program_id) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Program ID is required'
+                ]);
+            }
+            
+            $accreditation_level = $_POST['accreditation_level'] ?? '';
+            $survey_date = $_POST['survey_date'] ?? '';
+            $accrediting_body = $_POST['accrediting_body'] ?? 'AACCUP';
+            $remarks = $_POST['remarks'] ?? '';
+            
+            // Validate required fields
+            if (empty($accreditation_level) || empty($survey_date)) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Accreditation level and survey date are required'
+                ]);
+            }
+            
+            // Validate program exists
+            $programCheck = $this->db->prepare("SELECT program_name FROM programs WHERE program_id = ?");
+            $programCheck->execute([$program_id]);
+            $program = $programCheck->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$program) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Program not found'
+                ]);
+            }
+            
+            // Insert accreditation record
+            $stmt = $this->db->prepare("
+                INSERT INTO program_accreditation 
+                (program_id, accreditation_level, survey_date, accrediting_body, remarks)
+                VALUES (?, ?, ?, ?, ?)
+            ");
+            
+            $stmt->execute([
+                $program_id,
+                $accreditation_level,
+                $survey_date,
+                $accrediting_body,
+                $remarks
+            ]);
+            
+            return json_encode([
+                'status' => 1,
+                'message' => 'Accreditation record added successfully for ' . $program['program_name']
+            ]);
+            
+        } catch (PDOException $e) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred: ' . $e->getMessage()
+            ]);
+        }
+    }
+    function viewProgramHistory(){
+        try {
+            $program_id = $_POST['program_id'] ?? null;
+            
+            if (!$program_id) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Program ID is required'
+                ]);
+            }
+            
+            // Get program details
+            $programStmt = $this->db->prepare("
+                SELECT p.*, d.department_name 
+                FROM programs p 
+                JOIN departments d ON p.department_id = d.department_id 
+                WHERE p.program_id = ?
+            ");
+            $programStmt->execute([$program_id]);
+            $program = $programStmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$program) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Program not found'
+                ]);
+            }
+            
+            // Get accreditation history
+            $historyStmt = $this->db->prepare("
+                SELECT * 
+                FROM program_accreditation 
+                WHERE program_id = ? 
+                ORDER BY survey_date DESC
+            ");
+            $historyStmt->execute([$program_id]);
+            $history = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Get current level from accreditation_levels table for better display
+            $currentLevelInfo = [];
+            if (!empty($history)) {
+                $latestAccreditation = $history[0];
+                $levelStmt = $this->db->prepare("
+                    SELECT level_name, description 
+                    FROM accreditation_levels 
+                    WHERE level_code = ? OR level_name LIKE ?
+                ");
+                $levelStmt->execute([
+                    $latestAccreditation['accreditation_level'],
+                    '%' . $latestAccreditation['accreditation_level'] . '%'
+                ]);
+                $currentLevelInfo = $levelStmt->fetch(PDO::FETCH_ASSOC);
+            }
+            
+            return json_encode([
+                'status' => 1,
+                'program_name' => $program['program_name'],
+                'department_name' => $program['department_name'],
+                'current_level' => $currentLevelInfo ? $currentLevelInfo['level_name'] : 
+                                  (!empty($history) ? $history[0]['accreditation_level'] : 'Not Accredited'),
+                'current_level_desc' => $currentLevelInfo['description'] ?? '',
+                'history' => $history,
+                'message' => 'Program history retrieved successfully'
+            ]);
+            
+        } catch (PDOException $e) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred: ' . $e->getMessage()
+            ]);
+        }
+    }
+    function viewNextLevelInfo(){
+        try {
+            $program_id = $_POST['program_id'] ?? null;
+            $current_level = $_POST['current_level'] ?? null;
+            
+            if (!$program_id) {
+                echo json_encode([
+                    'status' => 0,
+                    'message' => 'Program ID is required'
+                ]);
+                return;
+            }
+            
+            // Get program details
+            $programStmt = $this->db->prepare("
+                SELECT p.*, d.department_name 
+                FROM programs p 
+                JOIN departments d ON p.department_id = d.department_id 
+                WHERE p.program_id = ?
+            ");
+            $programStmt->execute([$program_id]);
+            $program = $programStmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$program) {
+                echo json_encode([
+                    'status' => 0,
+                    'message' => 'Program not found'
+                ]);
+                return;
+            }
+            
+            $response = [
+                'status' => 1,
+                'program_name' => $program['program_name'],
+                'department_name' => $program['department_name'],
+                'program_code' => $program['program_code'],
+                'message' => 'Next level information retrieved successfully'
+            ];
+            
+            // If current level is provided
+            if ($current_level && $current_level !== 'not_accredited') {
+                // Try to get level info from accreditation_levels table
+                $levelStmt = $this->db->prepare("
+                    SELECT * FROM accreditation_levels 
+                    WHERE level_code = ? OR level_name LIKE ?
+                    ORDER BY sort_order
+                ");
+                $levelStmt->execute([$current_level, '%' . $current_level . '%']);
+                $currentLevelInfo = $levelStmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($currentLevelInfo) {
+                    $response['current_level'] = $currentLevelInfo['level_name'];
+                    $response['current_level_desc'] = $currentLevelInfo['description'] ?? '';
+                    
+                    // Get next level
+                    $nextLevelStmt = $this->db->prepare("
+                        SELECT * FROM accreditation_levels 
+                        WHERE sort_order > ? 
+                        ORDER BY sort_order ASC 
+                        LIMIT 1
+                    ");
+                    $nextLevelStmt->execute([$currentLevelInfo['sort_order']]);
+                    $nextLevel = $nextLevelStmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if ($nextLevel) {
+                        $response['next_level'] = [
+                            'level_name' => $nextLevel['level_name'],
+                            'level_code' => $nextLevel['level_code'],
+                            'description' => $nextLevel['description'] ?? '',
+                            'requirements' => $nextLevel['requirements'] ?? '',
+                            'sort_order' => $nextLevel['sort_order']
+                        ];
+                    } else {
+                        $response['next_level'] = null;
+                    }
+                } else {
+                    // Current level not in accreditation_levels table
+                    $response['current_level'] = $current_level;
+                    $response['current_level_desc'] = '';
+                    
+                    // Get first level as next level
+                    $firstLevelStmt = $this->db->query("SELECT * FROM accreditation_levels ORDER BY sort_order LIMIT 1");
+                    $firstLevel = $firstLevelStmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if ($firstLevel) {
+                        $response['next_level'] = [
+                            'level_name' => $firstLevel['level_name'],
+                            'level_code' => $firstLevel['level_code'],
+                            'description' => $firstLevel['description'] ?? '',
+                            'requirements' => $firstLevel['requirements'] ?? '',
+                            'sort_order' => $firstLevel['sort_order']
+                        ];
+                    }
+                }
+            } else {
+                // No current level or not accredited
+                $response['current_level'] = 'Not Accredited';
+                $response['current_level_desc'] = '';
+                
+                // Get first level as next level
+                $firstLevelStmt = $this->db->query("SELECT * FROM accreditation_levels ORDER BY sort_order LIMIT 1");
+                $firstLevel = $firstLevelStmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($firstLevel) {
+                    $response['next_level'] = [
+                        'level_name' => $firstLevel['level_name'],
+                        'level_code' => $firstLevel['level_code'],
+                        'description' => $firstLevel['description'] ?? '',
+                        'requirements' => $firstLevel['requirements'] ?? '',
+                        'sort_order' => $firstLevel['sort_order']
+                    ];
+                }
+            }
+            
+            echo json_encode($response);
+            
+        } catch (PDOException $e) {
+            echo json_encode([
+                'status' => 0,
+                'message' => 'An error occurred: ' . $e->getMessage()
+            ]);
+        }
+    }
+    // Additional helper method to get all programs for dropdown
+    function getProgramsList(){
+        try {
+            $stmt = $this->db->query("
+                SELECT p.program_id, p.program_code, p.program_name, d.department_name
+                FROM programs p
+                JOIN departments d ON p.department_id = d.department_id
+                ORDER BY d.department_name, p.program_name
+            ");
+            $programs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            return json_encode([
+                'status' => 1,
+                'data' => $programs,
+                'message' => 'Programs list retrieved successfully'
+            ]);
+            
+        } catch (PDOException $e) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred: ' . $e->getMessage()
+            ]);
+        }
+    }
+    // Method to get accreditation levels for dropdown
+    function getAccreditationLevels(){
+        try {
+            $stmt = $this->db->query("SELECT * FROM accreditation_levels ORDER BY sort_order");
+            $levels = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            return json_encode([
+                'status' => 1,
+                'data' => $levels,
+                'message' => 'Accreditation levels retrieved successfully'
+            ]);
+            
+        } catch (PDOException $e) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred: ' . $e->getMessage()
+            ]);
+        }
+    }
 }   

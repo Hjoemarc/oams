@@ -20,6 +20,9 @@
                 <a href="index.php?page=contents/accreditation_framework" class="nav-item nav-accreditation_framework my-1 rounded-2">
                     <span class=""><i class="fa-solid fa-clipboard-list"></i></span> Accreditation Framework
                 </a>
+                <a href="index.php?page=contents/accre_dept" class="nav-item nav-accre_dept my-1 rounded-2">
+                    <span class=""><i class="fa-solid fa-clipboard-check"></i></span> Accreditation Timeline
+                </a>
             </div>
             
             <!-- Accreditation Operations Section -->

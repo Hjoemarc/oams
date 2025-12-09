@@ -1,17 +1,21 @@
 <?php
 // Fetch Cycles
-    $stmtCycles = $pdo->prepare("SELECT cycle_id, cycle_name, academic_year, status, deadline, created_at
-                FROM accreditation_cycles
-                ORDER BY created_at DESC");
-    $stmtCycles->execute();
-    $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
+   $stmtCycles = $pdo->prepare("
+    SELECT ac.cycle_id, ac.cycle_name, ac.academic_year, ac.status, ac.deadline, ac.created_at, p.program_name, p.program_id
+    FROM accreditation_cycles ac
+    INNER JOIN programs p ON ac.program_id = p.program_id
+    ORDER BY ac.created_at DESC
+");
+$stmtCycles->execute();
+$cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
+
 
     $counts = 1;
 ?>
 <section>
     <div class="d-flex justify-content-between align-items-center mb-2">
         <div class="mx-2">
-            <h4 class=""><span class=""><i class="fa-solid fa-calendar-alt me-2"></i></span>Accreditation Framework
+            <h4 class=""><span class=""><i class="fa-solid fa-calendar-alt me-2"></i></span>Accreditation Cycles
             </h4>
             <small class="text-muted ">Manage cycles</small>
         </div>
@@ -50,6 +54,22 @@
                             <label class="form-label">Academic Year</label>
                             <input type="text" class="form-control" name="academic_year" required
                                 placeholder="e.g., 2024-2025">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Programs</label>
+                            <select name="program_id" class="form-select" required>
+                                <option value="">Select Program</option>
+                                <?php 
+                                    $stmt = $pdo->prepare("SELECT * FROM programs");
+                                    $stmt->execute();
+                                    $getPrograms = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                                    foreach($getPrograms as $prog) :
+                                ?>
+                                    <option value="<?= $prog["program_id"] ?>">
+                                        <?= $prog["program_name"] . '(' . $prog["program_code"] . ')' ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Status</label>
@@ -91,6 +111,23 @@
                         <div class="col-md-6">
                             <label class="form-label">Cycle Name</label>
                             <input type="text" class="form-control" id="editCycleName" name="cycle_name" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Programs</label>
+                            <select name="program_id" id="editProgramId" class="form-select" required>
+                                <option value="">Select Program</option>
+                                <?php 
+                                    $stmt = $pdo->prepare("SELECT * FROM programs");
+                                    $stmt->execute();
+                                    $getPrograms = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                                    foreach($getPrograms as $prog) :
+                                ?>
+                                    <option value="<?= $prog["program_id"] ?>">
+                                        <?= $prog["program_name"] . '(' . $prog["program_code"] . ')' ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
 
                         <div class="col-md-6">
@@ -154,10 +191,10 @@
                 <tr>
                     <th>#</th>
                     <th>Cycle Name</th>
+                    <th>Program</th>
                     <th>Academic Year</th>
                     <th>Status</th>
                     <th>Deadline</th>
-                    <th>Created At</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -175,16 +212,17 @@
                 <tr>
                     <td><?= $cycleCount++ ?></td>
                     <td><?= htmlspecialchars($cycle["cycle_name"]) ?></td>
+                    <td><?= htmlspecialchars($cycle["program_name"]) ?></td>
                     <td><?= htmlspecialchars($cycle["academic_year"]) ?></td>
                     <td><span class="<?= $statusClass ?>"><?= ucfirst($cycle["status"]) ?></span></td>
                     <td><?= htmlspecialchars($cycle["deadline"] ?? 'N/A') ?></td>
-                    <td><?= htmlspecialchars($cycle["created_at"]) ?></td>
                     <td>
                         <button type="button" class="btn btn-sm btn-primary edit-cycle-btn"
                             data-cycle-id="<?= $cycle['cycle_id'] ?>"
                             data-cycle-name="<?= htmlspecialchars($cycle['cycle_name']) ?>"
                             data-academic-year="<?= htmlspecialchars($cycle['academic_year']) ?>"
                             data-status="<?= htmlspecialchars($cycle['status']) ?>"
+                            data-program_id="<?= $cycle['program_id'] ?>"
                             data-deadline="<?= $cycle['deadline'] ? htmlspecialchars($cycle['deadline']) : '' ?>">
                             <i class="fas fa-edit"></i> Edit
                         </button>
@@ -204,11 +242,12 @@
 </section>
 <script>
 // Cycle Edit and Delete Functions
-function editCycle(cycleId, cycleName, academicYear, status, deadline) {
+function editCycle(cycleId, cycleName, academicYear, status, program_id, deadline) {
     document.getElementById('editCycleId').value = cycleId;
     document.getElementById('editCycleName').value = cycleName;
     document.getElementById('editAcademicYear').value = academicYear;
     document.getElementById('editCycleStatus').value = status;
+    document.getElementById('editProgramId').value = program_id;
     document.getElementById('editDeadline').value = deadline;
 
     var modal = new bootstrap.Modal(document.getElementById('editCycleModal'));
@@ -234,9 +273,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const cycleName = this.getAttribute('data-cycle-name');
             const academicYear = this.getAttribute('data-academic-year');
             const status = this.getAttribute('data-status');
+            const program_id = this.getAttribute('data-program_id');
             const deadline = this.getAttribute('data-deadline');
 
-            editCycle(cycleId, cycleName, academicYear, status, deadline);
+            editCycle(cycleId, cycleName, academicYear, status, program_id, deadline);
         });
     });
 
