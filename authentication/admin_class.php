@@ -2465,68 +2465,119 @@ class Action
             $indicator_id = $_POST['indicator_id'] ?? '';
             $program_id = $_POST['program_id'] ?? '';
             $status = $_POST['status'] ?? 'not_started';
-            $sub_indicator_ids = $_POST['sub_indicator_ids'] ?? [];
+            
+            // Get sub_indicator_ids from the hidden input
+            $sub_indicator_ids_str = $_POST['sub_indicator_ids'] ?? '';
+            
+            // Convert comma-separated string to array
+            $sub_indicator_ids = [];
+            if (!empty($sub_indicator_ids_str)) {
+                $sub_indicator_ids = array_filter(array_map('trim', explode(',', $sub_indicator_ids_str)));
+            }
 
+            // Validate required fields
             if (empty($cycle_id) || empty($faculty_id) || empty($indicator_id) || empty($program_id)) {
                 return json_encode(['status' => 0, 'message' => 'All fields are required']);
             }
 
+            // If no sub-indicators selected, insert just the main indicator assignment
             if (empty($sub_indicator_ids)) {
-                return json_encode(['status' => 0, 'message' => 'Please select at least one sub-indicator']);
-            }
-
-            $insertedIds = [];
-            foreach ($sub_indicator_ids as $sub_id) {
-                // Check duplicate
+                // Check if assignment already exists for main indicator
                 $checkStmt = $this->db->prepare("
                     SELECT assignment_id FROM assignments 
-                    WHERE user_id = :faculty_id AND indicator_id = :indicator_id 
-                    AND program_id = :program_id AND cycle_id = :cycle_id AND sub_indicator_id = :sub_id
+                    WHERE user_id = :faculty_id 
+                    AND indicator_id = :indicator_id 
+                    AND program_id = :program_id 
+                    AND cycle_id = :cycle_id
+                    AND sub_indicator_id IS NULL
                 ");
                 $checkStmt->execute([
                     ':faculty_id' => $faculty_id,
                     ':indicator_id' => $indicator_id,
                     ':program_id' => $program_id,
-                    ':cycle_id' => $cycle_id,
-                    ':sub_id' => $sub_id
+                    ':cycle_id' => $cycle_id
                 ]);
-                if ($checkStmt->rowCount() > 0) continue;
+                
+                if ($checkStmt->rowCount() > 0) {
+                    return json_encode(['status' => 0, 'message' => 'Assignment for this indicator already exists']);
+                }
 
-                // Insert
+                // Insert main indicator assignment (sub_indicator_id is NULL)
                 $stmt = $this->db->prepare("
                     INSERT INTO assignments 
                     (user_id, indicator_id, sub_indicator_id, program_id, status, cycle_id, assigned_by) 
-                    VALUES (:faculty_id, :indicator_id, :sub_id, :program_id, :status, :cycle_id, :assigned_by)
+                    VALUES (:faculty_id, :indicator_id, NULL, :program_id, :status, :cycle_id, :assigned_by)
                 ");
                 $stmt->execute([
                     ':faculty_id' => $faculty_id,
                     ':indicator_id' => $indicator_id,
-                    ':sub_id' => $sub_id,
                     ':program_id' => $program_id,
                     ':status' => $status,
                     ':cycle_id' => $cycle_id,
                     ':assigned_by' => $user_id
                 ]);
 
-                $insertedIds[] = $this->db->lastInsertId();
+                $insertedIds = [$this->db->lastInsertId()];
+            } else {
+                // Insert assignments for each sub-indicator
+                $insertedIds = [];
+                foreach ($sub_indicator_ids as $sub_id) {
+                    // Check if sub-indicator assignment already exists
+                    $checkStmt = $this->db->prepare("
+                        SELECT assignment_id FROM assignments 
+                        WHERE user_id = :faculty_id 
+                        AND indicator_id = :indicator_id 
+                        AND sub_indicator_id = :sub_id
+                        AND program_id = :program_id 
+                        AND cycle_id = :cycle_id
+                    ");
+                    $checkStmt->execute([
+                        ':faculty_id' => $faculty_id,
+                        ':indicator_id' => $indicator_id,
+                        ':sub_id' => $sub_id,
+                        ':program_id' => $program_id,
+                        ':cycle_id' => $cycle_id
+                    ]);
+                    
+                    if ($checkStmt->rowCount() > 0) {
+                        continue; // Skip if already exists
+                    }
+
+                    // Insert sub-indicator assignment
+                    $stmt = $this->db->prepare("
+                        INSERT INTO assignments 
+                        (user_id, indicator_id, sub_indicator_id, program_id, status, cycle_id, assigned_by) 
+                        VALUES (:faculty_id, :indicator_id, :sub_id, :program_id, :status, :cycle_id, :assigned_by)
+                    ");
+                    $stmt->execute([
+                        ':faculty_id' => $faculty_id,
+                        ':indicator_id' => $indicator_id,
+                        ':sub_id' => $sub_id,
+                        ':program_id' => $program_id,
+                        ':status' => $status,
+                        ':cycle_id' => $cycle_id,
+                        ':assigned_by' => $user_id
+                    ]);
+
+                    $insertedIds[] = $this->db->lastInsertId();
+                }
+                
+                if (empty($insertedIds)) {
+                    return json_encode(['status' => 0, 'message' => 'All selected sub-indicators already have assignments']);
+                }
             }
 
             return json_encode([
                 'status' => 1,
-                'message' => 'Assignment created successfully',
-                'assignment_ids' => $insertedIds
+                'message' => count($insertedIds) . ' assignment(s) created successfully',
+                'assignment_ids' => $insertedIds,
+                'count' => count($insertedIds)
             ]);
-
             
         } catch (PDOException $e) {
             return json_encode([
                 'status' => 0,
                 'message' => 'Database error: ' . $e->getMessage()
-            ]);
-        } catch (Exception $e) {
-            return json_encode([
-                'status' => 0,
-                'message' => 'An error occurred: ' . $e->getMessage()
             ]);
         }
     }
@@ -2755,18 +2806,37 @@ class Action
             ]);
         }
     }
-    // function get_subIndicators() {
-    //     $indicator_id = $_GET['indicator_id'] ?? 0;
-
-    //     if (!$indicator_id) {
-    //         return json_encode([]);
-    //     }
-
-    //     $stmt = $this->db->prepare("SELECT * FROM sub_indicators WHERE indicator_id = :indicator_id");
-    //     $stmt->execute(['indicator_id' => $indicator_id]);
-
-    //     return json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
-    // }
+    function get_parent_indicators() {
+        try {
+            // Check if indicator_id is provided
+            if (!isset($_POST['indicator_id']) || empty($_POST['indicator_id'])) {
+                echo json_encode([
+                    'status' => 0,
+                    'message' => 'Indicator ID is required'
+                ]);
+                return;
+            }
+            
+            $indicator_id = $_POST['indicator_id'];
+            
+            // Get sub-indicators where the selected indicator is the parent
+            $stmt = $this->db->prepare("SELECT * FROM accreditation_indicators WHERE parent_indicator_id = :parent_indicator_id ORDER BY indicator_code");
+            $stmt->execute(['parent_indicator_id' => $indicator_id]);
+            $subIndicators = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            echo json_encode([
+                'status' => 1,
+                'data' => $subIndicators,
+                'count' => count($subIndicators)
+            ]);
+            
+        } catch (PDOException $e) {
+            echo json_encode([
+                'status' => 0,
+                'message' => 'Database error: ' . $e->getMessage()
+            ]);
+        }
+    }
 
 // user_profile =======================================================
     function profile_update() {

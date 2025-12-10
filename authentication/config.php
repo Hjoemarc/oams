@@ -160,6 +160,7 @@ function db_connect()
             assignment_id INT AUTO_INCREMENT PRIMARY KEY,
             user_id INT NOT NULL,
             indicator_id INT NOT NULL,
+            sub_indicator_id INT NULL, 
             program_id INT NOT NULL,
             cycle_id INT NOT NULL,
             status ENUM('not_started','in_progress','submitted','completed') 
@@ -169,6 +170,8 @@ function db_connect()
             FOREIGN KEY (user_id) REFERENCES users(user_id)
                 ON DELETE CASCADE,
             FOREIGN KEY (indicator_id) REFERENCES accreditation_indicators(indicator_id)
+                ON DELETE CASCADE,
+            FOREIGN KEY (sub_indicator_id) REFERENCES accreditation_indicators(indicator_id)
                 ON DELETE CASCADE,
             FOREIGN KEY (program_id) REFERENCES programs(program_id)
                 ON DELETE CASCADE,

@@ -158,6 +158,7 @@ $documentCount = 1;
     <!-- Assign faculty -->
     <div class="modal fade" id="createAccounts" tabindex="-1" aria-labelledby="createAccountsLabel" aria-hidden="true">
         <div class="modal-dialog modal-md">
+            <!-- Changed to modal-lg for better display -->
             <div class="modal-content">
                 <div class="modal-header bg-gradient-primary text-white">
                     <h5 class="modal-title text-white" id="createAccountsLabel">Create Assignment</h5>
@@ -166,24 +167,24 @@ $documentCount = 1;
                 </div>
                 <div class="modal-body">
                     <form class="row g-1 align-items-start justify-content-start" id="assignment-form">
-                        <div class="mx-2">
+                        <div class="mx-2 col-12">
                             <?php
-                                $stmt = $pdo->prepare("SELECT * FROM accreditation_cycles WHERE status = 'active'");
-                                $stmt->execute();
-                                $cycles = $stmt->fetch(PDO::FETCH_ASSOC);
+                            $stmt = $pdo->prepare("SELECT * FROM accreditation_cycles WHERE status = 'active'");
+                            $stmt->execute();
+                            $cycles = $stmt->fetch(PDO::FETCH_ASSOC);
 
-                                $stmt = $pdo->prepare("SELECT * FROM accreditation_indicators");
-                                $stmt->execute();
-                                $indicators = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                            $stmt = $pdo->prepare("SELECT * FROM accreditation_indicators");
+                            $stmt->execute();
+                            $indicators = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-                                $stmt = $pdo->prepare("SELECT * FROM programs 
-                                INNER JOIN departments ON programs.department_id = departments.department_id
-                                WHERE departments.department_id = :department_id");
-                                $stmt->execute([
-                                    'department_id' => $department_id
-                                ]);
-                                $programs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                            ?>
+                            $stmt = $pdo->prepare("SELECT * FROM programs 
+                            INNER JOIN departments ON programs.department_id = departments.department_id
+                            WHERE departments.department_id = :department_id");
+                            $stmt->execute([
+                                'department_id' => $department_id
+                            ]);
+                            $programs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        ?>
                             <label class="form-label">Cycle</label>
                             <input type="hidden" class="form-control" name="cycle_id"
                                 value="<?= htmlspecialchars($cycles["cycle_id"]) ?>">
@@ -192,9 +193,9 @@ $documentCount = 1;
                             </p>
                         </div>
                         <input type="hidden" name="user_id" value="<?= htmlspecialchars($user_id) ?>">
-                        <div class="mx-2">
+                        <div class="mx-2 col-md-12">
                             <label class="form-label">Indicator</label>
-                            <select name="indicator_id" id="indicator_id" class="form-select">
+                            <select name="indicator_id" id="indicator_id" class="form-select" required>
                                 <option value="">Select Indicator</option>
                                 <?php foreach($indicators as $indi) : ?>
                                 <option value="<?= htmlspecialchars($indi["indicator_id"]) ?>">
@@ -203,9 +204,9 @@ $documentCount = 1;
                                 <?php endforeach ?>
                             </select>
                         </div>
-                        <div class="mx-2">
+                        <div class="mx-2 col-md-12">
                             <label class="form-label">Program</label>
-                            <select name="program_id" id="program_id" class="form-select">
+                            <select name="program_id" id="program_id" class="form-select" required>
                                 <option value="">Select Program</option>
                                 <?php foreach($programs as $prog) : ?>
                                 <option value="<?= htmlspecialchars($prog["program_id"]) ?>">
@@ -214,16 +215,42 @@ $documentCount = 1;
                                 <?php endforeach ?>
                             </select>
                         </div>
-                        <div class="mx-2">
+
+                        <!-- Sub Indicators Checkbox Section -->
+                        <div class="mx-2 col-12">
+                            <label class="form-label">Sub Indicators (Optional)</label>
+                            <div class="border rounded p-3 bg-light" id="sub_indicators_container"
+                                style="display: none;">
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="select_all_sub_indicators">
+                                    <label class="form-check-label fw-bold" for="select_all_sub_indicators">
+                                        Select All Sub Indicators
+                                    </label>
+                                </div>
+                                <hr class="my-2">
+                                <div id="sub_indicators_checkboxes" class="row">
+                                    <!-- Checkboxes will be loaded dynamically via AJAX -->
+                                    <div class="col-12 text-center text-muted">
+                                        <i class="bi bi-info-circle"></i> Select an indicator above to load sub
+                                        indicators
+                                    </div>
+                                </div>
+                            </div>
+                            <input type="hidden" name="sub_indicator_ids" id="sub_indicator_ids" value="">
+                            <small class="text-muted">Note: Sub indicators are optional. You can select multiple if
+                                needed.</small>
+                        </div>
+
+                        <div class="mx-2 col-md-12">
                             <label class="form-label">Faculty</label>
-                            <select name="faculty_id" id="user_id" class="form-select" disabled>
+                            <select name="faculty_id" id="user_id" class="form-select" required disabled>
                                 <option value="">Select Faculty</option>
                                 <!-- Faculty options will be loaded dynamically via AJAX -->
                             </select>
                         </div>
-                        <div class="mx-2">
+                        <div class="mx-2 col-md-12">
                             <label class="form-label">Status</label>
-                            <select name="status" id="status" class="form-select">
+                            <select name="status" id="status" class="form-select" required>
                                 <option value="">Select status</option>
                                 <option value="not_started">Not Started</option>
                                 <option value="in_progress">In Progress</option>
@@ -546,7 +573,7 @@ $documentCount = 1;
                         ?>
                         <tr>
                             <td><?= $documentCount++ ?></td>
-                           
+
                             <td><?= htmlspecialchars($document['uploader_name']) ?></td>
                             <td>
                                 <span
@@ -572,12 +599,10 @@ $documentCount = 1;
                             <td>
                                 <div class="btn-group btn-group-sm" role="group">
                                     <button type="button" class="btn btn-outline-success assign-document-reviewer-btn"
-                                            data-assignment-id="<?= $document['assignment_id'] ?>" 
-                                            data-document-id="<?= $document['document_id'] ?>" 
-                                            data-faculty-id="<?= $document['uploader_id'] ?>" 
-                                            data-bs-toggle="modal" 
-                                            data-bs-target="#assignReviewerModal"
-                                            id="getDocumentId">
+                                        data-assignment-id="<?= $document['assignment_id'] ?>"
+                                        data-document-id="<?= $document['document_id'] ?>"
+                                        data-faculty-id="<?= $document['uploader_id'] ?>" data-bs-toggle="modal"
+                                        data-bs-target="#assignReviewerModal" id="getDocumentId">
                                         <i class="fas fa-user-check"></i>
                                     </button>
                                 </div>
@@ -605,7 +630,7 @@ $documentCount = 1;
                         <input type="hidden" id="get_assignment_id" name="assignment_id">
                         <input type="hidden" id="get_document_id" name="document_id">
                         <input type="hidden" id="get_faculty_id" name="faculty_id">
-                        
+
                         <div class="mb-3">
                             <label class="form-label">Reviewer</label>
                             <select id="modalReviewerSelect" name="reviewer_id" class="form-select" required>
@@ -633,7 +658,8 @@ $documentCount = 1;
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                            <button type="submit" class="btn btn-primary" onclick="submitReviewerAssignment()">Assign</button>
+                            <button type="submit" class="btn btn-primary"
+                                onclick="submitReviewerAssignment()">Assign</button>
                         </div>
                     </form>
                 </div>
@@ -659,6 +685,199 @@ $documentCount = 1;
 </section>
 
 <script>
+$(document).ready(function() {
+    // When indicator selection changes
+    $('#indicator_id').on('change', function() {
+        var indicatorId = $(this).val();
+        loadSubIndicators(indicatorId);
+    });
+
+    // When program selection changes
+    $('#program_id').on('change', function() {
+        var programId = $(this).val();
+        loadFacultyForProgram(programId);
+    });
+
+    // Form submission handler
+    $('#assignment-form').on('submit', function(e) {
+        e.preventDefault();
+        submitAssignmentForm();
+    });
+});
+
+// Function to load sub indicators as checkboxes
+function loadSubIndicators(indicatorId, selectedSubIds = []) {
+    var container = $('#sub_indicators_container');
+    var checkboxesContainer = $('#sub_indicators_checkboxes');
+    var hiddenInput = $('#sub_indicator_ids');
+
+    if (!indicatorId || indicatorId === '') {
+        container.hide();
+        checkboxesContainer.html(
+            '<div class="col-12 text-center text-muted"><i class="bi bi-info-circle"></i> Select an indicator above to load sub indicators</div>'
+            );
+        hiddenInput.val('');
+        $('#select_all_sub_indicators').prop('checked', false).prop('disabled', true);
+        return;
+    }
+
+    // Show loading state
+    container.show();
+    checkboxesContainer.html(`
+        <div class="col-12 text-center">
+            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+            <span class="ms-2">Loading sub indicators...</span>
+        </div>
+    `);
+    $('#select_all_sub_indicators').prop('checked', false).prop('disabled', true);
+
+    $.ajax({
+        url: base_url + "/authentication/action.php?action=get_parent_indicators",
+        method: 'POST',
+        dataType: 'json',
+        data: {
+            indicator_id: indicatorId
+        },
+        success: function(response) {
+            console.log('Sub Indicators Response:', response);
+
+            if (response.status == 1 && response.data && response.data.length > 0) {
+                checkboxesContainer.empty();
+
+                // Convert selectedSubIds to array if it's a string
+                if (typeof selectedSubIds === 'string') {
+                    selectedSubIds = selectedSubIds.split(',').map(id => id.trim()).filter(id => id !== '');
+                } else if (!Array.isArray(selectedSubIds)) {
+                    selectedSubIds = [];
+                }
+
+                // Create checkboxes in columns (2 columns layout)
+                var indicatorsPerColumn = Math.ceil(response.data.length / 2);
+                var currentColumn = 1;
+                var currentCount = 0;
+
+                var column1 = $('<div class="col-md-6"></div>');
+                var column2 = $('<div class="col-md-6"></div>');
+
+                $.each(response.data, function(index, indicator) {
+                    var isChecked = selectedSubIds.includes(indicator.indicator_id.toString());
+                    var checkboxId = 'sub_indicator_' + indicator.indicator_id;
+                    var optionText = indicator.indicator_code;
+
+                    // Truncate description if too long
+                    var fullDescription = indicator.indicator_description || '';
+                    var shortDescription = fullDescription.substring(0, 60);
+                    if (fullDescription.length > 60) shortDescription += '...';
+
+                    var checkboxHtml = `
+                        <div class="form-check mb-2">
+                            <input class="form-check-input sub-indicator-checkbox" 
+                                   type="checkbox" 
+                                   id="${checkboxId}"
+                                   value="${indicator.indicator_id}"
+                                   ${isChecked ? 'checked' : ''}>
+                            <label class="form-check-label" for="${checkboxId}" 
+                                   title="${fullDescription}"
+                                   data-bs-toggle="tooltip">
+                                <strong>${indicator.indicator_code}</strong>: ${shortDescription}
+                            </label>
+                        </div>
+                    `;
+
+                    // Distribute checkboxes between two columns
+                    if (currentCount < indicatorsPerColumn) {
+                        column1.append(checkboxHtml);
+                    } else {
+                        column2.append(checkboxHtml);
+                    }
+                    currentCount++;
+                });
+
+                // Add columns to container
+                checkboxesContainer.append(column1);
+                checkboxesContainer.append(column2);
+
+                // Initialize tooltips
+                $('[data-bs-toggle="tooltip"]').tooltip();
+
+                // Enable select all checkbox
+                $('#select_all_sub_indicators').prop('disabled', false);
+
+                // Update hidden input with selected values
+                updateSubIndicatorIds();
+
+                // Update select all checkbox state
+                updateSelectAllState();
+
+            } else {
+                checkboxesContainer.html(`
+                    <div class="col-12 text-center text-muted">
+                        <i class="bi bi-info-circle"></i> No sub indicators available for this indicator
+                    </div>
+                `);
+                hiddenInput.val('');
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('AJAX Error:', error);
+            checkboxesContainer.html(`
+                <div class="col-12 text-center text-danger">
+                    <i class="bi bi-exclamation-triangle"></i> Error loading sub indicators
+                </div>
+            `);
+            hiddenInput.val('');
+        }
+    });
+}
+
+// Function to update hidden input with selected checkbox values
+function updateSubIndicatorIds() {
+    var selectedValues = [];
+    $('.sub-indicator-checkbox:checked').each(function() {
+        selectedValues.push($(this).val());
+    });
+
+    $('#sub_indicator_ids').val(selectedValues.join(','));
+
+    // Show count badge if any are selected
+    var countBadge = $('#selected_count_badge');
+    if (selectedValues.length > 0) {
+        if (countBadge.length === 0) {
+            $('#sub_indicators_container label').append(
+                ` <span class="badge bg-primary" id="selected_count_badge">${selectedValues.length} selected</span>`
+            );
+        } else {
+            countBadge.text(selectedValues.length + ' selected');
+        }
+    } else {
+        countBadge.remove();
+    }
+}
+
+// Function to update select all checkbox state
+function updateSelectAllState() {
+    var totalCheckboxes = $('.sub-indicator-checkbox').length;
+    var checkedCount = $('.sub-indicator-checkbox:checked').length;
+
+    $('#select_all_sub_indicators').prop('checked', totalCheckboxes > 0 && totalCheckboxes === checkedCount);
+}
+
+// Select All functionality
+$(document).on('change', '#select_all_sub_indicators', function() {
+    var isChecked = $(this).is(':checked');
+    $('.sub-indicator-checkbox').prop('checked', isChecked);
+    updateSubIndicatorIds();
+    updateSelectAllState();
+});
+
+// Update hidden input when individual checkboxes change
+$(document).on('change', '.sub-indicator-checkbox', function() {
+    updateSubIndicatorIds();
+    updateSelectAllState();
+});
+
+
+
 // Global variables
 let selectedAssignmentId = null;
 let selectedDocumentId = null;
@@ -670,21 +889,77 @@ function editAssignment(assignmentId, indicatorId, programId, facultyId, status)
     // Set form values
     document.getElementById('editIndicatorId').value = indicatorId;
     document.getElementById('editProgramId').value = programId;
-    document.getElementById('editFacultyId').value = facultyId;
     document.getElementById('editStatus').value = status;
 
-    // Load faculty for the selected program (if needed)
+    // Clear faculty dropdown first
+    $('#editFacultyId').html('<option value="">Loading faculty...</option>').prop('disabled', true);
+
+    // Load faculty for the selected program
     if (programId) {
         loadFacultyForProgram(programId, facultyId);
+    } else {
+        $('#editFacultyId').html('<option value="">Select Program First</option>').prop('disabled', true);
     }
 
     // Show modal
     var editModal = new bootstrap.Modal(document.getElementById('editAssignmentModal'));
     editModal.show();
 }
-
+// Function to load faculty for program
+// Function to load faculty for program (for EDIT modal)
 function loadFacultyForProgram(programId, selectedFacultyId = null) {
+    // Use editFacultyId for the edit modal
     var userSelect = $('#editFacultyId');
+
+    if (!programId || programId === '') {
+        userSelect.html('<option value="">Select Program First</option>').prop('disabled', true);
+        return;
+    }
+
+    // Show loading state
+    userSelect.html('<option value="">Loading faculty...</option>').prop('disabled', true);
+
+    $.ajax({
+        url: base_url + "/authentication/action.php?action=get_faculty",
+        method: 'POST',
+        dataType: 'json',
+        data: {
+            program_id: programId
+        },
+        success: function(response) {
+            console.log('Faculty response:', response); // Debug log
+            if (response.status == 1 && response.data && response.data.length > 0) {
+                userSelect.html('<option value="">Select Faculty</option>');
+                $.each(response.data, function(index, faculty) {
+                    var selected = (faculty.user_id == selectedFacultyId) ? 'selected' : '';
+                    userSelect.append(
+                        `<option value="${faculty.user_id}" ${selected}>
+                            ${faculty.first_name} ${faculty.last_name}
+                        </option>`
+                    );
+                });
+                userSelect.prop('disabled', false);
+            } else {
+                userSelect.html('<option value="">No faculty found</option>').prop('disabled', true);
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Error loading faculty:', error);
+            userSelect.html('<option value="">Error loading faculty</option>').prop('disabled', true);
+        }
+    });
+}
+
+// Function to load faculty for program (for CREATE modal - keep this separate)
+function loadFacultyForCreateProgram(programId) {
+    var userSelect = $('#user_id'); // This is for create modal
+
+    if (!programId || programId === '') {
+        userSelect.html('<option value="">Select Program First</option>').prop('disabled', true);
+        return;
+    }
+
+    userSelect.html('<option value="">Loading faculty...</option>').prop('disabled', true);
 
     $.ajax({
         url: base_url + "/authentication/action.php?action=get_faculty",
@@ -697,16 +972,19 @@ function loadFacultyForProgram(programId, selectedFacultyId = null) {
             if (response.status == 1 && response.data.length > 0) {
                 userSelect.html('<option value="">Select Faculty</option>');
                 $.each(response.data, function(index, faculty) {
-                    var selected = (faculty.user_id == selectedFacultyId) ? 'selected' : '';
                     userSelect.append(
-                        `<option value="${faculty.user_id}" ${selected}>
+                        `<option value="${faculty.user_id}">
                             ${faculty.first_name} ${faculty.last_name}
                         </option>`
                     );
                 });
+                userSelect.prop('disabled', false);
             } else {
-                userSelect.html('<option value="">No faculty found</option>');
+                userSelect.html('<option value="">No faculty found</option>').prop('disabled', true);
             }
+        },
+        error: function() {
+            userSelect.html('<option value="">Error loading faculty</option>').prop('disabled', true);
         }
     });
 }
@@ -874,279 +1152,280 @@ $(document).ready(function() {
 });
 </script>
 <!-- filtering js assignments -->
- <script>
-    // DOM elements
-    const searchInput = document.getElementById('searchAssignments');
-    const statusFilter = document.getElementById('filterStatus');
-    const programFilter = document.getElementById('filterProgram');
-    const assignmentsTable = document.getElementById('assignmentsTable');
+<script>
+// DOM elements
+const searchInput = document.getElementById('searchAssignments');
+const statusFilter = document.getElementById('filterStatus');
+const programFilter = document.getElementById('filterProgram');
+const assignmentsTable = document.getElementById('assignmentsTable');
 
-    // Original assignments data (store for filtering)
-    let originalAssignmentsData = [];
+// Original assignments data (store for filtering)
+let originalAssignmentsData = [];
 
-    // Store original table rows on page load
-    document.addEventListener('DOMContentLoaded', function() {
-        // Store original rows data
-        const rows = assignmentsTable.querySelectorAll('tr');
-        rows.forEach(row => {
-            const rowData = {
-                html: row.outerHTML,
-                faculty: row.cells[1]?.textContent.toLowerCase() || '',
-                program: row.cells[2]?.textContent.toLowerCase() || '',
-                indicator: row.cells[3]?.textContent.toLowerCase() || '',
-                deadline: row.cells[4]?.textContent.toLowerCase() || '',
-                status: row.cells[5]?.textContent.toLowerCase() || ''
-            };
-            originalAssignmentsData.push(rowData);
-        });
+// Store original table rows on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Store original rows data
+    const rows = assignmentsTable.querySelectorAll('tr');
+    rows.forEach(row => {
+        const rowData = {
+            html: row.outerHTML,
+            faculty: row.cells[1]?.textContent.toLowerCase() || '',
+            program: row.cells[2]?.textContent.toLowerCase() || '',
+            indicator: row.cells[3]?.textContent.toLowerCase() || '',
+            deadline: row.cells[4]?.textContent.toLowerCase() || '',
+            status: row.cells[5]?.textContent.toLowerCase() || ''
+        };
+        originalAssignmentsData.push(rowData);
+    });
+});
+
+// Search and filter function
+function filterAssignments() {
+    const searchTerm = searchInput.value.toLowerCase();
+    const statusValue = statusFilter.value.toLowerCase();
+    const programValue = programFilter.value.toLowerCase();
+
+    // Get all table rows
+    const rows = assignmentsTable.querySelectorAll('tr');
+
+    // Loop through each row and check filters
+    rows.forEach((row, index) => {
+        const rowData = originalAssignmentsData[index];
+        let showRow = true;
+
+        // Apply search filter
+        if (searchTerm) {
+            const matchesSearch =
+                rowData.faculty.includes(searchTerm) ||
+                rowData.program.includes(searchTerm) ||
+                rowData.indicator.includes(searchTerm) ||
+                rowData.deadline.includes(searchTerm);
+
+            if (!matchesSearch) {
+                showRow = false;
+            }
+        }
+
+        // Apply status filter
+        if (statusValue && showRow) {
+            const statusBadge = row.cells[5]?.querySelector('.badge');
+            const rowStatus = statusBadge?.textContent.toLowerCase().trim() || '';
+
+            if (!rowStatus.includes(statusValue.replace('_', ' '))) {
+                showRow = false;
+            }
+        }
+
+        // Apply program filter
+        if (programValue && showRow) {
+            const programCell = row.cells[2];
+            const programCode = programCell?.querySelector('strong')?.textContent.toLowerCase() || '';
+
+            if (programCode !== programValue) {
+                showRow = false;
+            }
+        }
+
+        // Show/hide row based on filter results
+        row.style.display = showRow ? '' : 'none';
+
+        // Update row numbering for visible rows
+        updateRowNumbers();
+    });
+}
+
+// Update row numbers after filtering
+function updateRowNumbers() {
+    let visibleRowNumber = 1;
+    const rows = assignmentsTable.querySelectorAll('tr');
+
+    rows.forEach(row => {
+        if (row.style.display !== 'none') {
+            const firstCell = row.cells[0];
+            if (firstCell) {
+                firstCell.textContent = visibleRowNumber;
+            }
+            visibleRowNumber++;
+        }
+    });
+}
+
+// Add event listeners
+searchInput.addEventListener('keyup', filterAssignments);
+statusFilter.addEventListener('change', filterAssignments);
+programFilter.addEventListener('change', filterAssignments);
+
+// Clear filters function (optional - can be called from a clear button)
+function clearFilters() {
+    searchInput.value = '';
+    statusFilter.value = '';
+    programFilter.value = '';
+
+    // Show all rows
+    const rows = assignmentsTable.querySelectorAll('tr');
+    rows.forEach(row => {
+        row.style.display = '';
     });
 
-    // Search and filter function
-    function filterAssignments() {
-        const searchTerm = searchInput.value.toLowerCase();
-        const statusValue = statusFilter.value.toLowerCase();
-        const programValue = programFilter.value.toLowerCase();
-        
-        // Get all table rows
-        const rows = assignmentsTable.querySelectorAll('tr');
-        
-        // Loop through each row and check filters
-        rows.forEach((row, index) => {
-            const rowData = originalAssignmentsData[index];
-            let showRow = true;
-            
-            // Apply search filter
-            if (searchTerm) {
-                const matchesSearch = 
-                    rowData.faculty.includes(searchTerm) ||
-                    rowData.program.includes(searchTerm) ||
-                    rowData.indicator.includes(searchTerm) ||
-                    rowData.deadline.includes(searchTerm);
-                
-                if (!matchesSearch) {
-                    showRow = false;
-                }
-            }
-            
-            // Apply status filter
-            if (statusValue && showRow) {
-                const statusBadge = row.cells[5]?.querySelector('.badge');
-                const rowStatus = statusBadge?.textContent.toLowerCase().trim() || '';
-                
-                if (!rowStatus.includes(statusValue.replace('_', ' '))) {
-                    showRow = false;
-                }
-            }
-            
-            // Apply program filter
-            if (programValue && showRow) {
-                const programCell = row.cells[2];
-                const programCode = programCell?.querySelector('strong')?.textContent.toLowerCase() || '';
-                
-                if (programCode !== programValue) {
-                    showRow = false;
-                }
-            }
-            
-            // Show/hide row based on filter results
-            row.style.display = showRow ? '' : 'none';
-            
-            // Update row numbering for visible rows
-            updateRowNumbers();
-        });
-    }
-
-    // Update row numbers after filtering
-    function updateRowNumbers() {
-        let visibleRowNumber = 1;
-        const rows = assignmentsTable.querySelectorAll('tr');
-        
-        rows.forEach(row => {
-            if (row.style.display !== 'none') {
-                const firstCell = row.cells[0];
-                if (firstCell) {
-                    firstCell.textContent = visibleRowNumber;
-                }
-                visibleRowNumber++;
-            }
-        });
-    }
-
-    // Add event listeners
-    searchInput.addEventListener('keyup', filterAssignments);
-    statusFilter.addEventListener('change', filterAssignments);
-    programFilter.addEventListener('change', filterAssignments);
-
-    // Clear filters function (optional - can be called from a clear button)
-    function clearFilters() {
-        searchInput.value = '';
-        statusFilter.value = '';
-        programFilter.value = '';
-        
-        // Show all rows
-        const rows = assignmentsTable.querySelectorAll('tr');
-        rows.forEach(row => {
-            row.style.display = '';
-        });
-        
-        // Reset row numbers
-        updateRowNumbers();
-    }
+    // Reset row numbers
+    updateRowNumbers();
+}
 </script>
 <!-- filter js documents -->
 <script>
-    // DOM elements for documents
-    const searchDocumentsInput = document.getElementById('searchDocuments');
-    const statusFilterDocuments = document.getElementById('filterDocStatusDocuments');
-    const programFilterDocuments = document.getElementById('filterProgramDocuments');
-    const documentsTable = document.getElementById('documentsTable');
+// DOM elements for documents
+const searchDocumentsInput = document.getElementById('searchDocuments');
+const statusFilterDocuments = document.getElementById('filterDocStatusDocuments');
+const programFilterDocuments = document.getElementById('filterProgramDocuments');
+const documentsTable = document.getElementById('documentsTable');
 
-    // Simple filter function
-    function filterDocumentsSimple() {
-        const searchTerm = searchDocumentsInput.value.toLowerCase();
-        const statusValue = statusFilterDocuments.value.toLowerCase();
-        const programValue = programFilterDocuments.value.toLowerCase();
-        
-        // Get all table rows
-        const rows = documentsTable.querySelectorAll('tr');
-        let visibleCount = 0;
-        
-        // Loop through each row
-        rows.forEach(row => {
-            let showRow = true;
-            
-            // Get row data
-            const uploadedBy = row.cells[1]?.textContent.toLowerCase() || '';
-            const indicator = row.cells[2]?.textContent.toLowerCase() || '';
-            const programCell = row.cells[3];
-            const programText = programCell?.textContent.toLowerCase() || '';
-            
-            // Extract cycle name - get the small text within program cell
-            let cycleName = '';
-            if (programCell) {
-                const smallElements = programCell.getElementsByTagName('small');
-                if (smallElements.length > 0) {
-                    cycleName = smallElements[smallElements.length - 1].textContent.toLowerCase().trim();
-                }
-            }
-            
-            const statusBadge = row.cells[4]?.querySelector('.badge');
-            const status = statusBadge?.textContent.toLowerCase().trim() || '';
-            const reviews = row.cells[5]?.textContent.toLowerCase() || '';
-            
-            // Apply search filter
-            if (searchTerm && showRow) {
-                const searchableText = uploadedBy + ' ' + indicator + ' ' + programText + ' ' + status + ' ' + reviews;
-                if (!searchableText.includes(searchTerm)) {
-                    showRow = false;
-                }
-            }
-            
-            // Apply status filter
-            if (statusValue && showRow) {
-                const normalizedStatus = statusValue.replace('_', ' ');
-                if (status !== normalizedStatus) {
-                    showRow = false;
-                }
-            }
-            
-            // Apply program/cycle filter
-            if (programValue && showRow) {
-                if (cycleName !== programValue.toLowerCase()) {
-                    showRow = false;
-                }
-            }
-            
-            // Show/hide row
-            row.style.display = showRow ? '' : 'none';
-            if (showRow) visibleCount++;
-            
-            // Update row number if visible
-            if (showRow && row.cells[0]) {
-                row.cells[0].textContent = visibleCount;
-            }
-        });
-    }
+// Simple filter function
+function filterDocumentsSimple() {
+    const searchTerm = searchDocumentsInput.value.toLowerCase();
+    const statusValue = statusFilterDocuments.value.toLowerCase();
+    const programValue = programFilterDocuments.value.toLowerCase();
 
-    // Add event listeners
-    searchDocumentsInput.addEventListener('keyup', filterDocumentsSimple);
-    statusFilterDocuments.addEventListener('change', filterDocumentsSimple);
-    programFilterDocuments.addEventListener('change', filterDocumentsSimple);
+    // Get all table rows
+    const rows = documentsTable.querySelectorAll('tr');
+    let visibleCount = 0;
 
-    // Clear filters
-    function clearDocumentFilters() {
-        searchDocumentsInput.value = '';
-        statusFilterDocuments.value = '';
-        programFilterDocuments.value = '';
-        
-        const rows = documentsTable.querySelectorAll('tr');
-        rows.forEach((row, index) => {
-            row.style.display = '';
-            if (row.cells[0]) {
-                row.cells[0].textContent = index + 1;
+    // Loop through each row
+    rows.forEach(row => {
+        let showRow = true;
+
+        // Get row data
+        const uploadedBy = row.cells[1]?.textContent.toLowerCase() || '';
+        const indicator = row.cells[2]?.textContent.toLowerCase() || '';
+        const programCell = row.cells[3];
+        const programText = programCell?.textContent.toLowerCase() || '';
+
+        // Extract cycle name - get the small text within program cell
+        let cycleName = '';
+        if (programCell) {
+            const smallElements = programCell.getElementsByTagName('small');
+            if (smallElements.length > 0) {
+                cycleName = smallElements[smallElements.length - 1].textContent.toLowerCase().trim();
             }
-        });
-    }
+        }
+
+        const statusBadge = row.cells[4]?.querySelector('.badge');
+        const status = statusBadge?.textContent.toLowerCase().trim() || '';
+        const reviews = row.cells[5]?.textContent.toLowerCase() || '';
+
+        // Apply search filter
+        if (searchTerm && showRow) {
+            const searchableText = uploadedBy + ' ' + indicator + ' ' + programText + ' ' + status + ' ' +
+                reviews;
+            if (!searchableText.includes(searchTerm)) {
+                showRow = false;
+            }
+        }
+
+        // Apply status filter
+        if (statusValue && showRow) {
+            const normalizedStatus = statusValue.replace('_', ' ');
+            if (status !== normalizedStatus) {
+                showRow = false;
+            }
+        }
+
+        // Apply program/cycle filter
+        if (programValue && showRow) {
+            if (cycleName !== programValue.toLowerCase()) {
+                showRow = false;
+            }
+        }
+
+        // Show/hide row
+        row.style.display = showRow ? '' : 'none';
+        if (showRow) visibleCount++;
+
+        // Update row number if visible
+        if (showRow && row.cells[0]) {
+            row.cells[0].textContent = visibleCount;
+        }
+    });
+}
+
+// Add event listeners
+searchDocumentsInput.addEventListener('keyup', filterDocumentsSimple);
+statusFilterDocuments.addEventListener('change', filterDocumentsSimple);
+programFilterDocuments.addEventListener('change', filterDocumentsSimple);
+
+// Clear filters
+function clearDocumentFilters() {
+    searchDocumentsInput.value = '';
+    statusFilterDocuments.value = '';
+    programFilterDocuments.value = '';
+
+    const rows = documentsTable.querySelectorAll('tr');
+    rows.forEach((row, index) => {
+        row.style.display = '';
+        if (row.cells[0]) {
+            row.cells[0].textContent = index + 1;
+        }
+    });
+}
 </script>
 
 <style>
-    /* Custom styles for Review Management */
-    .card {
-        border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
+/* Custom styles for Review Management */
+.card {
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
 
-    .nav-tabs .nav-link {
-        border-radius: 8px 8px 0 0;
-        font-weight: 500;
-    }
+.nav-tabs .nav-link {
+    border-radius: 8px 8px 0 0;
+    font-weight: 500;
+}
 
-    .nav-tabs .nav-link.active {
-        background-color: #f8f9fa;
-        border-bottom-color: #f8f9fa;
-    }
+.nav-tabs .nav-link.active {
+    background-color: #f8f9fa;
+    border-bottom-color: #f8f9fa;
+}
 
-    .table-hover tbody tr:hover {
-        background-color: rgba(0, 123, 255, 0.05);
-    }
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
 
-    .badge {
-        font-size: 0.75em;
-        padding: 4px 8px;
-    }
+.badge {
+    font-size: 0.75em;
+    padding: 4px 8px;
+}
 
-    .btn-group-sm .btn {
-        padding: 0.25rem 0.5rem;
-    }
+.btn-group-sm .btn {
+    padding: 0.25rem 0.5rem;
+}
 
-    .table th {
-        font-weight: 600;
-        color: #495057;
-    }
+.table th {
+    font-weight: 600;
+    color: #495057;
+}
 
-    /* Status colors */
-    .badge.bg-success {
-        background-color: #28a745 !important;
-    }
+/* Status colors */
+.badge.bg-success {
+    background-color: #28a745 !important;
+}
 
-    .badge.bg-primary {
-        background-color: #007bff !important;
-    }
+.badge.bg-primary {
+    background-color: #007bff !important;
+}
 
-    .badge.bg-warning {
-        background-color: #ffc107 !important;
-        color: #212529;
-    }
+.badge.bg-warning {
+    background-color: #ffc107 !important;
+    color: #212529;
+}
 
-    .badge.bg-danger {
-        background-color: #dc3545 !important;
-    }
+.badge.bg-danger {
+    background-color: #dc3545 !important;
+}
 
-    .badge.bg-info {
-        background-color: #17a2b8 !important;
-    }
+.badge.bg-info {
+    background-color: #17a2b8 !important;
+}
 
-    .badge.bg-secondary {
-        background-color: #6c757d !important;
-    }
+.badge.bg-secondary {
+    background-color: #6c757d !important;
+}
 </style>
