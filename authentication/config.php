@@ -74,7 +74,7 @@ function db_connect()
             last_name VARCHAR(50) NOT NULL,
             middle_name VARCHAR(50),
             suffix VARCHAR(5),
-            user_role ENUM('admin', 'qa', 'head', 'faculty') NOT NULL,
+            user_role ENUM('admin', 'qa', 'head', 'faculty', 'accreditor') NOT NULL,
             department_id INT,
             program_id INT,
             is_active ENUM('Active','Inactive','Pending') DEFAULT 'Pending',
@@ -110,9 +110,16 @@ function db_connect()
         $pdo->exec("CREATE TABLE IF NOT EXISTS accreditation_indicators (
             indicator_id INT AUTO_INCREMENT PRIMARY KEY,
             area_id INT NOT NULL,
+            parent_indicator_id INT NULL,
             indicator_code VARCHAR(20) NOT NULL,
             indicator_description TEXT NOT NULL,
+            indicator_level TINYINT DEFAULT 1,
+            sort_order INT DEFAULT 0,
+
             FOREIGN KEY (area_id) REFERENCES accreditation_areas(area_id)
+                ON DELETE CASCADE,
+
+            FOREIGN KEY (parent_indicator_id) REFERENCES accreditation_indicators(indicator_id)
                 ON DELETE CASCADE
         )");
 

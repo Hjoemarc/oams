@@ -162,15 +162,15 @@ $colleges = $pdo->query("
                             </td>
                             <td class="text-center">
                                 <div class="btn-group btn-group-sm">
-                                    <button class="btn btn-outline-primary"
+                                    <button class="btn btn-info btn-sm m-0"
                                         onclick="viewProgramHistory(<?= $program['program_id'] ?>)">
                                         <i class="fas fa-history"></i>
                                     </button>
-                                    <button class="btn btn-outline-success"
+                                    <button class="btn btn-danger btn-sm m-0"
                                         onclick="updateAccreditation(<?= $program['program_id'] ?>)">
                                         <i class="fas fa-edit"></i>
                                     </button>
-                                    <button class="btn btn-outline-info"
+                                    <button class="btn btn-warning btn-sm m-0"
                                         onclick="viewNextLevelInfo(<?= $program['program_id'] ?>, '<?= addslashes($program['current_level'] ?? '') ?>')">
                                         <i class="fas fa-arrow-up"></i>
                                     </button>

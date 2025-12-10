@@ -259,20 +259,31 @@
                             </button>
                         </div>
                     </div>
+                    <?php
+                    $indicators = $pdo->query("
+                        SELECT indicator_id, indicator_code, indicator_description
+                        FROM accreditation_indicators
+                        ORDER BY indicator_code ASC
+                    ")->fetchAll(PDO::FETCH_ASSOC);
+                    ?>
 
                     <!-- ADD Indicator Modal -->
                     <div class="modal fade" id="addIndicatorModal" tabindex="-1"
                         aria-labelledby="addIndicatorModalLabel" aria-hidden="true">
                         <div class="modal-dialog modal-lg">
                             <div class="modal-content">
+
                                 <div class="modal-header bg-danger text-white">
                                     <h5 class="modal-title text-white" id="addIndicatorModalLabel">Add New Indicator
                                     </h5>
                                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
                                         aria-label="Close" onclick="location.reload()"></button>
                                 </div>
+
                                 <div class="modal-body">
                                     <form class="row g-3" id="indicator-form">
+
+                                        <!-- AREA -->
                                         <div class="col-md-6">
                                             <label class="form-label">Area</label>
                                             <select name="area_id" class="form-select" required>
@@ -284,25 +295,50 @@
                                                 <?php endforeach; ?>
                                             </select>
                                         </div>
+
+                                        <!-- PARENT INDICATOR -->
+                                        <div class="col-md-6">
+                                            <label class="form-label">Parent Indicator (Optional)</label>
+                                            <select name="parent_indicator_id" class="form-select">
+                                                <option value="">No Parent (Top-Level Indicator)</option>
+
+                                                <?php if (!empty($indicators)): ?>
+                                                <?php foreach ($indicators as $ind): ?>
+                                                <option value="<?= $ind['indicator_id'] ?>">
+                                                    <?= htmlspecialchars($ind['indicator_code']) . ' - ' . htmlspecialchars($ind['indicator_description']) ?>
+                                                </option>
+                                                <?php endforeach; ?>
+                                                <?php endif; ?>
+
+                                            </select>
+                                        </div>
+
+                                        <!-- INDICATOR CODE -->
                                         <div class="col-md-6">
                                             <label class="form-label">Indicator Code</label>
                                             <input type="text" class="form-control" name="indicator_code" required>
                                         </div>
+
+                                        <!-- INDICATOR DESCRIPTION -->
                                         <div class="col-12">
                                             <label class="form-label">Indicator Description</label>
                                             <textarea class="form-control" name="indicator_description" rows="4"
                                                 required></textarea>
                                         </div>
+
                                         <div class="col-12 text-center mt-3">
                                             <button type="submit" class="btn btn-danger px-5">
                                                 <i class="bi bi-plus-circle me-1"></i> Add Indicator
                                             </button>
                                         </div>
+
                                     </form>
                                 </div>
+
                             </div>
                         </div>
                     </div>
+
                     <!-- Edit Indicator Modal -->
                     <div class="modal fade" id="editIndicatorModal" tabindex="-1"
                         aria-labelledby="editIndicatorModalLabel" aria-hidden="true">

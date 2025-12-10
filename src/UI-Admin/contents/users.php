@@ -152,9 +152,10 @@ $inactiveEmployees = $stmtInactive->fetchAll(PDO::FETCH_ASSOC);
                             <label class="form-label">Account Role <span class="text-danger">*</span></label>
                             <select required class="form-select" name="user_role">
                                 <option value="">Select account role</option>
-                                <option value="qa">QA Officer</option>
                                 <option value="head">Program Head</option>
-                                <option value="faculty">Faculty/Accreditor</option>
+                                <option value="qa">QA Officer</option>
+                                <option value="accreditor">Accreditor</option>
+                                <option value="faculty">Faculty</option>
                             </select>
                         </div>
                         <div class="col-md-3">

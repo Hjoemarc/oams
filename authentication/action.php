@@ -271,6 +271,24 @@ if ($action === 'assign_reviewer_form') {
     $result = $crud->assign_reviewer_form();
     echo $result;
 }
+if ($action === 'get_subIndicators') {
+    $indicator_id = $_GET['indicator_id'] ?? 0;
+
+    if (!$indicator_id) {
+        echo json_encode([]);
+        exit;
+    }
+
+    // Use your PDO connection (adjust if $this->db not available)
+    $stmt = $this->db->prepare("SELECT * FROM sub_indicators WHERE indicator_id = :indicator_id");
+    $stmt->execute(['indicator_id' => $indicator_id]);
+    $subIndicators = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    echo json_encode($subIndicators);
+    exit;
+}
+
+
 // user_profile =======================================================
 if ($action === 'profile_update') {
     $result = $crud->profile_update();
