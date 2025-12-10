@@ -160,7 +160,6 @@ function db_connect()
             assignment_id INT AUTO_INCREMENT PRIMARY KEY,
             user_id INT NOT NULL,
             indicator_id INT NOT NULL,
-            sub_indicator_id INT NULL, 
             program_id INT NOT NULL,
             cycle_id INT NOT NULL,
             status ENUM('not_started','in_progress','submitted','completed') 
@@ -171,14 +170,23 @@ function db_connect()
                 ON DELETE CASCADE,
             FOREIGN KEY (indicator_id) REFERENCES accreditation_indicators(indicator_id)
                 ON DELETE CASCADE,
-            FOREIGN KEY (sub_indicator_id) REFERENCES accreditation_indicators(indicator_id)
-                ON DELETE CASCADE,
             FOREIGN KEY (program_id) REFERENCES programs(program_id)
                 ON DELETE CASCADE,
             FOREIGN KEY (cycle_id) REFERENCES accreditation_cycles(cycle_id)
                 ON DELETE CASCADE,
             FOREIGN KEY (assigned_by) REFERENCES users(user_id)
                 ON DELETE SET NULL
+        )");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS assignment_sub_indicators (
+            assignment_sub_id INT PRIMARY KEY AUTO_INCREMENT,
+            assignment_id INT NOT NULL,
+            sub_indicator_id INT NOT NULL,
+            status ENUM('not_started', 'in_progress', 'submitted', 'completed') DEFAULT 'not_started',
+            assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (assignment_id) REFERENCES assignments(assignment_id) ON DELETE CASCADE,
+            FOREIGN KEY (sub  _indicator_id) REFERENCES sub_indicators(sub_indicator_id) ON DELETE CASCADE,
+            UNIQUE KEY unique_assignment_sub (assignment_id, sub_indicator_id)
         )");
         // Create documents table
         $pdo->exec("CREATE TABLE IF NOT EXISTS documents (

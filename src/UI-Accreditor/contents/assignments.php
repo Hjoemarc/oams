@@ -9,6 +9,9 @@ $stmtAssignments = $pdo->prepare("SELECT
     CONCAT(u.first_name, ' ', u.last_name) as faculty_name,
     i.indicator_code,
     i.indicator_description,
+    si.sub_indicator_id,
+    si.sub_indicator_code,
+    si.sub_indicator_description,
     p.program_code,
     p.program_name,
     ac.cycle_name,
@@ -16,6 +19,7 @@ $stmtAssignments = $pdo->prepare("SELECT
 FROM assignments a
 INNER JOIN users u ON a.user_id = u.user_id
 INNER JOIN accreditation_indicators i ON a.indicator_id = i.indicator_id
+LEFT JOIN sub_indicators si ON a.sub_indicator_id = si.sub_indicator_id
 INNER JOIN programs p ON a.program_id = p.program_id
 INNER JOIN accreditation_cycles ac ON a.cycle_id = ac.cycle_id
 INNER JOIN departments d ON u.department_id = d.department_id
@@ -212,10 +216,10 @@ $documentCount = 1;
         </div>
     </div>
 
-    <!-- Edit Assignment Modal -->
+    <!-- View Assignment Modal -->
     <div class="modal fade" id="editAssignmentModal" tabindex="-1" aria-labelledby="editAssignmentModalLabel"
         aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-md">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="editAssignmentModalLabel">view Assignment</h5>
@@ -259,7 +263,22 @@ $documentCount = 1;
                                     <?php endforeach; ?>
                                 </select>
                             </div>
-
+                            <div class="col-md-6">
+                                <label class="form-label">Sub Indicators *</label>
+                                <select name="indicator_id" disabled id="editIndicatorId" class="form-select" required>
+                                    <option value="">Select Indicator</option>
+                                    <?php
+                                    $stmt = $pdo->prepare("SELECT * FROM accreditation_indicators");
+                                    $stmt->execute();
+                                    $indicators = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                                    foreach($indicators as $indi) : 
+                                ?>
+                                    <option value="<?= htmlspecialchars($indi["indicator_id"]) ?>">
+                                        <?= htmlspecialchars($indi["indicator_code"] . ' - ' . $indi["indicator_description"]) ?>
+                                    </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
                             <!-- Program -->
                             <div class="col-md-6">
                                 <label class="form-label">Program *</label>
