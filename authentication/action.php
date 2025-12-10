@@ -253,6 +253,18 @@ if ($action === 'get_faculty') {
         echo $validation;
     }
 }
+if ($action === 'get_parameters_by_area') {
+    $validation = $crud->get_parameters_by_area();
+    if ($validation) {
+        echo $validation;
+    }
+}
+if ($action === 'get_indicators_by_parameter') {
+    $validation = $crud->get_indicators_by_parameter();
+    if ($validation) {
+        echo $validation;
+    }
+}
 if ($action === 'assignment_form') {
     $validation = $crud->assignment_form();
     if ($validation) {
@@ -305,6 +317,47 @@ if ($action === 'viewProgramHistory') {
 
 if ($action === 'viewNextLevelInfo') {
     $result = $crud->viewNextLevelInfo();
+    echo $result;
+    exit;
+}
+
+
+// Parameter =================================================
+if ($action === 'parameter_form') {
+    $result = $crud->parameter_form();
+    echo $result;
+    exit;
+}
+
+// view sub indicators ===============================================
+if ($action === 'get_sub_indicators_by_assignment') {
+    echo get_sub_indicators_by_assignment();
+    exit();
+}
+
+if ($action === 'get_assignment_details') {
+    echo get_assignment_details();
+    exit();
+}
+
+// docuemnt feedbacks ===================================================
+if ($action === 'document_feedback') {
+    $result = $crud->document_feedback();
+    echo $result;
+    exit;
+}
+if ($action === 'get_document_comments') {
+    $result = $crud->get_document_comments();
+    echo $result;
+    exit;
+}
+if ($action === 'mark_all_as_read') {
+    $result = $crud->mark_all_as_read();
+    echo $result;
+    exit;
+}
+if ($action === 'unread_count') {
+    $result = $crud->unread_count();
     echo $result;
     exit;
 }

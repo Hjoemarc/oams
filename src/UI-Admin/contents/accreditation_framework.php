@@ -6,16 +6,34 @@
     $stmtAreas->execute();
     $areas = $stmtAreas->fetchAll(PDO::FETCH_ASSOC);
 
-    // Fetch Indicators with Area information
+    // Fetch Parameters with Area information
+    $stmtParameters = $pdo->prepare("SELECT 
+                p.parameter_id,
+                p.parameter_code,
+                p.parameter_name,
+                a.area_id,
+                a.area_number,
+                a.area_name
+            FROM accreditation_parameters AS p
+            LEFT JOIN accreditation_areas AS a ON p.area_id = a.area_id
+            ORDER BY p.parameter_code ASC");
+    $stmtParameters->execute();
+    $parametersData = $stmtParameters->fetchAll(PDO::FETCH_ASSOC);
+
+    // Fetch Indicators with Parameter information
     $stmtIndicators = $pdo->prepare("SELECT 
                 i.indicator_id,
                 i.indicator_code,
                 i.indicator_description,
-                i.area_id,
+                i.parameter_id,
+                p.parameter_code,
+                p.parameter_name,
+                a.area_id,
                 a.area_number,
                 a.area_name
             FROM accreditation_indicators AS i
-            LEFT JOIN accreditation_areas AS a ON i.area_id = a.area_id
+            LEFT JOIN accreditation_parameters AS p ON i.parameter_id = p.parameter_id
+            LEFT JOIN accreditation_areas AS a ON p.area_id = a.area_id
             ORDER BY i.indicator_code ASC");
     $stmtIndicators->execute();
     $indicatorsData = $stmtIndicators->fetchAll(PDO::FETCH_ASSOC);
@@ -34,22 +52,29 @@
         <div class="mx-2">
             <h4 class=""><span class=""><i class="fa-solid fa-clipboard-list me-2"></i></span>Accreditation Framework
             </h4>
-            <small class="text-muted ">Manage Areas, Indicators, Criteria and Cycles</small>
+            <small class="text-muted ">Manage Areas, Parameters, Indicators and Cycles</small>
         </div>
     </div>
 
     <div class="row mb-2">
         <?php
             $areasCount = $pdo->query("SELECT COUNT(*) FROM accreditation_areas")->fetchColumn();
+            $parametersCount = $pdo->query("SELECT COUNT(*) FROM accreditation_parameters")->fetchColumn();
             $indicatorsCount = $pdo->query("SELECT COUNT(*) FROM accreditation_indicators")->fetchColumn();
         ?>
-        <div class="col-md-6">
+        <div class="col-md-4">
             <div class="card-header shadow bg-white text-center p-4 ">
                 <h5 id="totalAreas"><?= $areasCount ?></h5>
                 <small>Areas</small>
             </div>
         </div>
-        <div class="col-md-6">
+        <div class="col-md-4">
+            <div class="card-header shadow bg-white text-center p-4 ">
+                <h5 id="totalParameters"><?= $parametersCount ?></h5>
+                <small>Parameters</small>
+            </div>
+        </div>
+        <div class="col-md-4">
             <div class="card-header shadow bg-white text-center p-4 ">
                 <h5 id="totalIndicators"><?= $indicatorsCount ?></h5>
                 <small>Indicators</small>
@@ -62,6 +87,10 @@
                 <li class="nav-item col-md-2">
                     <a class="nav-link active" data-bs-toggle="tab" data-bs-target="#areasInfo"><i
                             class="fa-solid me-2 fa-layer-group"></i>Areas</a>
+                </li>
+                <li class="nav-item col-md-2">
+                    <a class="nav-link" data-bs-toggle="tab" data-bs-target="#parameterInfo"><i
+                            class="fa-solid me-2 fa-layer-group"></i>Parameters</a>
                 </li>
                 <li class="nav-item col-md-2">
                     <a class="nav-link" data-bs-toggle="tab" data-bs-target="#indicatorsInfo"><i
@@ -174,7 +203,7 @@
                                 </div>
                                 <div class="modal-body">
                                     Are you sure you want to delete this area? This will also delete all associated
-                                    indicators and criteria.
+                                    parameters and indicators.
                                     <input type="hidden" name="area_id" id="deleteAreaId">
                                 </div>
                                 <div class="modal-footer">
@@ -244,10 +273,182 @@
                     </div>
                 </div>
 
+                <!-- Parameters -->
+                <div class="tab-pane fade" id="parameterInfo" role="tabpanel">
+                    <!-- PARAMETERS ADD AND SEARCH -->
+                    <div class="col-md-12 col-12 d-flex justify-content-between mb-3">
+                        <div class="col-md-4 col-12">
+                            <input type="text" placeholder="Search by parameter code or name" id="searchParameters"
+                                class="form-control">
+                        </div>
+                        <div class="col-md-3 d-flex justify-content-end">
+                            <button type="button" class="btn btn-danger" data-bs-toggle="modal"
+                                data-bs-target="#addParameterModal" id="add_new">
+                                <i class="fa fa-plus"></i> Add New Parameter
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- ADD Parameter Modal -->
+                    <div class="modal fade" id="addParameterModal" tabindex="-1" aria-labelledby="addParameterModalLabel"
+                        aria-hidden="true">
+                        <div class="modal-dialog modal-md">
+                            <div class="modal-content">
+                                <div class="modal-header bg-danger text-white">
+                                    <h5 class="modal-title text-white" id="addParameterModalLabel">Add New Parameter</h5>
+                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                                        aria-label="Close" onclick="location.reload()"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <form class="row g-3" id="parameter-form">
+                                        <div class="col-md-6">
+                                            <label class="form-label">Area</label>
+                                            <select name="area_id" class="form-select" required>
+                                                <option value="">Select Area</option>
+                                                <?php foreach($areas as $area) : ?>
+                                                <option value="<?= htmlspecialchars($area["area_id"]) ?>">
+                                                    <?= htmlspecialchars($area["area_number"]) . '. ' . htmlspecialchars($area["area_name"]) ?>
+                                                </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Parameter Code</label>
+                                            <input type="text" class="form-control" name="parameter_code" required>
+                                        </div>
+                                        <div class="col-12">
+                                            <label class="form-label">Parameter Name</label>
+                                            <input type="text" class="form-control" name="parameter_name" required>
+                                        </div>
+                                        <div class="col-12 text-center mt-3">
+                                            <button type="submit" class="btn btn-danger px-5">
+                                                <i class="bi bi-plus-circle me-1"></i> Add Parameter
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Edit Parameter Modal -->
+                    <div class="modal fade" id="editParameterModal" tabindex="-1" aria-labelledby="editParameterModalLabel"
+                        aria-hidden="true">
+                        <div class="modal-dialog">
+                            <form id="edit-parameter-form" class="modal-content">
+                                <div class="modal-header bg-primary text-white">
+                                    <h5 class="modal-title text-white" id="editParameterModalLabel">Edit Parameter</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <input type="hidden" name="parameter_id" id="editParameterId">
+                                    <div class="mb-3">
+                                        <label for="editAreaIdSelect" class="form-label">Area</label>
+                                        <select name="area_id" id="editAreaIdSelect" class="form-select" required>
+                                            <option value="">Select Area</option>
+                                            <?php foreach($areas as $area) : ?>
+                                            <option value="<?= $area['area_id'] ?>">
+                                                <?= $area['area_number'] . '. ' . $area['area_name'] ?>
+                                            </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="editParameterCode" class="form-label">Parameter Code</label>
+                                        <input type="text" class="form-control" id="editParameterCode" name="parameter_code" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="editParameterName" class="form-label">Parameter Name</label>
+                                        <input type="text" class="form-control" id="editParameterName" name="parameter_name" required>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="submit" class="btn btn-primary">Update Parameter</button>
+                                    <button type="button" class="btn btn-secondary"
+                                        data-bs-dismiss="modal">Cancel</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Delete Parameter Modal -->
+                    <div class="modal fade" id="deleteParameterModal" tabindex="-1" aria-labelledby="deleteParameterModalLabel"
+                        aria-hidden="true">
+                        <div class="modal-dialog">
+                            <form id="delete-parameter-form" class="modal-content">
+                                <div class="modal-header bg-danger text-white">
+                                    <h5 class="modal-title" id="deleteParameterModalLabel">Confirm Delete</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    Are you sure you want to delete this parameter? This will also delete all associated indicators.
+                                    <input type="hidden" name="parameter_id" id="deleteParameterId">
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="submit" class="btn btn-danger">Yes, Delete</button>
+                                    <button type="button" class="btn btn-secondary"
+                                        data-bs-dismiss="modal">Cancel</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- PARAMETERS TABLE - COMPACT VERSION -->
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover" style="font-size: 0.875rem;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th width="5%">#</th>
+                                    <th width="15%">Code</th>
+                                    <th width="30%">Name</th>
+                                    <th width="30%">Area</th>
+                                    <th width="20%">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="parametersTable">
+                                <?php 
+                                    $parameterCount = 1;
+                                    foreach($parametersData as $parameter) : 
+                                ?>
+                                <tr>
+                                    <td><?= $parameterCount++ ?></td>
+                                    <td><span
+                                            class="badge bg-primary"><?= htmlspecialchars($parameter["parameter_code"]) ?></span>
+                                    </td>
+                                    <td><strong><?= htmlspecialchars($parameter["parameter_name"]) ?></strong></td>
+                                    <td>
+                                        <small
+                                            class="text-muted"><?= htmlspecialchars($parameter["area_number"]) ?></small><br>
+                                        <strong><?= htmlspecialchars($parameter["area_name"]) ?></strong>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <button type="button" class="btn btn-sm btn-primary" onclick="editParameter(
+                                                '<?= $parameter['parameter_id'] ?>',
+                                                '<?= $parameter['area_id'] ?>',
+                                                '<?= htmlspecialchars($parameter['parameter_code']) ?>',
+                                                '<?= htmlspecialchars($parameter['parameter_name']) ?>'
+                                            )">
+                                                <i class="fas fa-edit"></i> Edit
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-danger"
+                                                onclick="setDeleteParameterId('<?= $parameter['parameter_id'] ?>')"
+                                                data-bs-toggle="modal" data-bs-target="#deleteParameterModal">
+                                                <i class="fas fa-trash"></i> Delete
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <?php endforeach ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <!-- Indicators -->
                 <div class="tab-pane fade" id="indicatorsInfo" role="tabpanel">
                     <!-- INDICATORS ADD AND SEARCH -->
-                    <div class="col-md-12 col-12 d-flex justify-content-between mb-3">
+                    <div class="col-md-11 col-12 d-flex justify-content-between mb-3">
                         <div class="col-md-4 col-12">
                             <input type="text" placeholder="Search by indicator code or description"
                                 id="searchIndicators" class="form-control">
@@ -259,13 +460,6 @@
                             </button>
                         </div>
                     </div>
-                    <?php
-                    $indicators = $pdo->query("
-                        SELECT indicator_id, indicator_code, indicator_description
-                        FROM accreditation_indicators
-                        ORDER BY indicator_code ASC
-                    ")->fetchAll(PDO::FETCH_ASSOC);
-                    ?>
 
                     <!-- ADD Indicator Modal -->
                     <div class="modal fade" id="addIndicatorModal" tabindex="-1"
@@ -283,14 +477,15 @@
                                 <div class="modal-body">
                                     <form class="row g-3" id="indicator-form">
 
-                                        <!-- AREA -->
+                                        <!-- PARAMETER -->
                                         <div class="col-md-6">
-                                            <label class="form-label">Area</label>
-                                            <select name="area_id" class="form-select" required>
-                                                <option value="">Select Area</option>
-                                                <?php foreach($areas as $area) : ?>
-                                                <option value="<?= htmlspecialchars($area["area_id"]) ?>">
-                                                    <?= htmlspecialchars($area["area_number"]) . '. ' . htmlspecialchars($area["area_name"]) ?>
+                                            <label class="form-label">Parameter</label>
+                                            <select name="parameter_id" class="form-select" required>
+                                                <option value="">Select Parameter</option>
+                                                <?php foreach($parametersData as $parameter) : ?>
+                                                <option value="<?= htmlspecialchars($parameter["parameter_id"]) ?>">
+                                                    <?= htmlspecialchars($parameter["parameter_code"]) . ' - ' . htmlspecialchars($parameter["parameter_name"]) ?>
+                                                    (Area: <?= htmlspecialchars($parameter["area_number"]) ?>)
                                                 </option>
                                                 <?php endforeach; ?>
                                             </select>
@@ -301,15 +496,13 @@
                                             <label class="form-label">Parent Indicator (Optional)</label>
                                             <select name="parent_indicator_id" class="form-select">
                                                 <option value="">No Parent (Top-Level Indicator)</option>
-
-                                                <?php if (!empty($indicators)): ?>
-                                                <?php foreach ($indicators as $ind): ?>
+                                                <?php if (!empty($indicatorsData)): ?>
+                                                <?php foreach ($indicatorsData as $ind): ?>
                                                 <option value="<?= $ind['indicator_id'] ?>">
                                                     <?= htmlspecialchars($ind['indicator_code']) . ' - ' . htmlspecialchars($ind['indicator_description']) ?>
                                                 </option>
                                                 <?php endforeach; ?>
                                                 <?php endif; ?>
-
                                             </select>
                                         </div>
 
@@ -324,6 +517,18 @@
                                             <label class="form-label">Indicator Description</label>
                                             <textarea class="form-control" name="indicator_description" rows="4"
                                                 required></textarea>
+                                        </div>
+
+                                        <!-- INDICATOR LEVEL -->
+                                        <div class="col-md-3">
+                                            <label class="form-label">Indicator Level</label>
+                                            <input type="number" class="form-control" name="indicator_level" value="1" min="1" max="5">
+                                        </div>
+
+                                        <!-- SORT ORDER -->
+                                        <div class="col-md-3">
+                                            <label class="form-label">Sort Order</label>
+                                            <input type="number" class="form-control" name="sort_order" value="0">
                                         </div>
 
                                         <div class="col-12 text-center mt-3">
@@ -354,12 +559,13 @@
 
                                     <div class="row g-3">
                                         <div class="col-md-6">
-                                            <label class="form-label">Area</label>
-                                            <select name="area_id" id="editAreaIds" class="form-select" required>
-                                                <option value="">Select Area</option>
-                                                <?php foreach($areas as $area) : ?>
-                                                <option value="<?= $area['area_id'] ?>">
-                                                    <?= $area['area_number'] . '. ' . $area['area_name'] ?>
+                                            <label class="form-label">Parameter</label>
+                                            <select name="parameter_id" id="editParameterIds" class="form-select" required>
+                                                <option value="">Select Parameter</option>
+                                                <?php foreach($parametersData as $parameter) : ?>
+                                                <option value="<?= $parameter['parameter_id'] ?>">
+                                                    <?= htmlspecialchars($parameter['parameter_code']) . ' - ' . htmlspecialchars($parameter['parameter_name']) ?>
+                                                    (Area: <?= htmlspecialchars($parameter['area_number']) ?>)
                                                 </option>
                                                 <?php endforeach; ?>
                                             </select>
@@ -376,6 +582,16 @@
                                             <textarea class="form-control" id="editIndicatorDescription"
                                                 name="indicator_description" rows="4" required></textarea>
                                         </div>
+
+                                        <div class="col-md-3">
+                                            <label class="form-label">Indicator Level</label>
+                                            <input type="number" class="form-control" id="editIndicatorLevel" name="indicator_level" min="1" max="5">
+                                        </div>
+
+                                        <div class="col-md-3">
+                                            <label class="form-label">Sort Order</label>
+                                            <input type="number" class="form-control" id="editSortOrder" name="sort_order">
+                                        </div>
                                     </div>
                                 </div>
 
@@ -387,6 +603,7 @@
                             </form>
                         </div>
                     </div>
+                    
                     <!-- Delete Indicator Modal -->
                     <div class="modal fade" id="deleteIndicatorModal" tabindex="-1"
                         aria-labelledby="deleteIndicatorModalLabel" aria-hidden="true">
@@ -419,7 +636,7 @@
                                     <th width="5%">#</th>
                                     <th width="15%">Code</th>
                                     <th width="40%">Description</th>
-                                    <th width="20%">Area</th>
+                                    <th width="20%">Parameter/Area</th>
                                     <th width="20%">Actions</th>
                                 </tr>
                             </thead>
@@ -435,10 +652,10 @@
                                 <tr>
                                     <td><?= $indicatorCount++ ?></td>
                                     <td><span
-                                            class="badge bg-primary"><?= htmlspecialchars($indicator["indicator_code"]) ?></span>
+                                            class="badge bg-primary" style="max-width: 5rem !important;"><?= htmlspecialchars($indicator["indicator_code"]) ?></span>
                                     </td>
                                     <td>
-                                        <div class="indicator-desc"
+                                        <div class="indicator-desc" style="max-width: 25rem !important;"
                                             data-full="<?= htmlspecialchars($indicator["indicator_description"]) ?>"
                                             title="<?= htmlspecialchars($indicator["indicator_description"]) ?>">
                                             <?= htmlspecialchars($shortDesc) ?>
@@ -446,15 +663,19 @@
                                     </td>
                                     <td>
                                         <small
-                                            class="text-muted"><?= htmlspecialchars($indicator["area_number"]) ?></small><br>
-                                        <strong><?= htmlspecialchars($indicator["area_name"]) ?></strong>
+                                            class="text-muted"><?= htmlspecialchars($indicator["parameter_code"]) ?> - <?= htmlspecialchars($indicator["parameter_name"]) ?></small><br>
+                                        <strong>Area: <?= htmlspecialchars($indicator["area_number"]) ?></strong>
                                     </td>
                                     <td>
                                         <div class="btn-group btn-group-sm" role="group">
-                                            <button type="button" class="btn btn-sm btn-primary" onclick="editIndicator('<?= $indicator['indicator_id'] ?>',
-                                            '<?= $indicator['area_id'] ?>',
-                                            '<?= htmlspecialchars($indicator['indicator_code']) ?>',
-                                            '<?= htmlspecialchars($indicator['indicator_description']) ?>')">
+                                            <button type="button" class="btn btn-sm btn-primary" onclick="editIndicator(
+                                                '<?= $indicator['indicator_id'] ?>',
+                                                '<?= $indicator['parameter_id'] ?>',
+                                                '<?= htmlspecialchars($indicator['indicator_code']) ?>',
+                                                '<?= htmlspecialchars($indicator['indicator_description']) ?>',
+                                                '<?= $indicator['indicator_level'] ?? 1 ?>',
+                                                '<?= $indicator['sort_order'] ?? 0 ?>'
+                                            )">
                                                 <i class="fas fa-edit"></i> Edit
                                             </button>
 
@@ -532,11 +753,29 @@ function setDeleteAreaId(areaId) {
     document.getElementById('deleteAreaId').value = areaId;
 }
 
-function editIndicator(indicatorId, areaId, indicatorCode, indicatorDescription) {
+// JavaScript functions for Parameters
+function editParameter(parameterId, areaId, parameterCode, parameterName) {
+    document.getElementById('editParameterId').value = parameterId;
+    document.getElementById('editAreaIdSelect').value = areaId;
+    document.getElementById('editParameterCode').value = parameterCode;
+    document.getElementById('editParameterName').value = parameterName;
+
+    var editModal = new bootstrap.Modal(document.getElementById('editParameterModal'));
+    editModal.show();
+}
+
+function setDeleteParameterId(parameterId) {
+    document.getElementById('deleteParameterId').value = parameterId;
+}
+
+// JavaScript functions for Indicators
+function editIndicator(indicatorId, parameterId, indicatorCode, indicatorDescription, indicatorLevel = 1, sortOrder = 0) {
     document.getElementById('editIndicatorId').value = indicatorId;
-    document.getElementById('editAreaIds').value = areaId;
+    document.getElementById('editParameterIds').value = parameterId;
     document.getElementById('editIndicatorCode').value = indicatorCode;
     document.getElementById('editIndicatorDescription').value = indicatorDescription;
+    document.getElementById('editIndicatorLevel').value = indicatorLevel;
+    document.getElementById('editSortOrder').value = sortOrder;
 
     var editModal = new bootstrap.Modal(document.getElementById('editIndicatorModal'));
     editModal.show();
@@ -546,40 +785,11 @@ function setDeleteIndicatorId(indicatorId) {
     document.getElementById('deleteIndicatorId').value = indicatorId;
 }
 
-// Edit button event handler
-document.addEventListener('DOMContentLoaded', function() {
-    // Handle edit buttons
-    document.querySelectorAll('.edit-criterion-btn').forEach(button => {
-        button.addEventListener('click', function() {
-            const criteriaId = this.getAttribute('data-criteria-id');
-            const indicatorId = this.getAttribute('data-indicator-id');
-            const criteriaNumber = this.getAttribute('data-criteria-number');
-            const criteriaDescription = this.getAttribute('data-criteria-description');
-            const requiredEvidence = this.getAttribute('data-required-evidence');
-
-            document.getElementById('editCriteriaId').value = criteriaId;
-            document.getElementById('editIndicatorIdSelect').value = indicatorId;
-            document.getElementById('editCriteriaNumber').value = criteriaNumber;
-            document.getElementById('editCriteriaDescription').value = criteriaDescription;
-            document.getElementById('editRequiredEvidence').value = requiredEvidence;
-
-            var modal = new bootstrap.Modal(document.getElementById('editCriterionModal'));
-            modal.show();
-        });
-    });
-
-    // Handle delete buttons
-    document.querySelectorAll('.delete-criterion-btn').forEach(button => {
-        button.addEventListener('click', function() {
-            const criteriaId = this.getAttribute('data-criteria-id');
-            document.getElementById('deleteCriteriaId').value = criteriaId;
-        });
-    });
-});
-
-// Search functionality for Areas
+// Search functionality
 document.addEventListener('DOMContentLoaded', function() {
     const searchAreas = document.getElementById('searchAreas');
+    const searchParameters = document.getElementById('searchParameters');
+    const searchIndicators = document.getElementById('searchIndicators');
 
     if (searchAreas) {
         searchAreas.addEventListener('input', function(e) {
@@ -588,28 +798,17 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Add similar search functionality for other tables
-    const searchIndicators = document.getElementById('searchIndicators');
+    if (searchParameters) {
+        searchParameters.addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase().trim();
+            searchTable('parametersTable', searchTerm);
+        });
+    }
+
     if (searchIndicators) {
         searchIndicators.addEventListener('input', function(e) {
             const searchTerm = e.target.value.toLowerCase().trim();
             searchTable('indicatorsTable', searchTerm);
-        });
-    }
-
-    const searchCriteria = document.getElementById('searchCriteria');
-    if (searchCriteria) {
-        searchCriteria.addEventListener('input', function(e) {
-            const searchTerm = e.target.value.toLowerCase().trim();
-            searchTable('criteriaTable', searchTerm);
-        });
-    }
-
-    const searchCycles = document.getElementById('searchCycles');
-    if (searchCycles) {
-        searchCycles.addEventListener('input', function(e) {
-            const searchTerm = e.target.value.toLowerCase().trim();
-            searchTable('cyclesTable', searchTerm);
         });
     }
 
@@ -702,6 +901,8 @@ if (!document.querySelector('#search-highlight-style')) {
         `;
     document.head.appendChild(style);
 }
+
+// Tab functionality
 document.addEventListener('DOMContentLoaded', function() {
     initAccreditationFrameworkTabs();
 });
@@ -737,17 +938,6 @@ function initAccreditationFrameworkTabs() {
             if (targetContent) {
                 targetContent.style.display = 'block';
                 targetContent.classList.add('show', 'active');
-
-                // Load data for the active tab
-                if (targetId === '#areasInfo') {
-
-                } else if (targetId === '#indicatorsInfo') {
-
-                } else if (targetId === '#criteriaInfo') {
-
-                } else if (targetId === '#cyclesInfo') {
-
-                }
             }
         });
     });

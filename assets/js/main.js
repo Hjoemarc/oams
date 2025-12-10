@@ -2549,4 +2549,170 @@ $(document).ready(function () {
       });
     });
 
+// Parameter form ----------------------------------------------------------
+     $(document).on("submit", "#parameter-form", function (e) { 
+      e.preventDefault();
+      const $form = $(this);
+      if ($form.data("isSubmitted")) return;
+      $form.data("isSubmitted", true);
+      
+      const formData = new FormData(this);
+      const $btn = $form.find("button[type='submit']");
+      $btn.prop("disabled", true);
+      $btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Processing...');
+      
+      $.ajax({
+          url: base_url + "authentication/action.php?action=parameter_form",
+          type: "POST",
+          data: formData,
+          processData: false,
+          contentType: false,
+          dataType: "json",
+          success: function (response) {
+              if (response.status === 1) {
+                  Swal.fire({
+                      title: "Success!",
+                      text: response.message,
+                      icon: "success",
+                      toast: true,
+                      position: "top-end",
+                      timer: 3000,
+                      showConfirmButton: false,
+                  }).then(() => {
+                      $form[0].reset(); // Reset form on success
+                  });
+              } else {
+                  Swal.fire({
+                      title: "Error",
+                      text: response.message,
+                      icon: "error",
+                      toast: true,
+                      position: "top-end",
+                      timer: 3000,
+                      showConfirmButton: false,
+                  });
+              }
+          },
+          error: function (jqXHR, textStatus, err) {
+              console.error("AJAX error:", textStatus, err);
+              Swal.fire({
+                  title: "Connection Error",
+                  text: "Please check your connection and try again.",
+                  icon: "error",
+                  toast: true,
+                  position: "top-end",
+                  timer: 3000,
+                  showConfirmButton: false,
+              });
+          },
+          complete: function () {
+              $form.data("isSubmitted", false);
+              $btn.prop("disabled", false).html('Add parameter');
+          }
+      });
+    });
+
+// Documment feedbacks ==================================================
+    $(document).on('click', '.getDocumentId', function () {
+        const document_id = $(this).data('id');
+        $('#document_id_value').val(document_id);
+    });
+    $(document).on("submit", "#document-feedback", function (e) { 
+        e.preventDefault();
+        const $form = $(this);
+        
+        // Debug: Check document ID
+        const document_id = $('#document_id_value').val();
+        console.log("📋 Form submitted - Document ID:", document_id);
+        
+        if (!document_id) {
+            console.error("❌ No document ID selected!");
+            Swal.fire({
+                title: "Error",
+                text: "Please select a document first by clicking a document row",
+                icon: "error",
+                toast: true,
+                position: "top-end",
+                timer: 3000,
+                showConfirmButton: false,
+            });
+            return;
+        }
+        
+        if ($form.data("isSubmitted")) return;
+        $form.data("isSubmitted", true);
+        
+        const formData = new FormData(this);
+        const $btn = $form.find("button[type='submit']");
+        $btn.prop("disabled", true);
+        $btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Processing...');
+        
+        // Debug: Show what's being sent
+        console.log("📤 Sending form data:");
+        for (let pair of formData.entries()) {
+            console.log(pair[0] + ': ' + pair[1]);
+        }
+        
+        // Build the URL - CHECK THIS CAREFULLY
+        const actionUrl = base_url + "/authentication/action.php?action=document_feedback";
+        console.log("🌐 AJAX URL:", actionUrl);
+        
+        $.ajax({
+            url: actionUrl,
+            type: "POST",
+            data: formData,
+            processData: false,
+            contentType: false,
+            dataType: "json",
+            success: function (response) {
+                console.log("✅ Success response:", response);
+                if (response.status === 1) {
+                    Swal.fire({
+                        title: "Success!",
+                        text: response.message,
+                        icon: "success",
+                        toast: true,
+                        position: "top-end",
+                        timer: 3000,
+                        showConfirmButton: false,
+                    }).then(() => {
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        title: "Error",
+                        text: response.message,
+                        icon: "error",
+                        toast: true,
+                        position: "top-end",
+                        timer: 3000,
+                        showConfirmButton: false,
+                    });
+                }
+            },
+            error: function (jqXHR, textStatus, err) {
+                console.error("❌ AJAX error details:");
+                console.error("Status:", textStatus);
+                console.error("Error:", err);
+                console.error("jqXHR:", jqXHR);
+                console.error("Response Text:", jqXHR.responseText);
+                console.error("Status Code:", jqXHR.status);
+                console.error("Status Text:", jqXHR.statusText);
+                
+                Swal.fire({
+                    title: "Connection Error",
+                    text: "Please check your connection and try again. Error: " + textStatus,
+                    icon: "error",
+                    toast: true,
+                    position: "top-end",
+                    timer: 3000,
+                    showConfirmButton: false,
+                });
+            },
+            complete: function () {
+                $form.data("isSubmitted", false);
+                $btn.prop("disabled", false).html('Submit Feedback');
+            }
+        });
+    });
 });

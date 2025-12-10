@@ -107,16 +107,27 @@ function db_connect()
         )");
 
         // Create accreditation indicators (depends on accreditation_areas)
+        $pdo->exec("CREATE TABLE IF NOT EXISTS accreditation_parameters (
+            parameter_id INT AUTO_INCREMENT PRIMARY KEY,
+            area_id INT NOT NULL,
+            parameter_code VARCHAR(20),
+            parameter_name VARCHAR(50),
+
+            FOREIGN KEY (area_id) REFERENCES accreditation_areas(area_id)
+                ON DELETE CASCADE
+        )");
+
+        // Create accreditation indicators (depends on accreditation_areas)
         $pdo->exec("CREATE TABLE IF NOT EXISTS accreditation_indicators (
             indicator_id INT AUTO_INCREMENT PRIMARY KEY,
-            area_id INT NOT NULL,
+            parameter_id INT NOT NULL,
             parent_indicator_id INT NULL,
             indicator_code VARCHAR(20) NOT NULL,
             indicator_description TEXT NOT NULL,
             indicator_level TINYINT DEFAULT 1,
             sort_order INT DEFAULT 0,
 
-            FOREIGN KEY (area_id) REFERENCES accreditation_areas(area_id)
+            FOREIGN KEY (parameter_id) REFERENCES accreditation_parameters(parameter_id)
                 ON DELETE CASCADE,
 
             FOREIGN KEY (parent_indicator_id) REFERENCES accreditation_indicators(indicator_id)
@@ -177,16 +188,17 @@ function db_connect()
             FOREIGN KEY (assigned_by) REFERENCES users(user_id)
                 ON DELETE SET NULL
         )");
+
         $pdo->exec("CREATE TABLE IF NOT EXISTS assignment_sub_indicators (
             assignment_sub_id INT PRIMARY KEY AUTO_INCREMENT,
             assignment_id INT NOT NULL,
-            sub_indicator_id INT NOT NULL,
+            parent_indicator_id INT NOT NULL,
             status ENUM('not_started', 'in_progress', 'submitted', 'completed') DEFAULT 'not_started',
             assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (assignment_id) REFERENCES assignments(assignment_id) ON DELETE CASCADE,
-            FOREIGN KEY (sub  _indicator_id) REFERENCES sub_indicators(sub_indicator_id) ON DELETE CASCADE,
-            UNIQUE KEY unique_assignment_sub (assignment_id, sub_indicator_id)
+            FOREIGN KEY (parent_indicator_id) REFERENCES accreditation_indicators(indicator_id) ON DELETE CASCADE,
+            UNIQUE KEY unique_assignment_sub (assignment_id, parent_indicator_id)
         )");
         // Create documents table
         $pdo->exec("CREATE TABLE IF NOT EXISTS documents (
@@ -223,6 +235,21 @@ function db_connect()
                 ON DELETE CASCADE,
 
             FOREIGN KEY (cycle_id) REFERENCES accreditation_cycles(cycle_id)
+                ON DELETE CASCADE
+        )");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS document_feedbacks (
+            document_feedbacks_id INT AUTO_INCREMENT PRIMARY KEY,
+            document_id INT NOT NULL,
+            user_id INT NOT NULL,
+            feedback TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP 
+                DEFAULT CURRENT_TIMESTAMP 
+                ON UPDATE CURRENT_TIMESTAMP,
+
+            FOREIGN KEY (document_id) REFERENCES documents(document_id)
+                ON DELETE CASCADE,
+            FOREIGN KEY (user_id) REFERENCES users(user_id)
                 ON DELETE CASCADE
         )");
 
@@ -387,122 +414,270 @@ function insertSampleData($pdo) {
         ");
         $stmt->execute();
         
-        // 5. ADD ACCREDITATION AREAS
-        $stmt = $pdo->prepare("INSERT INTO accreditation_areas (area_number, area_name, description) VALUES 
-            ('I', 'Institutional Mission, Vision, and Goals', 'Clear and documented institutional direction and purpose.'),
-            ('II', 'Faculty', 'Qualified, sufficient, and competent teaching personnel.'),
-            ('III', 'Curriculum and Instruction', 'Relevant, updated, and effectively delivered academic programs.'),
-            ('IV', 'Support to Students', 'Comprehensive student services and development programs.'),
-            ('V', 'Research', 'Viable research program contributing to knowledge generation.'),
-            ('VI', 'Extension and Community Involvement', 'Meaningful community engagement and outreach.'),
-            ('VII', 'Library', 'Adequate learning resources and library services.'),
-            ('VIII', 'Physical Plant and Facilities', 'Safe, adequate, and functional physical facilities.'),
-            ('IX', 'Laboratories', 'Well-equipped and maintained laboratory facilities.'),
-            ('X', 'Administration', 'Effective and efficient management and governance.')
-        ");
-        $stmt->execute();
+// 5. ADD ACCREDITATION AREAS
+$stmt = $pdo->prepare("INSERT INTO accreditation_areas (area_number, area_name, description) VALUES 
+    ('I', 'VISION, MISSION, GOALS AND OBJECTIVES', 'Clear and documented institutional direction and purpose.'),
+    ('II', 'FACULTY', 'Qualified, sufficient, and competent teaching personnel.'),
+    ('III', 'CURRICULUM AND INSTRUCTION', 'Relevant, updated, and effectively delivered academic programs.'),
+    ('IV', 'SUPPORT TO STUDENTS', 'Comprehensive student services and development programs.'),
+    ('V', 'RESEARCH', 'Viable research program contributing to knowledge generation.'),
+    ('VI', 'EXTENSION AND COMMUNITY INVOLVEMENT', 'Meaningful community engagement and outreach.'),
+    ('VII', 'LIBRARY', 'Adequate learning resources and library services.'),
+    ('VIII', 'PHYSICAL PLANT AND FACILITIES', 'Safe, adequate, and functional physical facilities.'),
+    ('IX', 'Laboratories', 'Well-equipped and maintained laboratory facilities.'),
+    ('X', 'ADMINISTRATION', 'Effective and efficient management and governance.')
+");
+$stmt->execute();
+
+// Get area IDs
+$area_result = $pdo->query("SELECT area_id, area_number FROM accreditation_areas ORDER BY area_id");
+$areas = [];
+while ($row = $area_result->fetch(PDO::FETCH_ASSOC)) {
+    $areas[$row['area_number']] = $row['area_id'];
+}
+
+// 6. ADD ACCREDITATION PARAMETERS for all areas
+$stmt = $pdo->prepare("INSERT INTO accreditation_parameters (area_id, parameter_code, parameter_name) VALUES 
+    -- AREA I
+    (?, 'A', 'Statement of Vision, Mission, Goals and Objectives'),
+    (?, 'B', 'Dissemination and Acceptability'),
+    
+    -- AREA II
+    (?, 'A', 'Academic Qualifications and Professional Experience'),
+    (?, 'B', 'Recruitment, Selection and Orientation'),
+    (?, 'C', 'Faculty Adequacy and Loading'),
+    (?, 'D', 'Rank and Tenure'),
+    (?, 'E', 'Faculty Development'),
+    (?, 'F', 'Professional Performance and Scholarly Works'),
+    (?, 'G', 'Salaries, Fringe Benefits and Incentives'),
+    (?, 'H', 'Professionalism'),
+    
+    -- AREA III
+    (?, 'A', 'Curriculum and Program of Studies'),
+    (?, 'B', 'Instructional Processes, Methodologies and Learning Enhancement Opportunities'),
+    (?, 'C', 'Assessment and Academic Performance'),
+    (?, 'D', 'Management of Learning'),
+    (?, 'E', 'Graduation Requirements'),
+    (?, 'F', 'Administrative Support for Effective Instruction'),
+    
+    -- AREA IV
+    (?, 'A', 'Student Services Program (SSP)'),
+    (?, 'B', 'Student Welfare'),
+    (?, 'C', 'Student Development'),
+    (?, 'D', 'Institutional Student Programs and Services'),
+    (?, 'E', 'Research Monitoring and Evaluation'),
+    
+    -- AREA V
+    (?, 'A', 'Priorities and Relevance'),
+    (?, 'B', 'Funding and Other Resources'),
+    (?, 'C', 'Implementation, Monitoring, Evaluation and Utilization of Research Results/Outputs'),
+    (?, 'D', 'Publication and Dissemination'),
+    
+    -- AREA VI
+    (?, 'A', 'Priorities and Relevance'),
+    (?, 'B', 'Planning Implementation, Monitoring and Evaluation'),
+    (?, 'C', 'Funding and Other Resources'),
+    (?, 'D', 'Community Involvement and Participation'),
+    
+    -- AREA VII
+    (?, 'A', 'Administration'),
+    (?, 'B', 'Administrative staff'),
+    (?, 'C', 'Collection Development, Organization and Preservation'),
+    (?, 'D', 'Services and Utilization'),
+    (?, 'E', 'Physical Set-up and facilities'),
+    (?, 'F', 'Financial Support'),
+    (?, 'G', 'Linkages'),
+    
+    -- AREA VIII
+    (?, 'A', 'Campus'),
+    (?, 'B', 'Buildings'),
+    (?, 'C', 'Classroom'),
+    (?, 'D', 'Offices, Staff and Function Rooms'),
+    (?, 'E', 'Assembly, Athletic and Sports Facilities'),
+    (?, 'F', 'Medical and Dental Clinic'),
+    (?, 'G', 'Student Center'),
+    (?, 'H', 'Food Services/Canteen'),
+    (?, 'I', 'Accreditation Center'),
+    (?, 'J', 'Housing'),
+    
+    -- AREA IX
+    (?, 'A', 'Laboratories, Shops And Facilities'),
+    (?, 'B', 'Equipment, Supplies And Materials'),
+    (?, 'C', 'Maintenance'),
+    (?, 'D', 'Special Provisions'),
+    
+    -- AREA X
+    (?, 'A', 'Organization'),
+    (?, 'B', 'Academic Administration'),
+    (?, 'C', 'Student Administration'),
+    (?, 'D', 'Financial Management'),
+    (?, 'E', 'Supply Management'),
+    (?, 'F', 'Records Management'),
+    (?, 'G', 'Institutional Planning and Development'),
+    (?, 'H', 'Performance of Administrative Personnel')
+");
+
+// Prepare the parameter values in order
+$param_values = [];
+foreach (['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'] as $area_num) {
+    switch($area_num) {
+        case 'I': $param_count = 2; break;
+        case 'II': $param_count = 8; break;
+        case 'III': $param_count = 6; break;
+        case 'IV': $param_count = 5; break;
+        case 'V': $param_count = 4; break;
+        case 'VI': $param_count = 4; break;
+        case 'VII': $param_count = 7; break;
+        case 'VIII': $param_count = 10; break;
+        case 'IX': $param_count = 4; break;
+        case 'X': $param_count = 8; break;
+    }
+    
+    for($i = 0; $i < $param_count; $i++) {
+        $param_values[] = $areas[$area_num];
+    }
+}
+
+$stmt->execute($param_values);
+
+// Get all parameter IDs
+$param_result = $pdo->query("
+    SELECT p.parameter_id, p.parameter_code, a.area_number 
+    FROM accreditation_parameters p 
+    JOIN accreditation_areas a ON p.area_id = a.area_id 
+    ORDER BY a.area_number, p.parameter_code
+");
+
+$parameters_by_area = [];
+$all_parameters = [];
+while ($row = $param_result->fetch(PDO::FETCH_ASSOC)) {
+    $parameters_by_area[$row['area_number']][] = $row;
+    $all_parameters[] = $row;
+}
+
+// 7. ADD ACCREDITATION INDICATORS for all parameters
+$indicator_stmt = $pdo->prepare("INSERT INTO accreditation_indicators (parameter_id, indicator_code, indicator_description, indicator_level, sort_order) VALUES (?, ?, ?, 1, ?)");
+
+// Function to generate indicator descriptions
+function generateIndicatorDescription($area_name, $param_name, $type) {
+    $descriptions = [
+        1 => "SYSTEM – INPUTS AND PROCESSES for {$param_name} in {$area_name}",
+        2 => "IMPLEMENTATION of {$param_name} in {$area_name}",
+        3 => "OUTCOME/S of {$param_name} in {$area_name}"
+    ];
+    return $descriptions[$type];
+}
+
+// Area names mapping
+$area_names = [
+    'I' => 'VISION, MISSION, GOALS AND OBJECTIVES',
+    'II' => 'FACULTY',
+    'III' => 'CURRICULUM AND INSTRUCTION',
+    'IV' => 'SUPPORT TO STUDENTS',
+    'V' => 'RESEARCH',
+    'VI' => 'EXTENSION AND COMMUNITY INVOLVEMENT',
+    'VII' => 'LIBRARY',
+    'VIII' => 'PHYSICAL PLANT AND FACILITIES',
+    'IX' => 'Laboratories',
+    'X' => 'ADMINISTRATION'
+];
+
+// Insert indicators for each parameter
+foreach ($all_parameters as $param) {
+    $area_num = $param['area_number'];
+    $param_code = $param['parameter_code'];
+    $area_name = $area_names[$area_num];
+    
+    // Get parameter name
+    $param_name_stmt = $pdo->prepare("SELECT parameter_name FROM accreditation_parameters WHERE parameter_id = ?");
+    $param_name_stmt->execute([$param['parameter_id']]);
+    $param_name = $param_name_stmt->fetchColumn();
+    
+    // Insert 3 indicators for each parameter (System-Inputs-Processes, Implementation, Outcomes)
+    for ($i = 1; $i <= 3; $i++) {
+        $indicator_code = "{$area_num}.{$param_code}.{$i}";
+        $description = generateIndicatorDescription($area_name, $param_name, $i);
         
-        // Get area IDs
-        $area_result = $pdo->query("SELECT area_id, area_number FROM accreditation_areas ORDER BY area_id");
-        $areas = [];
-        while ($row = $area_result->fetch(PDO::FETCH_ASSOC)) {
-            $areas[$row['area_number']] = $row['area_id'];
-        }
-        
-        // 6. ADD ACCREDITATION INDICATORS
-        $stmt = $pdo->prepare("INSERT INTO accreditation_indicators (area_id, indicator_code, indicator_description) VALUES 
-            (?, 'I.1', 'The institution has clear and documented Vision, Mission, and Goals (VMGO).'),
-            (?, 'I.2', 'The VMGO are formulated and approved through participatory process.'),
-            (?, 'I.3', 'The VMGO are disseminated to stakeholders.'),
-            (?, 'I.4', 'Institutional activities are aligned with VMGO.'),
-            
-            (?, 'II.1', 'Faculty members possess appropriate academic qualifications.'),
-            (?, 'II.2', 'There is a sufficient number of full-time faculty.'),
-            (?, 'II.3', 'Faculty development programs are implemented.'),
-            (?, 'II.4', 'Faculty performance is evaluated regularly.'),
-            
-            (?, 'III.1', 'The curriculum is aligned with program objectives.'),
-            (?, 'III.2', 'Curriculum is reviewed and updated regularly.'),
-            (?, 'III.3', 'Instructional materials are current and relevant.'),
-            (?, 'III.4', 'Varied teaching strategies are employed.')
-        ");
-        
-        $stmt->execute([
-            $areas['I'], $areas['I'], $areas['I'], $areas['I'],
-            $areas['II'], $areas['II'], $areas['II'], $areas['II'],
-            $areas['III'], $areas['III'], $areas['III'], $areas['III']
+        $indicator_stmt->execute([
+            $param['parameter_id'],
+            $indicator_code,
+            $description,
+            $i
         ]);
-        
-        // 7. ADD ACCREDITATION CYCLES
-        $current_year = date('Y');
-        $next_year = $current_year + 1;
-        
-        $stmt = $pdo->prepare("INSERT INTO accreditation_cycles 
-            (cycle_name, academic_year, status, deadline, program_id, visit_start, visit_end) VALUES 
-            (?, ?, 'active', ?, ?, ?, ?),
-            (?, ?, 'upcoming', ?, ?, ?, ?),
-            (?, ?, 'upcoming', ?, ?, ?, ?)
-        ");
-        
-        $stmt->execute([
-            "AACCUP Preliminary Survey {$current_year}",
-            "{$current_year}-" . ($current_year + 1),
-            date('Y-m-d', strtotime('+3 months')),
-            $sampleProgramId,
-            date('Y-m-d', strtotime('+2 months')),
-            date('Y-m-d', strtotime('+2 months +5 days')),
-            
-            "AACCUP Level I Visit {$next_year}", 
-            "{$next_year}-" . ($next_year + 1),
-            date('Y-m-d', strtotime('+9 months')),
-            $sampleProgramId,
-            date('Y-m-d', strtotime('+8 months')),
-            date('Y-m-d', strtotime('+8 months +5 days')),
-            
-            "AACCUP Level II Visit " . ($next_year + 1),
-            ($next_year + 1) . "-" . ($next_year + 2),
-            date('Y-m-d', strtotime('+15 months')),
-            $sampleProgramId,
-            date('Y-m-d', strtotime('+14 months')),
-            date('Y-m-d', strtotime('+14 months +5 days'))
-        ]);
-        
-        // Get cycle ID
-        $cycleStmt = $pdo->query("SELECT cycle_id FROM accreditation_cycles ORDER BY cycle_id LIMIT 1");
-        $sampleCycleId = $cycleStmt->fetchColumn();
-        
-        // 8. ADD SAMPLE ACCREDITATION RECORDS
-        $stmt = $pdo->prepare("INSERT INTO program_accreditation 
-            (program_id, cycle_id, accreditation_level, survey_date, accrediting_body, remarks) VALUES 
-            (?, ?, 'phase1', ?, 'AACCUP', 'Preliminary survey for BSIT program'),
-            (?, ?, '1', ?, 'AACCUP', 'Achieved Level I accreditation')
-        ");
-        
-        $stmt->execute([
-            $sampleProgramId,
-            $sampleCycleId,
-            date('Y-m-d', strtotime('-6 months')),
-            $sampleProgramId,
-            $sampleCycleId,
-            date('Y-m-d', strtotime('-3 months'))
-        ]);
-        
-        // 9. ADD SAMPLE ASSIGNMENTS
-        $indicatorStmt = $pdo->query("SELECT indicator_id FROM accreditation_indicators LIMIT 2");
-        $indicators = $indicatorStmt->fetchAll(PDO::FETCH_COLUMN);
-        
-        if (!empty($indicators)) {
-            $stmt = $pdo->prepare("INSERT INTO assignments 
-                (user_id, indicator_id, program_id, cycle_id, assigned_by, status) VALUES 
-                (?, ?, ?, ?, ?, 'in_progress'),
-                (?, ?, ?, ?, ?, 'not_started')
-            ");
-            
-            $stmt->execute([
-                $adminId, $indicators[0], $sampleProgramId, $sampleCycleId, $adminId,
-                $adminId, $indicators[1], $sampleProgramId, $sampleCycleId, $adminId
-            ]);
-        }
+    }
+}
+
+// 8. ADD SAMPLE ACCREDITATION CYCLES
+$current_year = date('Y');
+$next_year = $current_year + 1;
+
+$cycle_stmt = $pdo->prepare("INSERT INTO accreditation_cycles 
+    (cycle_name, academic_year, status, deadline, program_id, visit_start, visit_end) VALUES 
+    (?, ?, 'active', ?, ?, ?, ?),
+    (?, ?, 'upcoming', ?, ?, ?, ?),
+    (?, ?, 'upcoming', ?, ?, ?, ?)
+");
+
+$cycle_stmt->execute([
+    "AACCUP Preliminary Survey {$current_year}",
+    "{$current_year}-" . ($current_year + 1),
+    date('Y-m-d', strtotime('+3 months')),
+    $sampleProgramId,
+    date('Y-m-d', strtotime('+2 months')),
+    date('Y-m-d', strtotime('+2 months +5 days')),
+    
+    "AACCUP Level I Visit {$next_year}", 
+    "{$next_year}-" . ($next_year + 1),
+    date('Y-m-d', strtotime('+9 months')),
+    $sampleProgramId,
+    date('Y-m-d', strtotime('+8 months')),
+    date('Y-m-d', strtotime('+8 months +5 days')),
+    
+    "AACCUP Level II Visit " . ($next_year + 1),
+    ($next_year + 1) . "-" . ($next_year + 2),
+    date('Y-m-d', strtotime('+15 months')),
+    $sampleProgramId,
+    date('Y-m-d', strtotime('+14 months')),
+    date('Y-m-d', strtotime('+14 months +5 days'))
+]);
+
+// Get cycle ID
+$cycleStmt = $pdo->query("SELECT cycle_id FROM accreditation_cycles ORDER BY cycle_id LIMIT 1");
+$sampleCycleId = $cycleStmt->fetchColumn();
+
+// 9. ADD SAMPLE ACCREDITATION RECORDS
+$accreditation_stmt = $pdo->prepare("INSERT INTO program_accreditation 
+    (program_id, cycle_id, accreditation_level, survey_date, accrediting_body, remarks) VALUES 
+    (?, ?, 'phase1', ?, 'AACCUP', 'Preliminary survey for BSIT program'),
+    (?, ?, '1', ?, 'AACCUP', 'Achieved Level I accreditation')
+");
+
+$accreditation_stmt->execute([
+    $sampleProgramId,
+    $sampleCycleId,
+    date('Y-m-d', strtotime('-6 months')),
+    $sampleProgramId,
+    $sampleCycleId,
+    date('Y-m-d', strtotime('-3 months'))
+]);
+
+// 10. ADD SAMPLE ASSIGNMENTS
+// Get some indicator IDs
+$indicatorStmt = $pdo->query("SELECT indicator_id FROM accreditation_indicators LIMIT 2");
+$indicators = $indicatorStmt->fetchAll(PDO::FETCH_COLUMN);
+
+if (!empty($indicators)) {
+    $assignment_stmt = $pdo->prepare("INSERT INTO assignments 
+        (user_id, indicator_id, program_id, cycle_id, assigned_by, status) VALUES 
+        (?, ?, ?, ?, ?, 'in_progress'),
+        (?, ?, ?, ?, ?, 'not_started')
+    ");
+    
+    $assignment_stmt->execute([
+        $adminId, $indicators[0], $sampleProgramId, $sampleCycleId, $adminId,
+        $adminId, $indicators[1], $sampleProgramId, $sampleCycleId, $adminId
+    ]);
+}
         
     } catch (PDOException $e) {
         die("Error inserting sample data: " . $e->getMessage());

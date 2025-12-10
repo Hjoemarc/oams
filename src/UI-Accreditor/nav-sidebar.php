@@ -5,11 +5,8 @@
             <a href="index.php?page=home" class="nav-item nav-home rounded-2">
                 <span class=""><i class=""></i></span> Dashboard
             </a>
-            <a href="index.php?page=contents/assignments" class="nav-item nav-assignments rounded-2 my-1">
-                <span class=""><i class=""></i></span> My Assignments
-            </a>
-            <a href="index.php?page=contents/documment" class="nav-item nav-documment rounded-2 my-1">
-                <span class=""><i class=""></i></span> Documment Management
+            <a href="index.php?page=contents/review" class="nav-item nav-review rounded-2 my-1">
+                <span class=""><i class=""></i></span> Review Documents
             </a>
             <a href="index.php?page=contents/settings" class="nav-item nav-settings rounded-2 my-1">
                 <span class=""><i class=""></i></span> Account Settings

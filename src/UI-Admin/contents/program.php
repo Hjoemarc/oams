@@ -234,7 +234,7 @@
                         <div class="modal-dialog modal-md">
                             <div class="modal-content">
                                 <div class="modal-header bg-danger text-white">
-                                    <h5 class="modal-title text-white" id="createAccountsLabel">Add New Job Titles
+                                    <h5 class="modal-title text-white" id="createAccountsLabel">Add New Program
                                     </h5>
                                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
                                         aria-label="Close" onclick="location.reload()"></button>

@@ -88,6 +88,26 @@ class Action
                 } else {
                     return json_encode(['status' => 0, 'message' => 'Incorrect password.']);
                 }
+            }else if($employees['user_role'] === 'accreditor' && $employees["is_active"] === 'Active'){
+                if (password_verify($password, $employees['password'])) {
+                    $_SESSION['accreditorData'] = [
+                        'first_name' => $employees['first_name'],
+                        'last_name' => $employees['last_name'],
+                        'user_role' => $employees['user_role'],
+                        'user_id' => $employees['user_id']
+                    ];
+                    $user_id = $employees['user_id'];
+                    $stmtHistory = $this->db->prepare("INSERT INTO login_history (user_id, login_time) VALUES ('$user_id', NOW())");
+                    $stmtHistory->execute();
+                    return json_encode([
+                        'status' => 1,
+                        'message' => 'Login successful.',
+                        'redirect_url' => 'src/UI-Accreditor/index.php',
+                        'user_role' => $employees['first_name'] . " " . $employees['last_name']
+                    ]);
+                } else {
+                    return json_encode(['status' => 0, 'message' => 'Incorrect password.']);
+                }
             }else if($employees['user_role'] === 'head' && $employees["is_active"] === 'Active'){
                 if (password_verify($password, $employees['password'])) {
                     $_SESSION['headData'] = [
@@ -125,7 +145,7 @@ class Action
                     return json_encode([
                         'status' => 1,
                         'message' => 'Login successful.',
-                        'redirect_url' => 'src/UI-Accreditor/index.php',
+                        'redirect_url' => 'src/UI-Faculty/index.php',
                         'user_role' => $employees['first_name'] . " " . $employees['last_name']
                     ]);
                 } else {
@@ -898,14 +918,16 @@ class Action
 
     function indicator_form() {
         try {
-            $area_id = $_POST["area_id"] ?? '';
+            $parameter_id = $_POST["parameter_id"] ?? '';
             $parent_indicator_id = !empty($_POST["parent_indicator_id"])
                 ? $_POST["parent_indicator_id"]
                 : NULL;
             $indicator_code = $_POST["indicator_code"] ?? '';
             $indicator_description = $_POST["indicator_description"] ?? '';
+            $indicator_level = $_POST["indicator_level"] ?? 1;
+            $sort_order = $_POST["sort_order"] ?? 0;
 
-            if (empty($area_id) || empty($indicator_code) || empty($indicator_description)) {
+            if (empty($parameter_id) || empty($indicator_code) || empty($indicator_description)) {
                 return json_encode([
                     'status' => 0,
                     'message' => 'All fields are required.'
@@ -914,15 +936,18 @@ class Action
 
             $stmt = $this->db->prepare("
                 INSERT INTO accreditation_indicators 
-                (area_id, parent_indicator_id, indicator_code, indicator_description)
-                VALUES (:area_id, :parent_indicator_id, :indicator_code, :indicator_description)
+                (parameter_id, parent_indicator_id, indicator_code, indicator_description, indicator_level, sort_order)
+                VALUES 
+                (:parameter_id, :parent_indicator_id, :indicator_code, :indicator_description, :indicator_level, :sort_order)
             ");
 
             $stmt->execute([
-                'area_id' => $area_id,
+                'parameter_id' => $parameter_id,
                 'parent_indicator_id' => $parent_indicator_id,
                 'indicator_code' => $indicator_code,
-                'indicator_description' => $indicator_description
+                'indicator_description' => $indicator_description,
+                'indicator_level' => $indicator_level,
+                'sort_order' => $sort_order
             ]);
 
             return json_encode([
@@ -938,6 +963,7 @@ class Action
             ]);
         }
     }
+
 
     function edit_indicator_form() {
         try {
@@ -1541,6 +1567,13 @@ class Action
             $document_id = $_POST["document_id"];
             $review_id = $_POST["review_id"];
 
+            $stmt = $this->db->prepare("SELECT uploaded_by FROM documents WHERE document_id = :document_id");
+            $stmt->execute([
+                'document_id' => $document_id
+            ]);
+            $uploaded_by = $stmt->fetch(PDO::FETCH_ASSOC);
+            $uploader_id = $uploaded_by["uploaded_by"];
+
             // Update document status
             $stmtdocumemt = $this->db->prepare("UPDATE documents SET status = 'approved' WHERE document_id = :document_id");
             $stmtdocumemt->execute(['document_id' => $document_id]);
@@ -1588,6 +1621,12 @@ class Action
                     'compliance_id' => $complianceId
                 ]);
             }
+             $notifStmt = $this->db->prepare("
+                            INSERT INTO notifications 
+                            (user_id, title, message, created_at) 
+                            VALUES (:user_id, 'Document have been Approved!', 'Your submitted document meets the requirements.', NOW())
+                        ");
+                        $notifStmt->execute([':user_id' => $uploader_id]);
 
             return json_encode([
                 'status' => 1,
@@ -1702,7 +1741,7 @@ class Action
                     error_log("Notification error in revise_document_form: " . $e->getMessage());
                 }
             }
-
+            
             return json_encode([
                 'status' => 1,
                 'message' => 'Document marked for revision successfully',
@@ -2424,163 +2463,273 @@ class Action
     }
 
 // Assignments ========================================================
-    function get_faculty(){
-         $program_id = $_POST['program_id'] ?? '';
-    
-        if (!empty($program_id)) {
-            try {
-                $stmt = $this->db->prepare("
-                    SELECT user_id, first_name, last_name, email 
-                    FROM users 
-                    WHERE program_id = :program_id 
-                    AND user_role = 'faculty'
-                    AND is_active = 'Active'
-                    ORDER BY last_name, first_name
-                ");
-                $stmt->execute([':program_id' => $program_id]);
-                $faculty = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                
-                echo json_encode([
-                    'status' => 1,
-                    'data' => $faculty
-                ]);
-            } catch (PDOException $e) {
-                echo json_encode([
+    function get_faculty() {
+        try {
+            if (!isset($_POST['program_id']) || empty($_POST['program_id'])) {
+                return json_encode([
                     'status' => 0,
-                    'message' => 'Database error: ' . $e->getMessage()
+                    'message' => 'Program ID is required'
                 ]);
             }
-        } else {
-            echo json_encode([
-                'status' => 0,
-                'message' => 'Program ID is required'
+            
+            $program_id = $_POST['program_id'];
+            
+            $stmt = $this->db->prepare("
+                SELECT u.user_id, u.first_name, u.last_name, u.user_role, 
+                    p.program_name, d.department_name
+                FROM users u
+                LEFT JOIN programs p ON u.program_id = p.program_id
+                LEFT JOIN departments d ON u.department_id = d.department_id
+                WHERE u.user_role IN ('faculty') 
+                AND u.is_active = 'Active'
+                AND (u.program_id = ? OR u.department_id IN (
+                    SELECT department_id FROM programs WHERE program_id = ?
+                ))
+                ORDER BY u.last_name, u.first_name
+            ");
+            $stmt->execute([$program_id, $program_id]);
+            $faculty = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            return json_encode([
+                'status' => 1,
+                'message' => 'Faculty retrieved successfully',
+                'data' => $faculty
+            ]);
+            
+        } catch(PDOException $e) {
+            return json_encode([
+                'status' => 0, 
+                'message' => 'An error occurred: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    function get_parameters_by_area() {
+        try {
+            
+            if (!isset($_POST['area_id']) || empty($_POST['area_id'])) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Area ID is required'
+                ]);
+            }
+            
+            $area_id = $_POST['area_id'];
+            
+            $stmt = $this->db->prepare("
+                SELECT parameter_id, parameter_code, parameter_name 
+                FROM accreditation_parameters 
+                WHERE area_id = ? 
+                ORDER BY parameter_code
+            ");
+            $stmt->execute([$area_id]);
+            $parameters = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            return json_encode([
+                'status' => 1,
+                'message' => 'Parameters retrieved successfully',
+                'data' => $parameters
+            ]);
+            
+        } catch(PDOException $e) {
+            return json_encode([
+                'status' => 0, 
+                'message' => 'An error occurred: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    function get_indicators_by_parameter() {
+        try {
+            
+            if (!isset($_POST['parameter_id']) || empty($_POST['parameter_id'])) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Parameter ID is required'
+                ]);
+            }
+            
+            $parameter_id = $_POST['parameter_id'];
+            
+            $stmt = $this->db->prepare("
+                SELECT indicator_id, indicator_code, indicator_description 
+                FROM accreditation_indicators 
+                WHERE parameter_id = ? 
+                ORDER BY indicator_code
+            ");
+            $stmt->execute([$parameter_id]);
+            $indicators = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            return json_encode([
+                'status' => 1,
+                'message' => 'Indicators retrieved successfully',
+                'data' => $indicators
+            ]);
+            
+        } catch(PDOException $e) {
+            return json_encode([
+                'status' => 0, 
+                'message' => 'An error occurred: ' . $e->getMessage()
             ]);
         }
     }
     function assignment_form() {
-        try {
-            $cycle_id = $_POST['cycle_id'] ?? '';
-            $user_id = $_POST['user_id'] ?? '';
-            $faculty_id = $_POST['faculty_id'] ?? '';
-            $indicator_id = $_POST['indicator_id'] ?? '';
-            $program_id = $_POST['program_id'] ?? '';
-            $status = $_POST['status'] ?? 'not_started';
-            
-            // Get sub_indicator_ids from the hidden input
-            $sub_indicator_ids_str = $_POST['sub_indicator_ids'] ?? '';
-            
-            // Convert comma-separated string to array
-            $sub_indicator_ids = [];
-            if (!empty($sub_indicator_ids_str)) {
-                $sub_indicator_ids = array_filter(array_map('trim', explode(',', $sub_indicator_ids_str)));
-            }
+    try {
+        $cycle_id = $_POST['cycle_id'] ?? '';
+        $user_id = $_POST['user_id'] ?? '';
+        $faculty_id = $_POST['faculty_id'] ?? '';
+        $indicator_ids_str = $_POST['indicator_ids'] ?? '';
+        $program_id = $_POST['program_id'] ?? '';
+        $status = $_POST['status'] ?? 'not_started';
+        
+        // Convert comma-separated string to array
+        $indicator_ids = [];
+        if (!empty($indicator_ids_str)) {
+            $indicator_ids = array_filter(array_map('trim', explode(',', $indicator_ids_str)));
+        }
 
-            // Validate required fields
-            if (empty($cycle_id) || empty($faculty_id) || empty($indicator_id) || empty($program_id)) {
-                return json_encode(['status' => 0, 'message' => 'All fields are required']);
-            }
+        // Validate required fields
+        if (empty($cycle_id) || empty($faculty_id) || empty($program_id) || empty($indicator_ids)) {
+            return json_encode(['status' => 0, 'message' => 'All fields are required']);
+        }
 
-            // If no sub-indicators selected, insert just the main indicator assignment
-            if (empty($sub_indicator_ids)) {
-                // Check if assignment already exists for main indicator
-                $checkStmt = $this->db->prepare("
-                    SELECT assignment_id FROM assignments 
-                    WHERE user_id = :faculty_id 
-                    AND indicator_id = :indicator_id 
-                    AND program_id = :program_id 
-                    AND cycle_id = :cycle_id
-                    AND sub_indicator_id IS NULL
-                ");
-                $checkStmt->execute([
-                    ':faculty_id' => $faculty_id,
-                    ':indicator_id' => $indicator_id,
-                    ':program_id' => $program_id,
-                    ':cycle_id' => $cycle_id
-                ]);
-                
-                if ($checkStmt->rowCount() > 0) {
-                    return json_encode(['status' => 0, 'message' => 'Assignment for this indicator already exists']);
-                }
-
-                // Insert main indicator assignment (sub_indicator_id is NULL)
-                $stmt = $this->db->prepare("
-                    INSERT INTO assignments 
-                    (user_id, indicator_id, sub_indicator_id, program_id, status, cycle_id, assigned_by) 
-                    VALUES (:faculty_id, :indicator_id, NULL, :program_id, :status, :cycle_id, :assigned_by)
-                ");
-                $stmt->execute([
-                    ':faculty_id' => $faculty_id,
-                    ':indicator_id' => $indicator_id,
-                    ':program_id' => $program_id,
-                    ':status' => $status,
-                    ':cycle_id' => $cycle_id,
-                    ':assigned_by' => $user_id
-                ]);
-
-                $insertedIds = [$this->db->lastInsertId()];
-            } else {
-                // Insert assignments for each sub-indicator
-                $insertedIds = [];
-                foreach ($sub_indicator_ids as $sub_id) {
-                    // Check if sub-indicator assignment already exists
-                    $checkStmt = $this->db->prepare("
-                        SELECT assignment_id FROM assignments 
-                        WHERE user_id = :faculty_id 
-                        AND indicator_id = :indicator_id 
-                        AND sub_indicator_id = :sub_id
-                        AND program_id = :program_id 
-                        AND cycle_id = :cycle_id
-                    ");
-                    $checkStmt->execute([
-                        ':faculty_id' => $faculty_id,
-                        ':indicator_id' => $indicator_id,
-                        ':sub_id' => $sub_id,
-                        ':program_id' => $program_id,
-                        ':cycle_id' => $cycle_id
-                    ]);
-                    
-                    if ($checkStmt->rowCount() > 0) {
-                        continue; // Skip if already exists
-                    }
-
-                    // Insert sub-indicator assignment
-                    $stmt = $this->db->prepare("
-                        INSERT INTO assignments 
-                        (user_id, indicator_id, sub_indicator_id, program_id, status, cycle_id, assigned_by) 
-                        VALUES (:faculty_id, :indicator_id, :sub_id, :program_id, :status, :cycle_id, :assigned_by)
-                    ");
-                    $stmt->execute([
-                        ':faculty_id' => $faculty_id,
-                        ':indicator_id' => $indicator_id,
-                        ':sub_id' => $sub_id,
-                        ':program_id' => $program_id,
-                        ':status' => $status,
-                        ':cycle_id' => $cycle_id,
-                        ':assigned_by' => $user_id
-                    ]);
-
-                    $insertedIds[] = $this->db->lastInsertId();
-                }
-                
-                if (empty($insertedIds)) {
-                    return json_encode(['status' => 0, 'message' => 'All selected sub-indicators already have assignments']);
-                }
-            }
-
+        // Get the parameter_id for all selected indicators
+        $placeholders = implode(',', array_fill(0, count($indicator_ids), '?'));
+        $paramStmt = $this->db->prepare("
+            SELECT DISTINCT parameter_id 
+            FROM accreditation_indicators 
+            WHERE indicator_id IN ($placeholders)
+        ");
+        $paramStmt->execute($indicator_ids);
+        $parameter_ids = $paramStmt->fetchAll(PDO::FETCH_COLUMN);
+        
+        if (count($parameter_ids) != 1) {
             return json_encode([
-                'status' => 1,
-                'message' => count($insertedIds) . ' assignment(s) created successfully',
-                'assignment_ids' => $insertedIds,
-                'count' => count($insertedIds)
-            ]);
-            
-        } catch (PDOException $e) {
-            return json_encode([
-                'status' => 0,
-                'message' => 'Database error: ' . $e->getMessage()
+                'status' => 0, 
+                'message' => 'Selected indicators must belong to the same parameter. You selected indicators from ' . count($parameter_ids) . ' different parameters.'
             ]);
         }
+        
+        $parameter_id = $parameter_ids[0];
+        
+        // Check if any assignment already exists for this faculty+program+cycle+parameter combination
+        // We need to find if there's already an assignment for any indicator in this parameter
+        $checkStmt = $this->db->prepare("
+            SELECT a.assignment_id 
+            FROM assignments a
+            INNER JOIN accreditation_indicators ai ON a.indicator_id = ai.indicator_id
+            WHERE a.user_id = :faculty_id 
+            AND a.program_id = :program_id 
+            AND a.cycle_id = :cycle_id
+            AND ai.parameter_id = :parameter_id
+            LIMIT 1
+        ");
+        $checkStmt->execute([
+            ':faculty_id' => $faculty_id,
+            ':program_id' => $program_id,
+            ':cycle_id' => $cycle_id,
+            ':parameter_id' => $parameter_id
+        ]);
+        
+        $existing_assignment = null;
+        if ($checkStmt->rowCount() > 0) {
+            $existing_assignment = $checkStmt->fetch(PDO::FETCH_ASSOC);
+            $assignment_id = $existing_assignment['assignment_id'];
+            
+            // Check which indicators already have sub-assignments
+            $existingSubStmt = $this->db->prepare("
+                SELECT parent_indicator_id 
+                FROM assignment_sub_indicators 
+                WHERE assignment_id = :assignment_id
+            ");
+            $existingSubStmt->execute([':assignment_id' => $assignment_id]);
+            $existing_sub_ids = $existingSubStmt->fetchAll(PDO::FETCH_COLUMN);
+            
+            // Filter out already assigned indicators
+            $new_indicator_ids = array_diff($indicator_ids, $existing_sub_ids);
+            
+            if (empty($new_indicator_ids)) {
+                return json_encode(['status' => 0, 'message' => 'All selected indicators already have assignments for this parameter']);
+            }
+            
+            $indicator_ids = $new_indicator_ids; // Only assign the new ones
+        } else {
+            // Create a NEW assignment for the FIRST selected indicator as the main assignment
+            $first_indicator_id = $indicator_ids[0];
+            
+            // Insert ONE main assignment
+            $stmt = $this->db->prepare("
+                INSERT INTO assignments 
+                (user_id, indicator_id, program_id, status, cycle_id, assigned_by) 
+                VALUES (:faculty_id, :indicator_id, :program_id, :status, :cycle_id, :assigned_by)
+            ");
+            $stmt->execute([
+                ':faculty_id' => $faculty_id,
+                ':indicator_id' => $first_indicator_id,
+                ':program_id' => $program_id,
+                ':status' => $status,
+                ':cycle_id' => $cycle_id,
+                ':assigned_by' => $user_id
+            ]);
+
+            $assignment_id = $this->db->lastInsertId();
+            
+            // Remove the first indicator from the list since it's now the main assignment
+            array_shift($indicator_ids);
+        }
+        
+        // Now insert the remaining indicators as sub-assignments
+        $insertedSubIds = [];
+        foreach ($indicator_ids as $indicator_id) {
+            // Check if this indicator already exists as a sub-assignment
+            $subCheckStmt = $this->db->prepare("
+                SELECT assignment_sub_id FROM assignment_sub_indicators 
+                WHERE assignment_id = :assignment_id 
+                AND parent_indicator_id = :indicator_id
+            ");
+            $subCheckStmt->execute([
+                ':assignment_id' => $assignment_id,
+                ':indicator_id' => $indicator_id
+            ]);
+            
+            if ($subCheckStmt->rowCount() > 0) {
+                continue; // Skip if already exists
+            }
+            
+            // Insert as sub-assignment
+            $subInsertStmt = $this->db->prepare("
+                INSERT INTO assignment_sub_indicators 
+                (assignment_id, parent_indicator_id, status) 
+                VALUES (:assignment_id, :indicator_id, :status)
+            ");
+            $subInsertStmt->execute([
+                ':assignment_id' => $assignment_id,
+                ':indicator_id' => $indicator_id,
+                ':status' => 'not_started'
+            ]);
+            
+            $insertedSubIds[] = $this->db->lastInsertId();
+        }
+        
+        $total_assigned = count($insertedSubIds) + ($existing_assignment ? 0 : 1); // +1 if new assignment created
+        
+        return json_encode([
+            'status' => 1,
+            'message' => 'Successfully assigned ' . $total_assigned . ' indicator(s)',
+            'assignment_id' => $assignment_id,
+            'sub_assignment_ids' => $insertedSubIds,
+            'parameter_id' => $parameter_id,
+            'assigned_count' => $total_assigned,
+            'is_new_assignment' => $existing_assignment ? false : true
+        ]);
+        
+    } catch (PDOException $e) {
+        return json_encode([
+            'status' => 0,
+            'message' => 'Database error: ' . $e->getMessage()
+        ]);
     }
+}
     function update_assignment() {
         try {
             $assignment_id = $_POST["assignment_id"] ?? '';
@@ -3337,4 +3486,396 @@ class Action
             ]);
         }
     }
+
+// Parameters ===============================================================
+    function parameter_form(){
+        try {
+            $area_id = $_POST["area_id"];
+            $parameter_code = $_POST["parameter_code"];
+            $parameter_name = $_POST["parameter_name"];
+
+            $stmtParameter = $this->db->prepare("INSERT INTO accreditation_parameters (area_id, parameter_code, parameter_name) VALUES 
+            (:area_id, :parameter_code, :parameter_name)");
+            $stmtParameter->execute([
+                'area_id' => $area_id,
+                'parameter_code' => $parameter_code,
+                'parameter_name' => $parameter_name
+            ]);
+
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Parameter added Successfully!'
+            ]);
+        } catch (PDOException $e) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occured: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+// View sub indicators ====================================================================|
+    function get_sub_indicators_by_assignment() {
+    try {
+        $pdo = db_connect();
+        
+        if (!isset($_POST['assignment_id']) || empty($_POST['assignment_id'])) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'Assignment ID is required'
+            ]);
+        }
+        
+        $assignment_id = $_POST['assignment_id'];
+        
+        // Get the main indicator ID from the assignment
+        $mainStmt = $pdo->prepare("SELECT indicator_id FROM assignments WHERE assignment_id = ?");
+        $mainStmt->execute([$assignment_id]);
+        $main_assignment = $mainStmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$main_assignment) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'Assignment not found'
+            ]);
+        }
+        
+        $main_indicator_id = $main_assignment['indicator_id'];
+        
+        // Method 1: Get sub-indicators from assignment_sub_indicators table
+        $stmt = $pdo->prepare("
+            SELECT 
+                asi.assignment_sub_id,
+                asi.status,
+                asi.assigned_at,
+                asi.updated_at,
+                ai.indicator_id,
+                ai.indicator_code,
+                ai.indicator_description
+            FROM assignment_sub_indicators asi
+            INNER JOIN accreditation_indicators ai ON asi.parent_indicator_id = ai.indicator_id
+            WHERE asi.assignment_id = ?
+            ORDER BY ai.indicator_code
+        ");
+        $stmt->execute([$assignment_id]);
+        $sub_indicators = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // If no results from assignment_sub_indicators, try Method 2: 
+        // Get all indicators that have this as parent from accreditation_indicators
+        if (empty($sub_indicators)) {
+            $stmt = $pdo->prepare("
+                SELECT 
+                    NULL as assignment_sub_id,
+                    'not_started' as status,
+                    NULL as assigned_at,
+                    NULL as updated_at,
+                    ai.indicator_id,
+                    ai.indicator_code,
+                    ai.indicator_description
+                FROM accreditation_indicators ai
+                WHERE ai.parent_indicator_id = ?
+                ORDER BY ai.indicator_code
+            ");
+            $stmt->execute([$main_indicator_id]);
+            $sub_indicators = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        }
+        
+        return json_encode([
+            'status' => 1,
+            'message' => 'Sub indicators retrieved successfully',
+            'data' => $sub_indicators,
+            'main_indicator_id' => $main_indicator_id
+        ]);
+        
+    } catch(PDOException $e) {
+        return json_encode([
+            'status' => 0, 
+            'message' => 'An error occurred: ' . $e->getMessage()
+        ]);
+    }
+}
+function get_assignment_details() {
+    try {
+        $pdo = db_connect();
+        
+        if (!isset($_POST['assignment_id']) || empty($_POST['assignment_id'])) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'Assignment ID is required'
+            ]);
+        }
+        
+        $assignment_id = $_POST['assignment_id'];
+        $include_sub_indicators = isset($_POST['include_sub_indicators']) && $_POST['include_sub_indicators'] == 'true';
+        
+        // Get main assignment details
+        $stmt = $pdo->prepare("
+            SELECT 
+                a.*,
+                u.first_name,
+                u.last_name,
+                CONCAT(u.first_name, ' ', u.last_name) as faculty_name,
+                CONCAT(assigner.first_name, ' ', assigner.last_name) as assigned_by_name,
+                ai.indicator_code,
+                ai.indicator_description,
+                p.program_code,
+                p.program_name,
+                ac.cycle_name,
+                ac.academic_year,
+                CONCAT(ac.cycle_name, ' (', ac.academic_year, ')') as cycle_display
+            FROM assignments a
+            INNER JOIN users u ON a.user_id = u.user_id
+            LEFT JOIN users assigner ON a.assigned_by = assigner.user_id
+            INNER JOIN accreditation_indicators ai ON a.indicator_id = ai.indicator_id
+            INNER JOIN programs p ON a.program_id = p.program_id
+            INNER JOIN accreditation_cycles ac ON a.cycle_id = ac.cycle_id
+            WHERE a.assignment_id = ?
+        ");
+        $stmt->execute([$assignment_id]);
+        $assignment = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$assignment) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'Assignment not found'
+            ]);
+        }
+        
+        $responseData = $assignment;
+        
+        // Include sub-indicators if requested
+        if ($include_sub_indicators) {
+            $subStmt = $pdo->prepare("
+                SELECT 
+                    asi.*,
+                    ai.indicator_code as sub_indicator_code,
+                    ai.indicator_description as sub_indicator_description
+                FROM assignment_sub_indicators asi
+                LEFT JOIN accreditation_indicators ai ON asi.parent_indicator_id = ai.indicator_id
+                WHERE asi.assignment_id = ?
+            ");
+            $subStmt->execute([$assignment_id]);
+            $subIndicators = $subStmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            $responseData['sub_indicators'] = $subIndicators;
+            $responseData['sub_indicator_count'] = count($subIndicators);
+        }
+        
+        return json_encode([
+            'status' => 1,
+            'message' => 'Assignment details retrieved successfully',
+            'data' => $responseData
+        ]);
+        
+    } catch(PDOException $e) {
+        return json_encode([
+            'status' => 0, 
+            'message' => 'An error occurred: ' . $e->getMessage()
+        ]);
+    }
+}
+
+    function document_feedback() {
+        try {
+            // Validate required fields
+            if (!isset($_POST["user_id"]) || empty($_POST["user_id"])) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'User ID is required'
+                ]);
+            }
+            
+            if (!isset($_POST["document_id"]) || empty($_POST["document_id"])) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Document ID is required'
+                ]);
+            }
+            
+            if (!isset($_POST["feedback"]) || empty(trim($_POST["feedback"]))) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Feedback cannot be empty'
+                ]);
+            }
+            
+            $user_id = (int)$_POST["user_id"];
+            $document_id = (int)$_POST["document_id"];
+            $feedback = trim($_POST["feedback"]);
+            
+            // Validate document exists
+            $checkStmt = $this->db->prepare("SELECT document_id FROM documents WHERE document_id = ?");
+            $checkStmt->execute([$document_id]);
+            
+            if ($checkStmt->rowCount() === 0) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Document not found'
+                ]);
+            }
+            
+            $stmt = $this->db->prepare("INSERT INTO document_feedbacks (user_id, document_id, feedback) VALUES (:user_id, :document_id, :feedback)");
+            $stmt->execute([
+                'user_id' => $user_id,
+                'document_id' => $document_id,
+                'feedback' => $feedback
+            ]);
+            
+            $feedback_id = $this->db->lastInsertId();
+            
+            $stmtNotifi = $this->db->prepare("INSERT INTO notifications
+                (user_id, title, message) VALUES
+                (:user_id, 'Accreditor comment', :message)");
+            $stmtNotifi->execute([
+                'user_id' => $user_id,
+                'message' => $feedback
+            ]);
+
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Feedback sent successfully!',
+                'feedback_id' => $feedback_id
+            ]);
+        } catch (PDOException $e) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred: ' . $e->getMessage()
+            ]);
+        }
+    }
+    // Function to get document comments
+    public function get_document_comments() {
+        try {
+            // Debug: Check what data is received
+            error_log("get_document_comments called with POST: " . print_r($_POST, true));
+            
+            if (!isset($_POST['document_id']) || empty($_POST['document_id'])) {
+                error_log("Document ID missing");
+                return json_encode(['status' => 0, 'message' => 'Document ID is required']);
+            }
+            
+            $document_id = $_POST['document_id'];
+            error_log("Looking for comments for document ID: " . $document_id);
+            
+            // Test if document exists
+            $checkStmt = $this->db->prepare("SELECT COUNT(*) as count FROM documents WHERE document_id = ?");
+            $checkStmt->execute([$document_id]);
+            $docCheck = $checkStmt->fetch(PDO::FETCH_ASSOC);
+            error_log("Document exists: " . $docCheck['count']);
+            
+            if ($docCheck['count'] == 0) {
+                return json_encode(['status' => 0, 'message' => 'Document not found']);
+            }
+            
+            // Get QA/Reviewer comments
+            $stmt = $this->db->prepare("
+                SELECT 
+                    r.*,
+                    CONCAT(u.first_name, ' ', u.last_name) as reviewer_name,
+                    u.user_role
+                FROM reviews r
+                LEFT JOIN users u ON r.reviewer_id = u.user_id
+                WHERE r.document_id = ?
+                ORDER BY r.reviewed_at DESC
+            ");
+            $stmt->execute([$document_id]);
+            $reviews = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            error_log("Found " . count($reviews) . " QA/review comments");
+            
+            // Get Accreditor comments
+            $stmt = $this->db->prepare("
+                SELECT 
+                    df.*,
+                    CONCAT(u.first_name, ' ', u.last_name) as user_name,
+                    u.user_role
+                FROM document_feedbacks df
+                INNER JOIN users u ON df.user_id = u.user_id
+                WHERE df.document_id = ?
+                ORDER BY df.created_at DESC
+            ");
+            $stmt->execute([$document_id]);
+            $feedbacks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            error_log("Found " . count($feedbacks) . " accreditor comments");
+            
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Comments retrieved successfully',
+                'data' => [
+                    'reviews' => $reviews,
+                    'feedbacks' => $feedbacks
+                ]
+            ]);
+            
+        } catch(PDOException $e) {
+            error_log("Database error in get_document_comments: " . $e->getMessage());
+            return json_encode([
+                'status' => 0, 
+                'message' => 'Database error: ' . $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        } catch(Exception $e) {
+            error_log("General error in get_document_comments: " . $e->getMessage());
+            return json_encode([
+                'status' => 0, 
+                'message' => 'Error: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    function mark_all_as_read() {
+    try {
+            if (!isset($_POST["user_id"]) || empty($_POST["user_id"])) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'User ID is required'
+                ]);
+            }
+            
+            $user_id = (int)$_POST["user_id"];
+            
+            $stmt = $this->db->prepare("UPDATE notifications SET is_read = 1 WHERE user_id = :user_id AND is_read = 0");
+            $stmt->execute([
+                'user_id' => $user_id
+            ]);
+            
+            $affectedRows = $stmt->rowCount();
+
+            return json_encode([
+                'status' => 1,
+                'message' => $affectedRows . ' notification(s) marked as read',
+                'affected_rows' => $affectedRows
+            ]);
+        } catch (PDOException $e) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred: ' . $e->getMessage()
+            ]);
+        }
+    }
+    function unread_count(){
+        try {
+            $user_id = $_POST["user_id"];
+
+            $stmt = $this->db->prepare("SELECT COUNT(*) FROM notifications WHERE is_read = 0 AND user_id = :user_id");
+            $stmt->execute([
+                'user_id' => $user_id
+            ]);
+            $dataCount = $stmt->fetchColumn();
+            
+            return json_encode([
+                'status' => 1,
+                'data' => $dataCount
+            ]);
+        } catch (PDOException $e) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occured: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+
 }   

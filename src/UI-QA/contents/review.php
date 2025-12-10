@@ -60,7 +60,7 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
         aria-hidden="true">
         <div class="modal-dialog">
             <form id="approve-document-form" class="modal-content">
-                <div class="modal-header btn bg-gradient-primary text-white">
+                <div class="modal-header bg-gradient-primary text-white">
                     <h5 class="modal-title text-white" id="approvalModalLabel">Confirm Approval</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
@@ -87,7 +87,7 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
         aria-hidden="true">
         <div class="modal-dialog">
             <form id="revise-document-form" class="modal-content">
-                <div class="modal-header btn bg-gradient-primary text-white">
+                <div class="modal-header bg-gradient-primary text-white">
                     <h5 class="modal-title text-white" id="revisionModalLabel">Confirm Revision</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
@@ -97,7 +97,12 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
                     </div>
                     <input type="hidden" name="document_id" id="reviseDocumentId">
                     <input type="hidden" name="review_id" id="revisereviewId">
+                    <div class="mt-2" style="border-top: solid 1px #000;">
+                        <label class="form-label">Revision Comment</label>
+                        <textarea name="comments" class="form-control"></textarea>
+                    </div>
                 </div>
+
                 <div class="modal-footer">
                     <button type="submit" class="btn btn bg-gradient-primary">
                         <i class="fas fa-trash me-1"></i> Yes, revise
@@ -123,29 +128,38 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
                         <div class="col-md-6">
                             <h6>Document Information</h6>
                             <table class="table table-sm">
+                                <style>
+                                        .truncate-text {
+                                            display: inline-block;
+                                            max-width: 20rem;     /* your desired width */
+                                            white-space: nowrap; 
+                                            overflow: hidden;
+                                            text-overflow: ellipsis;
+                                        }
+                                    </style>
                                 <tr>
                                     <th>Filename:</th>
-                                    <td id="viewFilename"></td>
+                                    <td class="truncate-text" id="viewFilename"></td>
                                 </tr>
                                  <tr>
                                     <th>File Type:</th>
-                                    <td id="fileType"></td>
+                                    <td class="truncate-text" id="fileType"></td>
                                 </tr>
                                 <tr>
                                     <th>File Size:</th>
-                                    <td id="viewFileSize"></td>
+                                    <td class="truncate-text" id="viewFileSize"></td>
                                 </tr>
                                 <tr>
                                     <th>Uploaded By:</th>
-                                    <td id="viewUploadedBy"></td>
+                                    <td class="truncate-text" id="viewUploadedBy"></td>
                                 </tr>
                                 <tr>
                                     <th>Uploaded On:</th>
-                                    <td id="viewCreatedAt"></td>
+                                    <td class="truncate-text" id="viewCreatedAt"></td>
                                 </tr>
                                 <tr>
                                     <th>Last Updated:</th>
-                                    <td id="viewUpdatedAt"></td>
+                                    <td class="truncate-text" id="viewUpdatedAt"></td>
                                 </tr>
                             </table>
                         </div>
@@ -154,27 +168,27 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
                             <table class="table table-sm">
                                 <tr>
                                     <th>Indicator:</th>
-                                    <td id="viewIndicator"></td>
+                                    <td class="truncate-text" id="viewIndicator"></td>
                                 </tr>
                                 <tr>
                                     <th>Program:</th>
-                                    <td id="viewProgram"></td>
+                                    <td class="truncate-text" id="viewProgram"></td>
                                 </tr>
                                 <tr>
                                     <th>Department:</th>
-                                    <td id="viewDepartment"></td>
+                                    <td class="truncate-text" id="viewDepartment"></td>
                                 </tr>
                                 <tr>
                                     <th>Cycle:</th>
-                                    <td id="viewCycle"></td>
+                                    <td class="truncate-text" id="viewCycle"></td>
                                 </tr>
                                 <tr>
                                     <th>Version:</th>
-                                    <td id="viewVersion"></td>
+                                    <td class="truncate-text" id="viewVersion"></td>
                                 </tr>
                                 <tr>
                                     <th>Status:</th>
-                                    <td id="viewStatus"></td>
+                                    <td class="truncate-text" id="viewStatus"></td>
                                 </tr>
                             </table>
                         </div>

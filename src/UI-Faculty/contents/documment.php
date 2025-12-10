@@ -10,6 +10,8 @@ $stmtDocuments = $pdo->prepare("
         ai.indicator_description,
         p.program_code,
         p.program_name,
+        ap.parameter_code,
+        ap.parameter_name,
         aa.area_number,
         aa.area_name,
         ac.cycle_name,
@@ -18,7 +20,8 @@ $stmtDocuments = $pdo->prepare("
     FROM documents d
     INNER JOIN users u ON d.uploaded_by = u.user_id
     INNER JOIN accreditation_indicators ai ON d.indicator_id = ai.indicator_id
-    LEFT JOIN accreditation_areas aa ON ai.area_id = aa.area_id
+    INNER JOIN accreditation_parameters ap ON ai.parameter_id = ap.parameter_id
+    INNER JOIN accreditation_areas aa ON ap.area_id = aa.area_id
     INNER JOIN programs p ON d.program_id = p.program_id
     INNER JOIN accreditation_cycles ac ON d.cycle_id = ac.cycle_id
     INNER JOIN departments dept ON p.department_id = dept.department_id
@@ -460,6 +463,13 @@ $cycles = $stmtCycles->fetch(PDO::FETCH_ASSOC);
                                 data-status="<?= htmlspecialchars($document['status']) ?>">
                                 <i class="fas fa-edit"></i>
                             </button>
+                            <button class="btn btn-sm btn-light" id="get_comments"
+                                data-target-id="#commentsModal"
+                                data-bs-toggle="tooltip"
+                                data-id="<?= $document["document_id"] ?>"
+                            >
+                                <i class="fas fa-comment-dots"></i>
+                            </button>
                         </div>
                     </td>
                 </tr>
@@ -467,8 +477,186 @@ $cycles = $stmtCycles->fetch(PDO::FETCH_ASSOC);
             </tbody>
         </table>
     </div>
+    <!-- comment Document Modal -->
+    <div class="modal fade" id="commentsModal" tabindex="-1" aria-labelledby="commentsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-gradient-primary text-white">
+                    <h5 class="modal-title text-white" id="commentsModalLabel">Document Comments & Feedback</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="document_id" id="documentCommentId">
+                    
+                    <!-- QA/Reviewer Comments Section -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">📋 QA/Reviewer Comments</label>
+                        <div id="qaCommentsContainer" class="border rounded p-3 bg-light" style="max-height: 300px; overflow-y: auto;">
+                            <div id="qaCommentsList">
+                                <div class="text-center text-muted">
+                                    <i class="bi bi-info-circle"></i> No QA comments found
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Accreditor Comments Section -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">👥 Accreditor Comments</label>
+                        <div id="accreditorCommentsContainer" class="border rounded p-3 bg-light" style="max-height: 300px; overflow-y: auto;">
+                            <div id="accreditorCommentsList">
+                                <div class="text-center text-muted">
+                                    <i class="bi bi-info-circle"></i> No accreditor comments found
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </section>
+<!-- VIEW COMMENTS JS -->
+ <script>
+    $(document).ready(function() {
+    // When comment button is clicked
+    $(document).on('click', '#get_comments', function() {
+        const documentId = $(this).data('id');
+        $('#documentCommentId').val(documentId);
+        $('#newCommentDocumentId').val(documentId);
+        
+        // Load comments
+        loadDocumentComments(documentId);
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('commentsModal'));
+        modal.show();
+    });
+    
+    // Toggle review fields based on comment type
+    $('#commentTypeSelect').on('change', function() {
+        if ($(this).val() === 'review') {
+            $('#reviewFields').show();
+        } else {
+            $('#reviewFields').hide();
+        }
+    });
+    
+    // Handle new comment submission
+    $('#newCommentForm').on('submit', function(e) {
+        e.preventDefault();
+        submitNewComment();
+    });
+});
 
+// Function to load document comments
+function loadDocumentComments(documentId) {
+    // Show loading state
+    $('#qaCommentsList').html('<div class="text-center"><div class="spinner-border spinner-border-sm text-primary" role="status"></div> Loading QA comments...</div>');
+    $('#accreditorCommentsList').html('<div class="text-center"><div class="spinner-border spinner-border-sm text-primary" role="status"></div> Loading accreditor comments...</div>');
+    
+    $.ajax({
+        url: base_url + "/authentication/action.php?action=get_document_comments",
+        method: 'POST',
+        dataType: 'json',
+        data: {
+            document_id: documentId
+        },
+        success: function(response) {
+            if (response.status == 1) {
+                // Display QA/Reviewer comments
+                displayQAComments(response.data.reviews || []);
+                
+                // Display Accreditor comments
+                displayAccreditorComments(response.data.feedbacks || []);
+            } else {
+                $('#qaCommentsList').html('<div class="text-center text-danger">Error loading comments</div>');
+                $('#accreditorCommentsList').html('<div class="text-center text-danger">Error loading comments</div>');
+            }
+        },
+        error: function() {
+            $('#qaCommentsList').html('<div class="text-center text-danger">Error loading comments</div>');
+            $('#accreditorCommentsList').html('<div class="text-center text-danger">Error loading comments</div>');
+        }
+    });
+}
+
+// Function to display QA/Reviewer comments
+function displayQAComments(comments) {
+    const container = $('#qaCommentsList');
+    
+    if (!comments || comments.length === 0) {
+        container.html('<div class="text-center text-muted"><i class="bi bi-info-circle"></i> No QA comments found</div>');
+        return;
+    }
+    
+    let html = '';
+    comments.forEach(comment => {
+        const date = new Date(comment.reviewed_at).toLocaleString();
+        const actionClass = comment.review_action === 'approved' ? 'dark' : 'dark';
+        const priorityClass = comment.priority === 'urgent' ? 'dark' : 
+                             comment.priority === 'high' ? 'dark' : 'dark';
+        
+        html += `
+            <div class="comment-item mb-3 p-2 border-bottom">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <strong>${comment.reviewer_name || 'Unknown Reviewer'}</strong>
+                        <span class="badge bg-${actionClass} ms-2">${comment.review_action}</span>
+                        <span class="badge bg-${priorityClass} ms-1">${comment.priority}</span>
+                    </div>
+                    <small class="text-muted">${date}</small>
+                </div>
+                ${comment.deadline ? `<div class="mt-1"><small><strong>Deadline:</strong> ${comment.deadline}</small></div>` : ''}
+                ${comment.revision_reason ? `<div class="mt-1"><small><strong>Reason:</strong> ${comment.revision_reason}</small></div>` : ''}
+                <div class="mt-2">${comment.comments || 'No comment'}</div>
+            </div>
+        `;
+    });
+    
+    container.html(html);
+}
+
+// Function to display Accreditor comments
+function displayAccreditorComments(comments) {
+    const container = $('#accreditorCommentsList');
+    
+    if (!comments || comments.length === 0) {
+        container.html('<div class="text-center text-muted"><i class="bi bi-info-circle"></i> No accreditor comments found</div>');
+        return;
+    }
+    
+    let html = '';
+    comments.forEach(comment => {
+        const date = new Date(comment.created_at).toLocaleString();
+        const updated = comment.updated_at && comment.updated_at !== comment.created_at ? 
+                       `<small class="text-muted">(Updated: ${new Date(comment.updated_at).toLocaleDateString()})</small>` : '';
+        
+        html += `
+            <div class="comment-item mb-3 p-2 border-bottom">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <strong>${comment.user_name || 'Unknown User'}</strong>
+                        <small class="text-muted ms-2">${comment.user_role || ''}</small>
+                    </div>
+                    <div class="text-end">
+                        <small class="text-muted">${date}</small>
+                        ${updated}
+                    </div>
+                </div>
+                <div class="mt-2">${comment.feedback}</div>
+            </div>
+        `;
+    });
+    
+    container.html(html);
+}
+
+ </script>
 <script>
     // Document View Function
     function viewDocument(documentId, filename, filePath, fileSize, uploadedBy, createdAt, updatedAt,

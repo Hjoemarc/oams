@@ -1,10 +1,10 @@
 <?php
 
-if (!isset($_SESSION['facultyData'])) {
+if (!isset($_SESSION['accreditorData'])) {
   include 'eror.php';
   exit;
 }
-$user_id = $_SESSION['facultyData']['user_id'];
+$user_id = $_SESSION['accreditorData']['user_id'];
 verify_init($user_id);
 
 $stmt = $pdo->prepare("SELECT first_name, last_name, middle_name, suffix FROM users WHERE user_id = '$user_id'");

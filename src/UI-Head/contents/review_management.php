@@ -155,119 +155,8 @@ $documentCount = 1;
                 assignment</button>
         </div>
     </div>
-    <!-- Assign faculty -->
-    <div class="modal fade" id="createAccounts" tabindex="-1" aria-labelledby="createAccountsLabel" aria-hidden="true">
-        <div class="modal-dialog modal-md">
-            <!-- Changed to modal-lg for better display -->
-            <div class="modal-content">
-                <div class="modal-header bg-gradient-primary text-white">
-                    <h5 class="modal-title text-white" id="createAccountsLabel">Create Assignment</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"
-                        onclick="location.reload()"></button>
-                </div>
-                <div class="modal-body">
-                    <form class="row g-1 align-items-start justify-content-start" id="assignment-form">
-                        <div class="mx-2 col-12">
-                            <?php
-                            $stmt = $pdo->prepare("SELECT * FROM accreditation_cycles WHERE status = 'active'");
-                            $stmt->execute();
-                            $cycles = $stmt->fetch(PDO::FETCH_ASSOC);
 
-                            $stmt = $pdo->prepare("SELECT * FROM accreditation_indicators");
-                            $stmt->execute();
-                            $indicators = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-                            $stmt = $pdo->prepare("SELECT * FROM programs 
-                            INNER JOIN departments ON programs.department_id = departments.department_id
-                            WHERE departments.department_id = :department_id");
-                            $stmt->execute([
-                                'department_id' => $department_id
-                            ]);
-                            $programs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                        ?>
-                            <label class="form-label">Cycle</label>
-                            <input type="hidden" class="form-control" name="cycle_id"
-                                value="<?= htmlspecialchars($cycles["cycle_id"]) ?>">
-                            <p class="form-control text-dark border" readonly>
-                                <?= htmlspecialchars($cycles["cycle_name"] . '(' . $cycles["academic_year"] . ')') ?>
-                            </p>
-                        </div>
-                        <input type="hidden" name="user_id" value="<?= htmlspecialchars($user_id) ?>">
-                        <div class="mx-2 col-md-12">
-                            <label class="form-label">Indicator</label>
-                            <select name="indicator_id" id="indicator_id" class="form-select" required>
-                                <option value="">Select Indicator</option>
-                                <?php foreach($indicators as $indi) : ?>
-                                <option value="<?= htmlspecialchars($indi["indicator_id"]) ?>">
-                                    <?= htmlspecialchars($indi["indicator_code"] . ' - ' . $indi["indicator_description"]) ?>
-                                </option>
-                                <?php endforeach ?>
-                            </select>
-                        </div>
-                        <div class="mx-2 col-md-12">
-                            <label class="form-label">Program</label>
-                            <select name="program_id" id="program_id" class="form-select" required>
-                                <option value="">Select Program</option>
-                                <?php foreach($programs as $prog) : ?>
-                                <option value="<?= htmlspecialchars($prog["program_id"]) ?>">
-                                    <?= htmlspecialchars($prog["program_name"] . ' (' . $prog["program_code"] . ')') ?>
-                                </option>
-                                <?php endforeach ?>
-                            </select>
-                        </div>
-
-                        <!-- Sub Indicators Checkbox Section -->
-                        <div class="mx-2 col-12">
-                            <label class="form-label">Sub Indicators (Optional)</label>
-                            <div class="border rounded p-3 bg-light" id="sub_indicators_container"
-                                style="display: none;">
-                                <div class="form-check mb-2">
-                                    <input class="form-check-input" type="checkbox" id="select_all_sub_indicators">
-                                    <label class="form-check-label fw-bold" for="select_all_sub_indicators">
-                                        Select All Sub Indicators
-                                    </label>
-                                </div>
-                                <hr class="my-2">
-                                <div id="sub_indicators_checkboxes" class="row">
-                                    <!-- Checkboxes will be loaded dynamically via AJAX -->
-                                    <div class="col-12 text-center text-muted">
-                                        <i class="bi bi-info-circle"></i> Select an indicator above to load sub
-                                        indicators
-                                    </div>
-                                </div>
-                            </div>
-                            <input type="hidden" name="sub_indicator_ids" id="sub_indicator_ids" value="">
-                            <small class="text-muted">Note: Sub indicators are optional. You can select multiple if
-                                needed.</small>
-                        </div>
-
-                        <div class="mx-2 col-md-12">
-                            <label class="form-label">Faculty</label>
-                            <select name="faculty_id" id="user_id" class="form-select" required disabled>
-                                <option value="">Select Faculty</option>
-                                <!-- Faculty options will be loaded dynamically via AJAX -->
-                            </select>
-                        </div>
-                        <div class="mx-2 col-md-12">
-                            <label class="form-label">Status</label>
-                            <select name="status" id="status" class="form-select" required>
-                                <option value="">Select status</option>
-                                <option value="not_started">Not Started</option>
-                                <option value="in_progress">In Progress</option>
-                                <option value="submitted">Submitted</option>
-                                <option value="completed">Completed</option>
-                            </select>
-                        </div>
-                        <div class="col-12 text-center mt-3">
-                            <button type="submit" class="btn btn-primary px-5" id="submit-btn">
-                                <i class="bi bi-person-plus-fill me-1"></i> Create Assignment
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <!-- Edit Assignment Modal -->
     <div class="modal fade" id="editAssignmentModal" tabindex="-1" aria-labelledby="editAssignmentModalLabel"
@@ -683,16 +572,154 @@ $documentCount = 1;
     </div>
 
 </section>
+<!-- assign faculty -->
+<div class="modal fade" id="createAccounts" tabindex="-1" aria-labelledby="createAccountsLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-gradient-primary text-white">
+                <h5 class="modal-title text-white" id="createAccountsLabel">Create Assignment</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"
+                    onclick="location.reload()"></button>
+            </div>
+            <div class="modal-body">
+                <form class="row g-1 align-items-start justify-content-start" id="assignment-form">
+                    <div class="mx-2 col-12">
+                        <?php
+                        $stmt = $pdo->prepare("SELECT * FROM accreditation_cycles WHERE status = 'active'");
+                        $stmt->execute();
+                        $cycles = $stmt->fetch(PDO::FETCH_ASSOC);
+                        
+                        // Fetch all areas
+                        $stmt = $pdo->prepare("SELECT * FROM accreditation_areas ORDER BY area_number");
+                        $stmt->execute();
+                        $areas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        
+                        $stmt = $pdo->prepare("SELECT * FROM programs 
+                        INNER JOIN departments ON programs.department_id = departments.department_id
+                        WHERE departments.department_id = :department_id");
+                        $stmt->execute([
+                            'department_id' => $department_id
+                        ]);
+                        $programs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                    ?>
+                        <label class="form-label">Cycle</label>
+                        <input type="hidden" class="form-control" name="cycle_id"
+                            value="<?= htmlspecialchars($cycles["cycle_id"]) ?>">
+                        <p class="form-control text-dark border" readonly>
+                            <?= htmlspecialchars($cycles["cycle_name"] . ' (' . $cycles["academic_year"] . ')') ?>
+                        </p>
+                    </div>
 
+                    <input type="hidden" name="user_id" value="<?= htmlspecialchars($user_id) ?>">
+
+                    <!-- Area Selection -->
+                    <div class="mx-2 col-md-12">
+                        <label class="form-label">Area</label>
+                        <select name="area_id" id="area_id" class="form-select" required>
+                            <option value="">Select Area</option>
+                            <?php foreach($areas as $area) : ?>
+                            <option value="<?= htmlspecialchars($area["area_id"]) ?>">
+                                <?= htmlspecialchars($area["area_number"] . ' - ' . $area["area_name"]) ?>
+                            </option>
+                            <?php endforeach ?>
+                        </select>
+                    </div>
+
+                    <!-- Parameter Selection (will be loaded dynamically) -->
+                    <div class="mx-2 col-md-12">
+                        <label class="form-label">Parameter</label>
+                        <select name="parameter_id" id="parameter_id" class="form-select" required disabled>
+                            <option value="">Select Parameter</option>
+                            <!-- Parameters will be loaded dynamically via AJAX -->
+                        </select>
+                    </div>
+
+                    <!-- Indicators Checkbox Section -->
+                    <div class="mx-2 col-12">
+                        <label class="form-label">Indicators <span class="text-danger">*</span></label>
+                        <div class="border rounded p-3 bg-light" id="indicators_container" style="display: none;">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="select_all_indicators">
+                                <label class="form-check-label fw-bold" for="select_all_indicators">
+                                    Select All Indicators
+                                </label>
+                            </div>
+                            <hr class="my-2">
+                            <div id="indicators_checkboxes" class="row">
+                                <!-- Checkboxes will be loaded dynamically via AJAX -->
+                                <div class="col-12 text-center text-muted">
+                                    <i class="bi bi-info-circle"></i> Select a parameter above to load indicators
+                                </div>
+                            </div>
+                        </div>
+                        <input type="hidden" name="indicator_ids" id="indicator_ids" value="">
+                        <small class="text-muted">Note: You can select one or more indicators for this
+                            assignment.</small>
+                        <div id="indicator_error" class="text-danger mt-1" style="display: none;">
+                            Please select at least one indicator
+                        </div>
+                    </div>
+
+                    <!-- Program Selection -->
+                    <div class="mx-2 col-md-12">
+                        <label class="form-label">Program</label>
+                        <select name="program_id" id="program_id" class="form-select" required>
+                            <option value="">Select Program</option>
+                            <?php foreach($programs as $prog) : ?>
+                            <option value="<?= htmlspecialchars($prog["program_id"]) ?>">
+                                <?= htmlspecialchars($prog["program_name"] . ' (' . $prog["program_code"] . ')') ?>
+                            </option>
+                            <?php endforeach ?>
+                        </select>
+                    </div>
+
+                    <!-- Faculty Selection (will be loaded dynamically) -->
+                    <div class="mx-2 col-md-12">
+                        <label class="form-label">Faculty</label>
+                        <select name="faculty_id" id="faculty_id" class="form-select" required disabled>
+                            <option value="">Select Faculty</option>
+                            <!-- Faculty options will be loaded dynamically via AJAX -->
+                        </select>
+                    </div>
+
+                    <!-- Status Selection -->
+                    <div class="mx-2 col-md-12">
+                        <label class="form-label">Status</label>
+                        <select name="status" id="status" class="form-select" required>
+                            <option value="">Select status</option>
+                            <option value="not_started">Not Started</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="submitted">Submitted</option>
+                            <option value="completed">Completed</option>
+                        </select>
+                    </div>
+
+                    <div class="col-12 text-center mt-3">
+                        <button type="submit" class="btn btn-primary px-5" id="submit-btn">
+                            <i class="bi bi-person-plus-fill me-1"></i> Create Assignment
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- ASSIGN FACULTY JS ========================================================================== -->
 <script>
 $(document).ready(function() {
-    // When indicator selection changes
-    $('#indicator_id').on('change', function() {
-        var indicatorId = $(this).val();
-        loadSubIndicators(indicatorId);
+    // When area selection changes, load parameters
+    $('#area_id').on('change', function() {
+        var areaId = $(this).val();
+        loadParameters(areaId);
     });
 
-    // When program selection changes
+    // When parameter selection changes, load indicators
+    $('#parameter_id').on('change', function() {
+        var parameterId = $(this).val();
+        loadIndicators(parameterId);
+    });
+
+    // When program selection changes, load faculty
     $('#program_id').on('change', function() {
         var programId = $(this).val();
         loadFacultyForProgram(programId);
@@ -701,23 +728,78 @@ $(document).ready(function() {
     // Form submission handler
     $('#assignment-form').on('submit', function(e) {
         e.preventDefault();
-        submitAssignmentForm();
+        if (validateForm()) {
+            submitAssignmentForm();
+        }
     });
 });
 
-// Function to load sub indicators as checkboxes
-function loadSubIndicators(indicatorId, selectedSubIds = []) {
-    var container = $('#sub_indicators_container');
-    var checkboxesContainer = $('#sub_indicators_checkboxes');
-    var hiddenInput = $('#sub_indicator_ids');
+// Function to load parameters based on selected area
+function loadParameters(areaId) {
+    var parameterSelect = $('#parameter_id');
 
-    if (!indicatorId || indicatorId === '') {
+    if (!areaId || areaId === '') {
+        parameterSelect.html('<option value="">Select Parameter</option>').prop('disabled', true);
+        $('#indicators_container').hide();
+        $('#indicators_checkboxes').html(
+            '<div class="col-12 text-center text-muted"><i class="bi bi-info-circle"></i> Select a parameter above to load indicators</div>'
+            );
+        return;
+    }
+
+    // Show loading state
+    parameterSelect.html('<option value="">Loading parameters...</option>').prop('disabled', true);
+
+    $.ajax({
+        url: base_url + "/authentication/action.php?action=get_parameters_by_area",
+        method: 'POST',
+        dataType: 'json',
+        data: {
+            area_id: areaId
+        },
+        success: function(response) {
+            console.log('Parameters Response:', response);
+
+            if (response.status == 1 && response.data && response.data.length > 0) {
+                var options = '<option value="">Select Parameter</option>';
+                $.each(response.data, function(index, parameter) {
+                    options +=
+                        `<option value="${parameter.parameter_id}">${parameter.parameter_code} - ${parameter.parameter_name}</option>`;
+                });
+                parameterSelect.html(options).prop('disabled', false);
+            } else {
+                parameterSelect.html('<option value="">No parameters available</option>').prop('disabled',
+                    true);
+            }
+
+            // Reset indicators section
+            $('#indicators_container').hide();
+            $('#indicators_checkboxes').html(
+                '<div class="col-12 text-center text-muted"><i class="bi bi-info-circle"></i> Select a parameter above to load indicators</div>'
+                );
+            $('#indicator_ids').val('');
+        },
+        error: function(xhr, status, error) {
+            console.error('AJAX Error:', error);
+            parameterSelect.html('<option value="">Error loading parameters</option>').prop('disabled',
+                true);
+        }
+    });
+}
+
+// Function to load indicators as checkboxes based on selected parameter
+function loadIndicators(parameterId, selectedIndicatorIds = []) {
+    var container = $('#indicators_container');
+    var checkboxesContainer = $('#indicators_checkboxes');
+    var hiddenInput = $('#indicator_ids');
+
+    if (!parameterId || parameterId === '') {
         container.hide();
         checkboxesContainer.html(
-            '<div class="col-12 text-center text-muted"><i class="bi bi-info-circle"></i> Select an indicator above to load sub indicators</div>'
-            );
+            '<div class="col-12 text-center text-muted"><i class="bi bi-info-circle"></i> Select a parameter above to load indicators</div>'
+        );
         hiddenInput.val('');
-        $('#select_all_sub_indicators').prop('checked', false).prop('disabled', true);
+        $('#select_all_indicators').prop('checked', false).prop('disabled', true);
         return;
     }
 
@@ -726,42 +808,43 @@ function loadSubIndicators(indicatorId, selectedSubIds = []) {
     checkboxesContainer.html(`
         <div class="col-12 text-center">
             <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
-            <span class="ms-2">Loading sub indicators...</span>
+            <span class="ms-2">Loading indicators...</span>
         </div>
     `);
-    $('#select_all_sub_indicators').prop('checked', false).prop('disabled', true);
+    $('#select_all_indicators').prop('checked', false).prop('disabled', true);
 
     $.ajax({
-        url: base_url + "/authentication/action.php?action=get_parent_indicators",
+        url: base_url + "/authentication/action.php?action=get_indicators_by_parameter",
         method: 'POST',
         dataType: 'json',
         data: {
-            indicator_id: indicatorId
+            parameter_id: parameterId
         },
         success: function(response) {
-            console.log('Sub Indicators Response:', response);
+            console.log('Indicators Response:', response);
 
             if (response.status == 1 && response.data && response.data.length > 0) {
                 checkboxesContainer.empty();
 
-                // Convert selectedSubIds to array if it's a string
-                if (typeof selectedSubIds === 'string') {
-                    selectedSubIds = selectedSubIds.split(',').map(id => id.trim()).filter(id => id !== '');
-                } else if (!Array.isArray(selectedSubIds)) {
-                    selectedSubIds = [];
+                // Convert selectedIndicatorIds to array if it's a string
+                if (typeof selectedIndicatorIds === 'string') {
+                    selectedIndicatorIds = selectedIndicatorIds.split(',').map(id => id.trim()).filter(id =>
+                        id !== '');
+                } else if (!Array.isArray(selectedIndicatorIds)) {
+                    selectedIndicatorIds = [];
                 }
 
                 // Create checkboxes in columns (2 columns layout)
                 var indicatorsPerColumn = Math.ceil(response.data.length / 2);
-                var currentColumn = 1;
                 var currentCount = 0;
 
                 var column1 = $('<div class="col-md-6"></div>');
                 var column2 = $('<div class="col-md-6"></div>');
 
                 $.each(response.data, function(index, indicator) {
-                    var isChecked = selectedSubIds.includes(indicator.indicator_id.toString());
-                    var checkboxId = 'sub_indicator_' + indicator.indicator_id;
+                    var isChecked = selectedIndicatorIds.includes(indicator.indicator_id
+                .toString());
+                    var checkboxId = 'indicator_' + indicator.indicator_id;
                     var optionText = indicator.indicator_code;
 
                     // Truncate description if too long
@@ -771,7 +854,7 @@ function loadSubIndicators(indicatorId, selectedSubIds = []) {
 
                     var checkboxHtml = `
                         <div class="form-check mb-2">
-                            <input class="form-check-input sub-indicator-checkbox" 
+                            <input class="form-check-input indicator-checkbox" 
                                    type="checkbox" 
                                    id="${checkboxId}"
                                    value="${indicator.indicator_id}"
@@ -801,18 +884,18 @@ function loadSubIndicators(indicatorId, selectedSubIds = []) {
                 $('[data-bs-toggle="tooltip"]').tooltip();
 
                 // Enable select all checkbox
-                $('#select_all_sub_indicators').prop('disabled', false);
+                $('#select_all_indicators').prop('disabled', false);
 
                 // Update hidden input with selected values
-                updateSubIndicatorIds();
+                updateIndicatorIds();
 
                 // Update select all checkbox state
-                updateSelectAllState();
+                updateSelectAllIndicatorState();
 
             } else {
                 checkboxesContainer.html(`
                     <div class="col-12 text-center text-muted">
-                        <i class="bi bi-info-circle"></i> No sub indicators available for this indicator
+                        <i class="bi bi-info-circle"></i> No indicators available for this parameter
                     </div>
                 `);
                 hiddenInput.val('');
@@ -822,7 +905,7 @@ function loadSubIndicators(indicatorId, selectedSubIds = []) {
             console.error('AJAX Error:', error);
             checkboxesContainer.html(`
                 <div class="col-12 text-center text-danger">
-                    <i class="bi bi-exclamation-triangle"></i> Error loading sub indicators
+                    <i class="bi bi-exclamation-triangle"></i> Error loading indicators
                 </div>
             `);
             hiddenInput.val('');
@@ -830,54 +913,111 @@ function loadSubIndicators(indicatorId, selectedSubIds = []) {
     });
 }
 
-// Function to update hidden input with selected checkbox values
-function updateSubIndicatorIds() {
+// Function to load faculty for selected program
+function loadFacultyForProgram(programId) {
+    var facultySelect = $('#faculty_id');
+
+    if (!programId || programId === '') {
+        facultySelect.html('<option value="">Select Faculty</option>').prop('disabled', true);
+        return;
+    }
+
+    // Show loading state
+    facultySelect.html('<option value="">Loading faculty...</option>').prop('disabled', true);
+
+    $.ajax({
+        url: base_url + "/authentication/action.php?action=get_faculty",
+        method: 'POST',
+        dataType: 'json',
+        data: {
+            program_id: programId
+        },
+        success: function(response) {
+            console.log('Faculty Response:', response);
+
+            if (response.status == 1 && response.data && response.data.length > 0) {
+                var options = '<option value="">Select Faculty</option>';
+                $.each(response.data, function(index, faculty) {
+                    options +=
+                        `<option value="${faculty.user_id}">${faculty.first_name} ${faculty.last_name} (${faculty.user_role})</option>`;
+                });
+                facultySelect.html(options).prop('disabled', false);
+            } else {
+                facultySelect.html('<option value="">No faculty available for this program</option>').prop(
+                    'disabled', true);
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('AJAX Error:', error);
+            facultySelect.html('<option value="">Error loading faculty</option>').prop('disabled', true);
+        }
+    });
+}
+
+// Function to update hidden input with selected indicator values
+function updateIndicatorIds() {
     var selectedValues = [];
-    $('.sub-indicator-checkbox:checked').each(function() {
+    $('.indicator-checkbox:checked').each(function() {
         selectedValues.push($(this).val());
     });
 
-    $('#sub_indicator_ids').val(selectedValues.join(','));
+    $('#indicator_ids').val(selectedValues.join(','));
 
     // Show count badge if any are selected
-    var countBadge = $('#selected_count_badge');
+    var countBadge = $('#selected_indicators_count_badge');
     if (selectedValues.length > 0) {
         if (countBadge.length === 0) {
-            $('#sub_indicators_container label').append(
-                ` <span class="badge bg-primary" id="selected_count_badge">${selectedValues.length} selected</span>`
+            $('#indicators_container label').append(
+                ` <span class="badge bg-primary" id="selected_indicators_count_badge">${selectedValues.length} selected</span>`
             );
         } else {
             countBadge.text(selectedValues.length + ' selected');
         }
+        $('#indicator_error').hide();
     } else {
         countBadge.remove();
     }
 }
 
-// Function to update select all checkbox state
-function updateSelectAllState() {
-    var totalCheckboxes = $('.sub-indicator-checkbox').length;
-    var checkedCount = $('.sub-indicator-checkbox:checked').length;
+// Function to update select all indicators checkbox state
+function updateSelectAllIndicatorState() {
+    var totalCheckboxes = $('.indicator-checkbox').length;
+    var checkedCount = $('.indicator-checkbox:checked').length;
 
-    $('#select_all_sub_indicators').prop('checked', totalCheckboxes > 0 && totalCheckboxes === checkedCount);
+    $('#select_all_indicators').prop('checked', totalCheckboxes > 0 && totalCheckboxes === checkedCount);
 }
 
-// Select All functionality
-$(document).on('change', '#select_all_sub_indicators', function() {
+// Select All indicators functionality
+$(document).on('change', '#select_all_indicators', function() {
     var isChecked = $(this).is(':checked');
-    $('.sub-indicator-checkbox').prop('checked', isChecked);
-    updateSubIndicatorIds();
-    updateSelectAllState();
+    $('.indicator-checkbox').prop('checked', isChecked);
+    updateIndicatorIds();
+    updateSelectAllIndicatorState();
 });
 
-// Update hidden input when individual checkboxes change
-$(document).on('change', '.sub-indicator-checkbox', function() {
-    updateSubIndicatorIds();
-    updateSelectAllState();
+// Update hidden input when individual indicator checkboxes change
+$(document).on('change', '.indicator-checkbox', function() {
+    updateIndicatorIds();
+    updateSelectAllIndicatorState();
 });
 
+// Form validation
+function validateForm() {
+    var indicatorIds = $('#indicator_ids').val();
+    var isValid = true;
 
+    if (!indicatorIds || indicatorIds.trim() === '') {
+        $('#indicator_error').show();
+        isValid = false;
+    } else {
+        $('#indicator_error').hide();
+    }
 
+    return isValid;
+}
+</script>
+<!-- END OF ASSIGNING FACULTY JS ============================================================================================================================= -->
+<script>
 // Global variables
 let selectedAssignmentId = null;
 let selectedDocumentId = null;
@@ -894,62 +1034,11 @@ function editAssignment(assignmentId, indicatorId, programId, facultyId, status)
     // Clear faculty dropdown first
     $('#editFacultyId').html('<option value="">Loading faculty...</option>').prop('disabled', true);
 
-    // Load faculty for the selected program
-    if (programId) {
-        loadFacultyForProgram(programId, facultyId);
-    } else {
-        $('#editFacultyId').html('<option value="">Select Program First</option>').prop('disabled', true);
-    }
 
     // Show modal
     var editModal = new bootstrap.Modal(document.getElementById('editAssignmentModal'));
     editModal.show();
 }
-// Function to load faculty for program
-// Function to load faculty for program (for EDIT modal)
-function loadFacultyForProgram(programId, selectedFacultyId = null) {
-    // Use editFacultyId for the edit modal
-    var userSelect = $('#editFacultyId');
-
-    if (!programId || programId === '') {
-        userSelect.html('<option value="">Select Program First</option>').prop('disabled', true);
-        return;
-    }
-
-    // Show loading state
-    userSelect.html('<option value="">Loading faculty...</option>').prop('disabled', true);
-
-    $.ajax({
-        url: base_url + "/authentication/action.php?action=get_faculty",
-        method: 'POST',
-        dataType: 'json',
-        data: {
-            program_id: programId
-        },
-        success: function(response) {
-            console.log('Faculty response:', response); // Debug log
-            if (response.status == 1 && response.data && response.data.length > 0) {
-                userSelect.html('<option value="">Select Faculty</option>');
-                $.each(response.data, function(index, faculty) {
-                    var selected = (faculty.user_id == selectedFacultyId) ? 'selected' : '';
-                    userSelect.append(
-                        `<option value="${faculty.user_id}" ${selected}>
-                            ${faculty.first_name} ${faculty.last_name}
-                        </option>`
-                    );
-                });
-                userSelect.prop('disabled', false);
-            } else {
-                userSelect.html('<option value="">No faculty found</option>').prop('disabled', true);
-            }
-        },
-        error: function(xhr, status, error) {
-            console.error('Error loading faculty:', error);
-            userSelect.html('<option value="">Error loading faculty</option>').prop('disabled', true);
-        }
-    });
-}
-
 // Function to load faculty for program (for CREATE modal - keep this separate)
 function loadFacultyForCreateProgram(programId) {
     var userSelect = $('#user_id'); // This is for create modal
