@@ -362,5 +362,4 @@ if ($action === 'unread_count') {
     echo $result;
     exit;
 }
-
 ?>

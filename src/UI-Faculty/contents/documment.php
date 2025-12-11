@@ -76,6 +76,9 @@ $programs = $stmtPrograms->fetch(PDO::FETCH_ASSOC);
 
 $stmtCycles = $pdo->query("SELECT cycle_id, cycle_name, academic_year FROM accreditation_cycles WHERE status = 'active'");
 $cycles = $stmtCycles->fetch(PDO::FETCH_ASSOC);
+ $cycle_name = $cycles["cycle_name"] ?? '';
+                            $academic_year = $cycles["academic_year"] ?? '';
+                            $cycle_id = $cycles["cycle_id"] ?? '';
 ?>
 <section>
     <div class="d-flex justify-content-between align-items-center mb-2">
@@ -151,7 +154,13 @@ $cycles = $stmtCycles->fetch(PDO::FETCH_ASSOC);
                         <div class="col-md-6">
                             <label class="form-label">Accreditation Cycle</label>
                             <input type="hidden" class="form-control" name="cycle_id" value="<?= htmlspecialchars($cycles["cycle_id"]) ?>" read_only>
-                            <p class="form-control" readonly><?= htmlspecialchars($cycles["cycle_name"] . '(' . $cycles["academic_year"]) ?></p>
+                            <p class="form-control" readonly><?php 
+                                    if(empty($cycle_name)){
+                                        echo 'No active cycle';
+                                    } else { 
+                                        echo htmlspecialchars($cycle_name . ' (' . $academic_year . ')');
+                                    } 
+                                ?></p>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Description</label>
@@ -212,8 +221,14 @@ $cycles = $stmtCycles->fetch(PDO::FETCH_ASSOC);
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Accreditation Cycle</label>
-                            <input type="hidden" name="cycle_id" class="form-control" value="<?= $cycles["cycle_id"] ?>">
-                            <p class="form-control" readonly><?= htmlspecialchars($cycles['cycle_name']) . ' (' . htmlspecialchars($cycles['academic_year']) . ')' ?></p>
+                            <input type="hidden" class="form-control" name="cycle_id" value="<?= htmlspecialchars($cycles["cycle_id"]) ?>" read_only>
+                            <p class="form-control" readonly><?php 
+                                    if(empty($cycle_name)){
+                                        echo 'No active cycle';
+                                    } else { 
+                                        echo htmlspecialchars($cycle_name . ' (' . $academic_year . ')');
+                                    } 
+                                ?></p>
                         </div>
                         <div class="col-md-3 d-none">
                             <label class="form-label">Version</label>

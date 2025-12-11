@@ -87,13 +87,13 @@
                     0
                 ) as compliance_rate
             FROM accreditation_areas a
-            LEFT JOIN accreditation_indicators ai ON a.area_id = ai.area_id
+            LEFT JOIN accreditation_parameters ap ON a.area_id = ap.area_id
+            LEFT JOIN accreditation_indicators ai ON ap.parameter_id = ai.parameter_id
             LEFT JOIN compliance_tracking ct ON ai.indicator_id = ct.indicator_id
             LEFT JOIN programs p ON ct.program_id = p.program_id
             GROUP BY a.area_id, a.area_number, a.area_name, a.description
             ORDER BY a.area_number
         ");
-        $areaProgress = $areaProgressStmt->fetchAll(PDO::FETCH_ASSOC);
         
         // Fetch program accreditation progress
         $programProgressStmt = $pdo->query("

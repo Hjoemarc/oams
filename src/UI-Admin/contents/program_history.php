@@ -1,52 +1,76 @@
 <?php
     $program_id = $_GET["program_id"];
     
-    // Get program details with latest accreditation level from history
-    $stmt = $pdo->prepare("SELECT 
-        p.*,
-        d.department_name,
-        d.department_code,
-        pa.accreditation_level as current_level,
-        pa.survey_date as last_survey_date
-    FROM programs p
-    INNER JOIN departments d ON d.department_id = p.department_id
-    LEFT JOIN program_accreditation pa ON p.program_id = pa.program_id
-    WHERE p.program_id = :program_id
-    ORDER BY pa.survey_date DESC LIMIT 1");
+    // Initialize variables to avoid undefined warnings
+    $allLevels = [];
+    $currentLevelDetails = null;
     
-    $stmt->execute(['program_id' => $program_id]);
-    $programData = $stmt->fetch(PDO::FETCH_ASSOC);
+    try {
+        // Get program details with latest accreditation level from history
+        $stmt = $pdo->prepare("SELECT 
+            p.*,
+            d.department_name,
+            d.department_code,
+            pa.accreditation_level as current_level,
+            pa.survey_date as last_survey_date
+        FROM programs p
+        INNER JOIN departments d ON d.department_id = p.department_id
+        LEFT JOIN program_accreditation pa ON p.program_id = pa.program_id
+        WHERE p.program_id = :program_id
+        ORDER BY pa.survey_date DESC LIMIT 1");
+        
+        $stmt->execute(['program_id' => $program_id]);
+        $programData = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    // Get active accreditation cycle for this program
-    $stmt = $pdo->prepare("SELECT * FROM accreditation_cycles 
-                          WHERE program_id = :program_id AND status = 'active'");
-    $stmt->execute(['program_id' => $program_id]);
-    $cycle = $stmt->fetch(PDO::FETCH_ASSOC);
+        // Check if program exists
+        if(!$programData) {
+            die("<div class='alert alert-danger'>Program not found!</div>");
+        }
 
-    // Get all accreditation levels for display
-    $stmt = $pdo->prepare("SELECT * FROM accreditation_levels ORDER BY sort_order");
-    $stmt->execute();
-    $allLevels = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        // Get active accreditation cycle for this program
+        $stmt = $pdo->prepare("SELECT * FROM accreditation_cycles 
+                              WHERE program_id = :program_id AND status = 'active'");
+        $stmt->execute(['program_id' => $program_id]);
+        $cycle = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    // Get accreditation history for this program
-    $stmt = $pdo->prepare("SELECT 
-        pa.*,
-        al.level_name,
-        al.level_code,
-        ac.cycle_name,
-        ac.academic_year
-    FROM program_accreditation pa
-    LEFT JOIN accreditation_levels al ON pa.accreditation_level = al.level_code
-    LEFT JOIN accreditation_cycles ac ON pa.cycle_id = ac.cycle_id
-    WHERE pa.program_id = :program_id
-    ORDER BY pa.survey_date DESC");
-    $stmt->execute(['program_id' => $program_id]);
-    $accreditationHistory = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        // Get all accreditation levels for display
+        $stmt = $pdo->prepare("SELECT * FROM accreditation_levels ORDER BY sort_order");
+        $stmt->execute();
+        $allLevels = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: []; // Ensure it's always an array
 
-    // Get all accreditation areas
-    $stmt = $pdo->prepare("SELECT * FROM accreditation_areas ORDER BY area_number");
-    $stmt->execute();
-    $areas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        // Get accreditation history for this program
+        $stmt = $pdo->prepare("SELECT 
+            pa.*,
+            al.level_name,
+            al.level_code,
+            ac.cycle_name,
+            ac.academic_year
+        FROM program_accreditation pa
+        LEFT JOIN accreditation_levels al ON pa.accreditation_level = al.level_code
+        LEFT JOIN accreditation_cycles ac ON pa.cycle_id = ac.cycle_id
+        WHERE pa.program_id = :program_id
+        ORDER BY pa.survey_date DESC");
+        $stmt->execute(['program_id' => $program_id]);
+        $accreditationHistory = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Get all accreditation areas
+        $stmt = $pdo->prepare("SELECT * FROM accreditation_areas ORDER BY area_number");
+        $stmt->execute();
+        $areas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Find level details for current level
+        if(isset($programData['current_level']) && $programData['current_level']) {
+            foreach($allLevels as $level) {
+                if($level['level_code'] == $programData['current_level']) {
+                    $currentLevelDetails = $level;
+                    break;
+                }
+            }
+        }
+        
+    } catch(PDOException $e) {
+        die("<div class='alert alert-danger'>Database error: " . htmlspecialchars($e->getMessage()) . "</div>");
+    }
 ?>
 
 <section>
@@ -137,11 +161,15 @@
         <div class="col-md-3">
             <div class="card bg-light border-success">
                 <div class="card-body text-center">
-                    <h5 class="card-title">Program Performance Profile</h5>
-                    <p class="card-text text-dark small">Compliance tracking</p>
-                    <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#pppModal">
-                        View PPP
-                    </button>
+                    <h5 class="card-title">Documents</h5>
+                    <?php 
+                    // Count total documents for this program
+                    $docCountStmt = $pdo->prepare("SELECT COUNT(*) as total_docs FROM documents WHERE program_id = ?");
+                    $docCountStmt->execute([$program_id]);
+                    $docCount = $docCountStmt->fetch(PDO::FETCH_ASSOC);
+                    ?>
+                    <h2 class="text-dark"><?= $docCount['total_docs'] ?? 0 ?></h2>
+                    <p class="card-text text-dark small">Total Documents</p>
                 </div>
             </div>
         </div>
@@ -149,8 +177,9 @@
             <div class="card bg-light border-warning">
                 <div class="card-body text-center">
                     <h5 class="card-title">Accreditation History</h5>
+                    <h2 class="text-dark"><?= count($accreditationHistory) ?></h2>
                     <p class="card-text text-dark small">
-                        <?= count($accreditationHistory) ?> survey(s)
+                        Survey(s) Recorded
                     </p>
                     <button class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#historyModal">
                         View History
@@ -182,64 +211,6 @@
         </div>
     </div>
 
-    <!-- Accreditation Level Progress -->
-    <!-- <?php if(count($allLevels) > 0): ?>
-    <div class="card mb-4">
-        <div class="card-header bg-light">
-            <h5 class="mb-0">
-                <i class="fas fa-chart-line me-2"></i>
-                Accreditation Levels
-            </h5>
-        </div>
-        <div class="card-body">
-            <div class="row text-center">
-                <?php 
-                $currentLevelIndex = -1;
-                foreach($allLevels as $index => $level):
-                    $isCurrent = $programData['current_level'] == $level['level_code'];
-                    if($isCurrent) $currentLevelIndex = $index;
-                ?>
-                <div class="col">
-                    <div class="level-step <?= $isCurrent ? 'current' : '' ?>">
-                        <div class="step-icon">
-                            <?php if($isCurrent): ?>
-                            <i class="fas fa-play-circle text-primary"></i>
-                            <?php else: ?>
-                            <i class="fas fa-circle text-secondary"></i>
-                            <?php endif; ?>
-                        </div>
-                        <div class="step-label mt-2">
-                            <strong><?= $level['level_code'] ?></strong>
-                            <div class="small"><?= $level['level_name'] ?></div>
-                        </div>
-                        <?php if($isCurrent): ?>
-                        <span class="badge bg-primary mt-1">Current</span>
-                        <?php endif; ?>
-                    </div>
-                    <?php if($index < count($allLevels) - 1): ?>
-                    <div class="timeline-arrow">
-                        <i class="fas fa-arrow-right"></i>
-                    </div>
-                    <?php endif; ?>
-                </div>
-                <?php endforeach; ?>
-            </div>
-            
-            <?php if($currentLevelIndex >= 0 && $currentLevelIndex < count($allLevels) - 1): 
-                $nextLevel = $allLevels[$currentLevelIndex + 1];
-            ?>
-            <div class="mt-4">
-                <h6>Next Level: <?= $nextLevel['level_code'] ?> - <?= $nextLevel['level_name'] ?></h6>
-                <div class="progress mb-2" style="height: 20px;">
-                    <div class="progress-bar bg-info" role="progressbar" style="width: 50%"></div>
-                </div>
-                <small class="text-muted">Progress toward next level: 50% (estimated)</small>
-            </div>
-            <?php endif; ?>
-        </div>
-    </div>
-    <?php endif; ?> -->
-
     <!-- Accreditation Areas Accordion -->
     <div class="accordion mb-4" id="accreditationAccordion">
         <?php foreach($areas as $area): ?>
@@ -258,36 +229,59 @@
                  aria-labelledby="heading<?= $area['area_id'] ?>" 
                  data-bs-parent="#accreditationAccordion">
                 <div class="accordion-body">
-                    <!-- Area Header Cards -->
+                    <!-- Area Statistics -->
                     <div class="row mb-4">
+                        <?php 
+                        // Count parameters for this area
+                        $paramCountStmt = $pdo->prepare("SELECT COUNT(*) as param_count FROM accreditation_parameters WHERE area_id = ?");
+                        $paramCountStmt->execute([$area['area_id']]);
+                        $paramCount = $paramCountStmt->fetch(PDO::FETCH_ASSOC);
+                        
+                        // Count indicators for this area
+                        $indCountStmt = $pdo->prepare("
+                            SELECT COUNT(DISTINCT ai.indicator_id) as ind_count 
+                            FROM accreditation_indicators ai
+                            JOIN accreditation_parameters ap ON ai.parameter_id = ap.parameter_id
+                            WHERE ap.area_id = ?
+                        ");
+                        $indCountStmt->execute([$area['area_id']]);
+                        $indCount = $indCountStmt->fetch(PDO::FETCH_ASSOC);
+                        
+                        // Count documents for this area and program
+                        $areaDocStmt = $pdo->prepare("
+                            SELECT COUNT(DISTINCT d.document_id) as doc_count 
+                            FROM documents d
+                            JOIN accreditation_indicators ai ON d.indicator_id = ai.indicator_id
+                            JOIN accreditation_parameters ap ON ai.parameter_id = ap.parameter_id
+                            WHERE ap.area_id = ? AND d.program_id = ?
+                        ");
+                        $areaDocStmt->execute([$area['area_id'], $program_id]);
+                        $areaDocCount = $areaDocStmt->fetch(PDO::FETCH_ASSOC);
+                        ?>
                         <div class="col-md-4">
                             <div class="card bg-light">
                                 <div class="card-body text-center p-3">
-                                    <h6 class="card-title">Program Performance Profile (PPP)</h6>
-                                    <div class="progress mb-2" style="height: 15px;">
-                                        <div class="progress-bar" role="progressbar" style="width: 65%"></div>
-                                    </div>
-                                    <small class="text-muted">65% Complete</small>
+                                    <h6 class="card-title">Parameters</h6>
+                                    <h2 class="text-dark mb-0"><?= $paramCount['param_count'] ?? 0 ?></h2>
+                                    <small class="text-muted">Total Parameters</small>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="card bg-light">
                                 <div class="card-body text-center p-3">
-                                    <h6 class="card-title">Compliance Report</h6>
-                                    <div class="progress mb-2" style="height: 15px;">
-                                        <div class="progress-bar bg-success" role="progressbar" style="width: 40%"></div>
-                                    </div>
-                                    <small class="text-muted">40% Submitted</small>
+                                    <h6 class="card-title">Indicators</h6>
+                                    <h2 class="text-dark mb-0"><?= $indCount['ind_count'] ?? 0 ?></h2>
+                                    <small class="text-muted">Total Indicators</small>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="card bg-light">
                                 <div class="card-body text-center p-3">
-                                    <h6 class="card-title">Self-Survey Rating</h6>
-                                    <h4 class="text-warning mb-0">3.5</h4>
-                                    <small class="text-muted">Out of 5.0</small>
+                                    <h6 class="card-title">Documents</h6>
+                                    <h2 class="text-dark mb-0"><?= $areaDocCount['doc_count'] ?? 0 ?></h2>
+                                    <small class="text-muted">Submitted</small>
                                 </div>
                             </div>
                         </div>
@@ -313,22 +307,24 @@
                                 <h6 class="border-bottom pb-2">SYSTEM – INPUTS AND PROCESSES</h6>
                                 <?php 
                                 // Get indicators for this parameter
-                                $indStmt = $pdo->prepare("SELECT 
-                                    ai.*,
-                                    d.document_id,
-                                    COUNT(d.document_id) as document_count,
-                                    COUNT(a.assignment_id) as assignment_count
-                                FROM accreditation_indicators ai
-                                LEFT JOIN documents d ON ai.indicator_id = d.indicator_id 
-                                    AND d.program_id = :program_id 
-                                    AND (:cycle_id IS NULL OR d.cycle_id = :cycle_id2)
-                                LEFT JOIN assignments a ON ai.indicator_id = a.indicator_id 
-                                    AND a.program_id = :program_id2 
-                                    AND a.cycle_id = :cycle_id3
-                                WHERE ai.parameter_id = :param_id 
-                                    AND ai.indicator_level = 1
-                                GROUP BY ai.indicator_id
-                                ORDER BY ai.indicator_code");
+                                $indStmt = $pdo->prepare("
+                                    SELECT 
+                                        ai.*,
+                                        d.*,
+                                        COUNT(d.document_id) as document_count,
+                                        COUNT(a.assignment_id) as assignment_count
+                                    FROM accreditation_indicators ai
+                                    LEFT JOIN documents d ON ai.indicator_id = d.indicator_id 
+                                        AND d.program_id = :program_id 
+                                        AND (:cycle_id IS NULL OR d.cycle_id = :cycle_id2)
+                                    LEFT JOIN assignments a ON ai.indicator_id = a.indicator_id 
+                                        AND a.program_id = :program_id2 
+                                        AND a.cycle_id = :cycle_id3
+                                    WHERE ai.parameter_id = :param_id 
+                                        AND ai.indicator_level = 1
+                                    GROUP BY ai.indicator_id
+                                    ORDER BY ai.indicator_code
+                                ");
                                 
                                 $indStmt->execute([
                                     'param_id' => $param['parameter_id'],
@@ -380,10 +376,14 @@
                                             </div>
                                         </div>
                                         <div class="ms-3">
-                                            <button class="btn btn-sm btn-danger text-white" 
-                                                    onclick="viewIndicatorDetails(<?= $indicator['document_id'] ?>)">
-                                                <i class="fas fa-eye text-white"></i> View
+                                            <?php if(empty($indicator['file_path'])): ?>
+                                            <span class="bg-danger p-2 rounded text-white">No Document</span>
+                                            <?php else: ?>
+                                            <button class="btn btn-sm btn-danger" 
+                                                    onclick="window.open('<?= base_url() . 'authentication/' . htmlspecialchars($indicator['file_path']) ?>', '_blank')">
+                                                <i class="fas fa-eye"></i>
                                             </button>
+                                            <?php endif; ?>
                                         </div>
                                     </div>
                                 </div>
@@ -394,75 +394,6 @@
                                     No indicators found for this parameter.
                                 </div>
                                 <?php endif; ?>
-                            </div>
-                            
-                            <!-- IMPLEMENTATION -->
-                            <div class="mb-4">
-                                <h6 class="border-bottom pb-2">IMPLEMENTATION</h6>
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <div class="card bg-light">
-                                            <div class="card-body">
-                                                <h6 class="card-title">Documentation Status</h6>
-                                                <div class="progress mb-3" style="height: 20px;">
-                                                    <div class="progress-bar bg-info" role="progressbar" style="width: 75%"></div>
-                                                </div>
-                                                <div class="d-flex justify-content-between small">
-                                                    <span>Required: 12 files</span>
-                                                    <span>Submitted: 9 files</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="card bg-light">
-                                            <div class="card-body">
-                                                <h6 class="card-title">Compliance Timeline</h6>
-                                                <div class="d-flex justify-content-between small mb-2">
-                                                    <span>Start Date</span>
-                                                    <span>Deadline</span>
-                                                </div>
-                                                <div class="progress mb-2" style="height: 8px;">
-                                                    <div class="progress-bar bg-warning" role="progressbar" style="width: 60%"></div>
-                                                </div>
-                                                <div class="text-center small text-muted">
-                                                    60% of timeline elapsed
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- OUTCOME/S -->
-                            <div class="mb-4">
-                                <h6 class="border-bottom pb-2">OUTCOME/S</h6>
-                                <div class="row">
-                                    <div class="col-md-4">
-                                        <div class="card text-center">
-                                            <div class="card-body">
-                                                <h3 class="text-success mb-0">85%</h3>
-                                                <small class="text-muted">Target Achievement</small>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="card text-center">
-                                            <div class="card-body">
-                                                <h3 class="text-primary mb-0">4.2</h3>
-                                                <small class="text-muted">Average Rating</small>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="card text-center">
-                                            <div class="card-body">
-                                                <h3 class="text-warning mb-0">92%</h3>
-                                                <small class="text-muted">Stakeholder Satisfaction</small>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -483,78 +414,71 @@
                             </h6>
                         </div>
                         <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <div class="d-grid gap-2">
-                                        <button class="btn btn-outline-success btn-sm">
-                                            <i class="fas fa-download me-2"></i>Download All
-                                        </button>
+                            <?php 
+                            // Get documents for this area
+                            $docStmt = $pdo->prepare("SELECT 
+                                d.*,
+                                ai.indicator_code,
+                                u.first_name,
+                                u.last_name
+                            FROM documents d
+                            INNER JOIN accreditation_indicators ai ON d.indicator_id = ai.indicator_id
+                            INNER JOIN accreditation_parameters ap ON ai.parameter_id = ap.parameter_id
+                            LEFT JOIN users u ON d.uploaded_by = u.user_id
+                            WHERE ap.area_id = :area_id 
+                                AND d.program_id = :program_id
+                                AND (:cycle_id IS NULL OR d.cycle_id = :cycle_id)
+                            ORDER BY d.created_at DESC LIMIT 5");
+                            
+                            $docStmt->execute([
+                                'area_id' => $area['area_id'],
+                                'program_id' => $program_id,
+                                'cycle_id' => $cycle ? $cycle['cycle_id'] : null
+                            ]);
+                            $documents = $docStmt->fetchAll(PDO::FETCH_ASSOC);
+                            
+                            if(count($documents) > 0):
+                                foreach($documents as $doc):
+                                    $fileIcon = '';
+                                    $ext = strtolower(pathinfo($doc['filename'], PATHINFO_EXTENSION));
+                                    if(in_array($ext, ['pdf'])) $fileIcon = 'fa-file-pdf text-danger';
+                                    elseif(in_array($ext, ['doc', 'docx'])) $fileIcon = 'fa-file-word text-primary';
+                                    elseif(in_array($ext, ['xls', 'xlsx'])) $fileIcon = 'fa-file-excel text-success';
+                                    elseif(in_array($ext, ['ppt', 'pptx'])) $fileIcon = 'fa-file-powerpoint text-warning';
+                                    else $fileIcon = 'fa-file text-secondary';
+                            ?>
+                            <div class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas <?= $fileIcon ?> me-3 fa-lg"></i>
+                                    <div>
+                                        <div class="fw-medium">
+                                            <?= htmlspecialchars($doc['filename']) ?>
+                                        </div>
+                                        <div class="small text-muted">
+                                            <span class="badge bg-secondary me-2"><?= $doc['indicator_code'] ?></span>
+                                            <?= $doc['first_name'] ?> <?= $doc['last_name'] ?> • 
+                                            <?= date('M d, Y', strtotime($doc['created_at'])) ?>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="col-md-8">
-                                    <?php 
-                                    // Get documents for this area
-                                    $docStmt = $pdo->prepare("SELECT 
-                                        d.*,
-                                        ai.indicator_code,
-                                        u.first_name,
-                                        u.last_name
-                                    FROM documents d
-                                    INNER JOIN accreditation_indicators ai ON d.indicator_id = ai.indicator_id
-                                    INNER JOIN accreditation_parameters ap ON ai.parameter_id = ap.parameter_id
-                                    LEFT JOIN users u ON d.uploaded_by = u.user_id
-                                    WHERE ap.area_id = :area_id 
-                                        AND d.program_id = :program_id
-                                        AND (:cycle_id IS NULL OR d.cycle_id = :cycle_id)
-                                    ORDER BY d.created_at DESC LIMIT 5");
-                                    
-                                    $docStmt->execute([
-                                        'area_id' => $area['area_id'],
-                                        'program_id' => $program_id,
-                                        'cycle_id' => $cycle ? $cycle['cycle_id'] : null
-                                    ]);
-                                    $documents = $docStmt->fetchAll(PDO::FETCH_ASSOC);
-                                    
-                                    if(count($documents) > 0):
-                                        foreach($documents as $doc):
-                                            $fileIcon = '';
-                                            $ext = strtolower(pathinfo($doc['filename'], PATHINFO_EXTENSION));
-                                            if(in_array($ext, ['pdf'])) $fileIcon = 'fa-file-pdf text-danger';
-                                            elseif(in_array($ext, ['doc', 'docx'])) $fileIcon = 'fa-file-word text-primary';
-                                            elseif(in_array($ext, ['xls', 'xlsx'])) $fileIcon = 'fa-file-excel text-success';
-                                            elseif(in_array($ext, ['ppt', 'pptx'])) $fileIcon = 'fa-file-powerpoint text-warning';
-                                            else $fileIcon = 'fa-file text-secondary';
-                                    ?>
-                                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded">
-                                        <div class="d-flex align-items-center">
-                                            <i class="fas <?= $fileIcon ?> me-3 fa-lg"></i>
-                                            <div>
-                                                <div class="fw-medium">
-                                                    <?= htmlspecialchars($doc['filename']) ?>
-                                                </div>
-                                                <div class="small text-muted">
-                                                    <span class="badge bg-secondary me-2"><?= $doc['indicator_code'] ?></span>
-                                                    <?= $doc['first_name'] ?> <?= $doc['last_name'] ?> • 
-                                                    <?= date('M d, Y', strtotime($doc['created_at'])) ?>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <button class="btn btn-sm btn-danger" 
-                                                    onclick="viewDocument(<?= $doc['document_id'] ?>)">
-                                                <i class="fas fa-eye"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <?php endforeach; 
-                                    else: ?>
-                                    <div class="text-center text-muted py-4">
-                                        <i class="fas fa-folder-open fa-2x mb-3"></i>
-                                        <p>No documents uploaded for this area yet.</p>
-                                    </div>
+                                <div>
+                                    <?php if(empty($doc['file_path'])): ?>
+                                    <span class="bg-danger p-2 rounded text-white">No Document</span>
+                                    <?php else: ?>
+                                    <button class="btn btn-sm btn-danger" 
+                                            onclick="window.open('<?= base_url() . 'authentication/' . htmlspecialchars($doc['file_path']) ?>', '_blank')">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
                                     <?php endif; ?>
                                 </div>
                             </div>
+                            <?php endforeach; 
+                            else: ?>
+                            <div class="text-center text-muted py-4">
+                                <i class="fas fa-folder-open fa-2x mb-3"></i>
+                                <p>No documents uploaded for this area yet.</p>
+                            </div>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -573,8 +497,11 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <!-- PPP content would go here -->
-                <p>Program Performance Profile details will be displayed here.</p>
+                <div class="text-center py-4">
+                    <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+                    <h5>Program Performance Profile</h5>
+                    <p class="text-muted">Feature coming soon...</p>
+                </div>
             </div>
         </div>
     </div>
@@ -638,7 +565,6 @@
         </div>
     </div>
 </div>
-
 <style>
 .level-step {
     padding: 15px;
@@ -702,22 +628,4 @@ $(document).ready(function() {
         }
     }, 500);
 });
-
-function viewIndicatorDetails(indicatorId) {
-    // Load and display indicator details
-    alert('Viewing indicator details for ID: ' + indicatorId);
-    // In a real implementation, you would load details via AJAX
-}
-
-function uploadAreaDocuments(areaId) {
-    // Show document upload modal for specific area
-    alert('Upload documents for Area ID: ' + areaId);
-    // In a real implementation, you would show a modal with upload form
-}
-
-function viewDocument(documentId) {
-    // View document details or open preview
-    alert('Viewing document ID: ' + documentId);
-    // In a real implementation, you would open a document viewer
-}
 </script>

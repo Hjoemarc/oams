@@ -8,8 +8,8 @@
             <a href="index.php?page=contents/review_management" class="nav-item nav-review_management rounded-2 my-1">
                 <span class=""><i class=""></i></span> Review Management
             </a>
-            <a href="index.php?page=contents/document_management" class="nav-item nav-document_management rounded-2 my-1">
-                <span class=""><i class=""></i></span> Document Management
+            <a href="index.php?page=contents/accre_dept" class="nav-item nav-accre_dept nav-program_history rounded-2 my-1">
+                <span class=""><i class=""></i></span> Accreditation Timeline
             </a>
             <a href="index.php?page=contents/compliance_tracking" class="nav-item nav-compliance_tracking rounded-2 my-1">
                 <span class=""><i class=""></i></span> Compliance Tracking

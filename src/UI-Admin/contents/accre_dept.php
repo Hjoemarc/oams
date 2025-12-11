@@ -1,12 +1,28 @@
 <?php
-// Get all colleges/departments
-$colleges = $pdo->query("
-    SELECT d.*, COUNT(p.program_id) as program_count
-    FROM departments d
-    LEFT JOIN programs p ON d.department_id = p.department_id
-    GROUP BY d.department_id
-    ORDER BY d.department_name
-")->fetchAll(PDO::FETCH_ASSOC);
+// Add error handling
+try {
+    // Check if required tables exist
+    $tablesExist = $pdo->query("SHOW TABLES LIKE 'departments'")->fetch();
+    if(!$tablesExist) {
+        throw new Exception("Required tables are not created yet. Please run the database setup.");
+    }
+
+    // Get all colleges/departments
+    $colleges = $pdo->query("
+        SELECT d.*, COUNT(p.program_id) as program_count
+        FROM departments d
+        LEFT JOIN programs p ON d.department_id = p.department_id
+        GROUP BY d.department_id
+        ORDER BY d.department_name
+    ")->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (PDOException $e) {
+    echo "<div class='alert alert-danger'>Database Error: " . htmlspecialchars($e->getMessage()) . "</div>";
+    $colleges = [];
+} catch (Exception $e) {
+    echo "<div class='alert alert-danger'>" . htmlspecialchars($e->getMessage()) . "</div>";
+    $colleges = [];
+}
 ?>
 
 <section>
@@ -68,11 +84,13 @@ $colleges = $pdo->query("
         <div class="col-md-6">
             <select id="filterCollege" class="form-select form-select-sm">
                 <option value="">All Colleges/Schools</option>
+                <?php if(is_array($colleges)): ?>
                 <?php foreach($colleges as $college): ?>
                 <option value="<?= $college['department_id'] ?>">
                     <?= htmlspecialchars($college['department_name']) ?> (<?= $college['program_count'] ?>)
                 </option>
                 <?php endforeach; ?>
+                <?php endif; ?>
             </select>
         </div>
         <div class="col-md-6">
@@ -85,33 +103,39 @@ $colleges = $pdo->query("
 
     <!-- Main Accreditation Display (Like ZPPSU Website) -->
     <div id="accreditationDisplay">
+        <?php if(is_array($colleges) && count($colleges) > 0): ?>
         <?php foreach($colleges as $college): ?>
         <?php
-            // Get programs for this college
-            $programsStmt = $pdo->prepare("
-                SELECT p.*,
-                    COALESCE(
-                        (SELECT pa.accreditation_level 
+            try {
+                // Get programs for this college
+                $programsStmt = $pdo->prepare("
+                    SELECT p.*,
+                        COALESCE(
+                            (SELECT pa.accreditation_level 
+                            FROM program_accreditation pa 
+                            WHERE pa.program_id = p.program_id 
+                            ORDER BY pa.survey_date DESC 
+                            LIMIT 1),
+                            'not_accredited'
+                        ) as current_level,
+                        (SELECT pa.survey_date 
                         FROM program_accreditation pa 
                         WHERE pa.program_id = p.program_id 
                         ORDER BY pa.survey_date DESC 
-                        LIMIT 1),
-                        'not_accredited'
-                    ) as current_level,
-                    (SELECT pa.survey_date 
-                    FROM program_accreditation pa 
-                    WHERE pa.program_id = p.program_id 
-                    ORDER BY pa.survey_date DESC 
-                    LIMIT 1) as survey_date
-                FROM programs p
-                WHERE p.department_id = ?
-                ORDER BY p.program_name
-            ");
-            $programsStmt->execute([$college['department_id']]);
-            $programs = $programsStmt->fetchAll(PDO::FETCH_ASSOC);
+                        LIMIT 1) as survey_date
+                    FROM programs p
+                    WHERE p.department_id = ?
+                    ORDER BY p.program_name
+                ");
+                $programsStmt->execute([$college['department_id']]);
+                $programs = $programsStmt->fetchAll(PDO::FETCH_ASSOC);
+            } catch (PDOException $e) {
+                $programs = [];
+                echo "<div class='alert alert-warning mb-2'>Error loading programs: " . htmlspecialchars($e->getMessage()) . "</div>";
+            }
             
             if (count($programs) > 0):
-            ?>
+        ?>
         <div class="card mb-4 college-card" data-college-id="<?= $college['department_id'] ?>">
             <div class="card-header bg-light">
                 <h5 class="mb-0">
@@ -132,16 +156,16 @@ $colleges = $pdo->query("
                     </thead>
                     <tbody>
                         <?php foreach($programs as $program): 
-                                    $levelClass = getLevelBadgeClass($program['current_level']);
-                                    $surveyDate = $program['survey_date'] ? date('F j, Y', strtotime($program['survey_date'])) : 'Not scheduled';
-                                ?>
+                            $levelClass = getLevelBadgeClass($program['current_level']);
+                            $surveyDate = $program['survey_date'] ? date('F j, Y', strtotime($program['survey_date'])) : 'Not scheduled';
+                        ?>
                         <tr>
                             <td>
                                 <strong><?= htmlspecialchars($program['program_name']) ?></strong><br>
                                 <small class="text-muted"><?= htmlspecialchars($program['program_code']) ?></small>
                             </td>
                             <td>
-                                <?php if($program['current_level']): ?>
+                                <?php if($program['current_level'] && $program['current_level'] != 'not_accredited'): ?>
                                 <span class="badge <?= $levelClass ?>">
                                     <?= formatLevelText($program['current_level']) ?>
                                 </span>
@@ -183,6 +207,12 @@ $colleges = $pdo->query("
         </div>
         <?php endif; ?>
         <?php endforeach; ?>
+        <?php else: ?>
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            No colleges/departments found. Please run the database setup.
+        </div>
+        <?php endif; ?>
     </div>
 
     <!-- Add/Update Accreditation Modal -->
@@ -201,12 +231,17 @@ $colleges = $pdo->query("
                             <select name="program_id_select" id="programSelect" class="form-select" required>
                                 <option value="">Select Program</option>
                                 <?php 
-                                $allPrograms = $pdo->query("SELECT p.*, d.department_name FROM programs p JOIN departments d ON p.department_id = d.department_id ORDER BY d.department_name, p.program_name")->fetchAll();
-                                foreach($allPrograms as $program): ?>
-                                <option value="<?= $program['program_id'] ?>">
-                                    <?= htmlspecialchars($program['department_name'] . ' - ' . $program['program_name']) ?>
-                                </option>
-                                <?php endforeach; ?>
+                                try {
+                                    $allPrograms = $pdo->query("SELECT p.*, d.department_name FROM programs p JOIN departments d ON p.department_id = d.department_id ORDER BY d.department_name, p.program_name")->fetchAll();
+                                    foreach($allPrograms as $program): ?>
+                                    <option value="<?= $program['program_id'] ?>">
+                                        <?= htmlspecialchars($program['department_name'] . ' - ' . $program['program_name']) ?>
+                                    </option>
+                                    <?php endforeach;
+                                } catch (PDOException $e) {
+                                    echo "<option value='' disabled>Error loading programs</option>";
+                                }
+                                ?>
                             </select>
                         </div>
                         <div class="mb-3">
@@ -228,6 +263,25 @@ $colleges = $pdo->query("
                         <div class="mb-3">
                             <label class="form-label">Accrediting Body</label>
                             <input type="text" name="accrediting_body" class="form-control" value="AACCUP" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Cycle</label>
+                            <select name="cycle_id" id="cycle_id" class="form-select" required>
+                                <option value="">Select Cycle</option>
+                                <?php 
+                                try {
+                                    // FIXED: Changed from "cycles" to "accreditation_cycles"
+                                    $allCycles = $pdo->query("SELECT * FROM accreditation_cycles ORDER BY academic_year DESC")->fetchAll();
+                                    foreach($allCycles as $cycle): ?>
+                                    <option value="<?= $cycle['cycle_id'] ?>">
+                                        <?= htmlspecialchars($cycle['cycle_name'] . ' - ' . $cycle['academic_year']) ?>
+                                    </option>
+                                    <?php endforeach;
+                                } catch (PDOException $e) {
+                                    echo "<option value='' disabled>Error loading cycles</option>";
+                                }
+                                ?>
+                            </select>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Remarks</label>
@@ -318,13 +372,16 @@ function formatLevelText($level) {
 }
 
 function isUpcomingSurvey($date) {
-    $today = new DateTime();
-    $surveyDate = new DateTime($date);
-    $interval = $today->diff($surveyDate);
-    return $surveyDate > $today && $interval->days <= 60; // Within next 60 days
+    try {
+        $today = new DateTime();
+        $surveyDate = new DateTime($date);
+        $interval = $today->diff($surveyDate);
+        return $surveyDate > $today && $interval->days <= 60;
+    } catch (Exception $e) {
+        return false;
+    }
 }
 ?>
-
 <script>
 $(document).ready(function() {
     // Update summary counts

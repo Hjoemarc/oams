@@ -159,12 +159,22 @@ $documentCount = 1;
                                 $stmt = $pdo->prepare("SELECT * FROM programs");
                                 $stmt->execute();
                                 $programs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                            ?>
+                            $programs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                            $cycle_name = $cycles["cycle_name"] ?? '';
+                            $academic_year = $cycles["academic_year"] ?? '';
+                            $cycle_id = $cycles["cycle_id"] ?? '';
+                        ?>
                             <label class="form-label">Cycle</label>
                             <input type="hidden" class="form-control" name="cycle_id"
-                                value="<?= htmlspecialchars($cycles["cycle_id"]) ?>">
+                                value="<?= htmlspecialchars($cycle_id) ?>">
                             <p class="form-control text-dark border" readonly>
-                                <?= htmlspecialchars($cycles["cycle_name"] . '(' . $cycles["academic_year"] . ')') ?>
+                                <?php 
+                                    if(empty($cycle_name)){
+                                        echo 'No active cycle';
+                                    } else { 
+                                        echo htmlspecialchars($cycle_name . ' (' . $academic_year . ')');
+                                    } 
+                                ?>
                             </p>
                         </div>
                         <input type="hidden" name="user_id" value="<?= htmlspecialchars($admin_id) ?>">

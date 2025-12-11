@@ -16,7 +16,7 @@ $totalCount = count($notifications);
    <section>
       <div class="mb-4">
          <div class="mx-2">
-            <h4><i class="fa fa-tv me-2"></i>Faculty/Accreditor Dashboard</h4>
+            <h4><i class="fa fa-tv me-2"></i>Faculty Dashboard</h4>
             <small class="text-muted">Overview and Notifications</small>
          </div>
       </div>

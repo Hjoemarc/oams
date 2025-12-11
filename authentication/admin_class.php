@@ -2579,6 +2579,33 @@ class Action
             $program_id = $_POST['program_id'] ?? '';
             $status = $_POST['status'] ?? 'not_started';
             
+            $stmt = $this->db->prepare("SELECT * FROM accreditation_cycles c
+            INNER JOIN programs p ON c.program_id = p.program_id
+            WHERE p.program_id = :program_id AND c.status = 'Active'");
+            $stmt->execute(['program_id' => $program_id]);
+            $cycleData = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if(!$cycleData){
+                // First check if there are ANY cycles (active or not)
+                $checkStmt = $this->db->prepare("SELECT status FROM accreditation_cycles 
+                                                WHERE program_id = :program_id 
+                                                ORDER BY created_at DESC LIMIT 1");
+                $checkStmt->execute(['program_id' => $program_id]);
+                $latestCycle = $checkStmt->fetch(PDO::FETCH_ASSOC);
+                
+                if($latestCycle){
+                    return json_encode([
+                        'status' => 0,
+                        'message' => 'Cycle is currently ' . $latestCycle['status'] . '. Please wait until it becomes active!'
+                    ]);
+                } else {
+                    return json_encode([
+                        'status' => 0,
+                        'message' => 'No accreditation cycle found for this program.'
+                    ]);
+                }
+            }
+            
             // Convert comma-separated string to array
             $indicator_ids = [];
             if (!empty($indicator_ids_str)) {
@@ -3133,6 +3160,7 @@ class Action
             $survey_date = $_POST['survey_date'] ?? '';
             $accrediting_body = $_POST['accrediting_body'] ?? 'AACCUP';
             $remarks = $_POST['remarks'] ?? '';
+            $cycle_id = $_POST['cycle_id'];
             
             // Validate required fields
             if (empty($accreditation_level) || empty($survey_date)) {
@@ -3157,13 +3185,14 @@ class Action
             // Insert accreditation record
             $stmt = $this->db->prepare("
                 INSERT INTO program_accreditation 
-                (program_id, accreditation_level, survey_date, accrediting_body, remarks)
-                VALUES (?, ?, ?, ?, ?)
+                (program_id, accreditation_level, cycle_id, survey_date, accrediting_body, remarks)
+                VALUES (?, ?, ?, ?, ?, ?)
             ");
             
             $stmt->execute([
                 $program_id,
                 $accreditation_level,
+                $cycle_id,
                 $survey_date,
                 $accrediting_body,
                 $remarks
@@ -3783,6 +3812,5 @@ class Action
             ]);
         }
     }
-
 
 }   
