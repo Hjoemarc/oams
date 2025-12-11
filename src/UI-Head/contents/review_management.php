@@ -81,7 +81,7 @@ $documents = $stmtDocuments->fetchAll(PDO::FETCH_ASSOC);
 $assignmentCount = 1;
 $documentCount = 1;
 ?>
-<section>
+<section style="height: 88vh; overflow-y: scroll; overflow-x: hidden;">
     <div class="d-flex justify-content-between align-items-center mb-2">
         <div class="mx-2">
             <h4 class=""><span class=""><i class="fa-solid fa-clipboard-check me-2"></i></span>Review Management</h4>
@@ -226,13 +226,12 @@ $documentCount = 1;
                             </div>
 
                             <!-- Faculty -->
-                            <div class="col-md-6">
+                            <!-- <div class="col-md-6">
                                 <label class="form-label">Faculty *</label>
                                 <select name="faculty_id" id="editFacultyId" class="form-select" required>
                                     <option value="">Select Faculty</option>
-                                    <!-- Will be populated dynamically -->
                                 </select>
-                            </div>
+                            </div> -->
 
                             <!-- Status -->
                             <div class="col-md-6">

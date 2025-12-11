@@ -189,17 +189,6 @@ function db_connect()
                 ON DELETE SET NULL
         )");
 
-        $pdo->exec("CREATE TABLE IF NOT EXISTS assignment_sub_indicators (
-            assignment_sub_id INT PRIMARY KEY AUTO_INCREMENT,
-            assignment_id INT NOT NULL,
-            parent_indicator_id INT NOT NULL,
-            status ENUM('not_started', 'in_progress', 'submitted', 'completed') DEFAULT 'not_started',
-            assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (assignment_id) REFERENCES assignments(assignment_id) ON DELETE CASCADE,
-            FOREIGN KEY (parent_indicator_id) REFERENCES accreditation_indicators(indicator_id) ON DELETE CASCADE,
-            UNIQUE KEY unique_assignment_sub (assignment_id, parent_indicator_id)
-        )");
         // Create documents table
         $pdo->exec("CREATE TABLE IF NOT EXISTS documents (
             document_id INT AUTO_INCREMENT PRIMARY KEY,

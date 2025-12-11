@@ -162,10 +162,9 @@ $colleges = $pdo->query("
                             </td>
                             <td class="text-center">
                                 <div class="btn-group btn-group-sm">
-                                    <button class="btn btn-info btn-sm m-0"
-                                        onclick="viewProgramHistory(<?= $program['program_id'] ?>)">
+                                    <a href="index.php?page=contents/program_history&program_id=<?= $program['program_id'] ?>" class="btn btn-info btn-sm m-0">
                                         <i class="fas fa-history"></i>
-                                    </button>
+                                    </a>
                                     <button class="btn btn-danger btn-sm m-0"
                                         onclick="updateAccreditation(<?= $program['program_id'] ?>)">
                                         <i class="fas fa-edit"></i>

@@ -492,7 +492,7 @@
                                         </div>
 
                                         <!-- PARENT INDICATOR -->
-                                        <div class="col-md-6">
+                                        <!-- <div class="col-md-6">
                                             <label class="form-label">Parent Indicator (Optional)</label>
                                             <select name="parent_indicator_id" class="form-select">
                                                 <option value="">No Parent (Top-Level Indicator)</option>
@@ -504,7 +504,7 @@
                                                 <?php endforeach; ?>
                                                 <?php endif; ?>
                                             </select>
-                                        </div>
+                                        </div> -->
 
                                         <!-- INDICATOR CODE -->
                                         <div class="col-md-6">

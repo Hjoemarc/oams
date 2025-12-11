@@ -105,7 +105,7 @@ $documents = $stmtDocuments->fetchAll(PDO::FETCH_ASSOC);
 $assignmentCount = 1;
 $documentCount = 1;
 ?>
-<section>
+<section style="height: 85vh; overflow-y: scroll; overflow-x: hidden;">
     <div class="d-flex justify-content-between align-items-center mb-2">
         <div class="mx-2">
             <h4 class=""><span class=""><i class="fa-solid fa-clipboard-check me-2"></i></span>Review Management</h4>
@@ -271,16 +271,9 @@ $documentCount = 1;
                             </td>
                             <td>
                                 <div class="btn-group btn-group-sm" role="group">
-                                    <button type="button" class="btn btn-sm btn-primary" 
-                                        onclick="editAssignment(
-                                            '<?= $assignment['assignment_id'] ?>',
-                                            '<?= $assignment['indicator_id'] ?>',
-                                            '<?= $assignment['program_id'] ?>',
-                                            '<?= $assignment['user_id'] ?>',
-                                            '<?= htmlspecialchars($assignment['status']) ?>',
-                                            <?= $subIndicatorsJson ?>
-                                        )">
-                                        <i class="fas fa-eye"></i> view
+                                    <button type="button" class="btn btn-sm btn-primary view-assignment-btn" 
+                                        data-assignment-id="<?= $assignment['assignment_id'] ?>">
+                                        <i class="fas fa-eye"></i> View
                                     </button>
                                 </div>
                             </td>
@@ -297,8 +290,8 @@ $documentCount = 1;
 <div class="modal fade" id="editAssignmentModal" tabindex="-1" aria-labelledby="editAssignmentModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="editAssignmentModalLabel">View Assignment</h5>
+            <div class="modal-header bg-gradient-primary">
+                <h5 class="modal-title text-white" id="editAssignmentModalLabel">View Assignment</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -307,23 +300,28 @@ $documentCount = 1;
                     <input type="hidden" id="editAssignmentId" name="assignment_id">
 
                     <div class="row g-3">
-                        <!-- Cycle (Read-only) -->
+                        <!-- Cycle -->
                         <div class="col-md-6">
                             <label class="form-label">Cycle</label>
-                            <?php
-                            $stmt = $pdo->prepare("SELECT * FROM accreditation_cycles WHERE status = 'active'");
-                            $stmt->execute();
-                            $activeCycle = $stmt->fetch(PDO::FETCH_ASSOC);
-                            ?>
-                            <input type="text" class="form-control" id="editCycleDisplay"
-                                value="<?= htmlspecialchars($activeCycle['cycle_name'] . ' (' . $activeCycle['academic_year'] . ')') ?>"
-                                readonly>
+                            <input type="text" class="form-control" id="editCycleDisplay" readonly>
                         </div>
 
-                        <!-- Main Indicator -->
+                        <!-- Area -->
                         <div class="col-md-6">
-                            <label class="form-label">Main Indicator *</label>
-                            <input type="text" class="form-control" id="editMainIndicatorDisplay" readonly>
+                            <label class="form-label">Area</label>
+                            <input type="text" class="form-control" id="editAreaDisplay" readonly>
+                        </div>
+
+                        <!-- Parameter -->
+                        <div class="col-md-6">
+                            <label class="form-label">Parameter</label>
+                            <input type="text" class="form-control" id="editParameterDisplay" readonly>
+                        </div>
+
+                        <!-- Indicator -->
+                        <div class="col-md-6">
+                            <label class="form-label">Indicator *</label>
+                            <input type="text" class="form-control" id="editIndicatorDisplay" readonly>
                         </div>
 
                         <!-- Program -->
@@ -344,40 +342,28 @@ $documentCount = 1;
                             <input type="text" class="form-control" id="editStatusDisplay" readonly>
                         </div>
 
-                        <!-- Assigned By (Read-only) -->
+                        <!-- Assigned By -->
                         <div class="col-md-6">
                             <label class="form-label">Assigned By</label>
                             <input type="text" class="form-control" id="editAssignedByDisplay" readonly>
                         </div>
 
-                        <!-- Sub Indicators Section -->
-                        <div class="col-12 mt-3">
-                            <label class="form-label fw-bold">
-                                Sub Indicators 
-                                <span class="badge bg-secondary" id="subIndicatorCountBadge">0</span>
-                            </label>
-                            <div class="border rounded p-3 bg-light" id="subIndicatorsContainer">
-                                <div class="table-responsive">
-                                    <table class="table table-sm table-hover">
-                                        <thead>
-                                            <tr>
-                                                <th width="20%">Code</th>
-                                                <th width="50%">Description</th>
-                                                <th width="15%">Status</th>
-                                                <th width="15%">Updated</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="subIndicatorsTable">
-                                            <tr>
-                                                <td colspan="4" class="text-center text-muted">
-                                                    <i class="bi bi-info-circle"></i> Select an assignment to view sub indicators
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                            <small class="text-muted">These are the sub-indicators assigned under this main indicator</small>
+                        <!-- Assigned Date -->
+                        <div class="col-md-6">
+                            <label class="form-label">Assigned Date</label>
+                            <input type="text" class="form-control" id="editAssignedDateDisplay" readonly>
+                        </div>
+
+                        <!-- Last Updated -->
+                        <div class="col-md-6">
+                            <label class="form-label">Last Updated</label>
+                            <input type="text" class="form-control" id="editUpdatedDateDisplay" readonly>
+                        </div>
+
+                        <!-- Indicator Description (Full Width) -->
+                        <div class="col-12">
+                            <label class="form-label">Indicator Description</label>
+                            <textarea class="form-control" id="editIndicatorDescription" rows="3" readonly></textarea>
                         </div>
                     </div>
 
@@ -390,99 +376,7 @@ $documentCount = 1;
     </div>
 </div>
 <script>
-// Function to display sub-indicators
-function displaySubIndicators(subIndicators) {
-    var tableBody = $('#subIndicatorsTable');
-    var countBadge = $('#subIndicatorCountBadge');
-    
-    // Update count badge
-    var count = subIndicators ? subIndicators.length : 0;
-    countBadge.text(count);
-    countBadge.removeClass('bg-secondary bg-success bg-warning');
-    
-    if (count === 0) {
-        countBadge.addClass('bg-secondary');
-    } else if (count > 0) {
-        countBadge.addClass('bg-success');
-    }
-    
-    if (!subIndicators || count === 0) {
-        tableBody.html(`
-            <tr>
-                <td colspan="4" class="text-center text-muted">
-                    <i class="bi bi-info-circle"></i> No sub indicators assigned
-                </td>
-            </tr>
-        `);
-        return;
-    }
-    
-    var html = '';
-    
-    $.each(subIndicators, function(index, sub) {
-        // Determine status badge class and text
-        var statusClass = '';
-        var statusText = '';
-        var status = sub.sub_status || sub.status || 'not_started';
-        
-        switch(status.toLowerCase()) {
-            case 'not_started':
-                statusClass = 'badge bg-secondary';
-                statusText = 'Not Started';
-                break;
-            case 'in_progress':
-                statusClass = 'badge bg-primary';
-                statusText = 'In Progress';
-                break;
-            case 'submitted':
-                statusClass = 'badge bg-warning';
-                statusText = 'Submitted';
-                break;
-            case 'completed':
-                statusClass = 'badge bg-success';
-                statusText = 'Completed';
-                break;
-            default:
-                statusClass = 'badge bg-warning';
-                statusText = status.charAt(0).toUpperCase() + status.slice(1);
-        }
-        
-        // Format dates
-        var updatedDate = 'N/A';
-        if (sub.sub_updated_at || sub.updated_at) {
-            var dateStr = sub.sub_updated_at || sub.updated_at;
-            updatedDate = formatDate(dateStr);
-        }
-        
-        // Truncate description if too long
-        var description = sub.sub_indicator_description || sub.indicator_description || 'No description';
-        var shortDescription = description.length > 80 ? description.substring(0, 80) + '...' : description;
-        
-        // Get indicator code
-        var indicatorCode = sub.sub_indicator_code || sub.indicator_code || 'N/A';
-        
-        html += `
-            <tr>
-                <td>
-                    <span class="badge bg-info">${indicatorCode}</span>
-                </td>
-                <td>
-                    <div class="fw-medium" title="${description.replace(/"/g, '&quot;')}">${shortDescription}</div>
-                </td>
-                <td>
-                    <span class="${statusClass}">${statusText}</span>
-                </td>
-                <td>
-                    <small class="text-muted">${updatedDate}</small>
-                </td>
-            </tr>
-        `;
-    });
-    
-    tableBody.html(html);
-}
-
-// Helper function to format date
+// Function to format date
 function formatDate(dateString) {
     if (!dateString || dateString === '0000-00-00 00:00:00' || dateString === 'N/A') {
         return 'N/A';
@@ -497,18 +391,40 @@ function formatDate(dateString) {
         return date.toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'short',
-            day: 'numeric'
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
         });
     } catch (e) {
         console.error('Date formatting error:', e);
-        return dateString.split(' ')[0]; // Return just the date part
+        return dateString;
     }
 }
 
-// Update the editAssignment function
-function editAssignment(assignmentId, indicatorId, programId, facultyId, status, subIndicators = []) {
-    // Set hidden assignment ID
+// Function to format status
+function formatStatus(status) {
+    if (!status) return 'Not Started';
+    
+    return status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ');
+}
+
+// Function to view assignment
+function viewAssignment(assignmentId) {
+    // Reset form
     document.getElementById('editAssignmentId').value = assignmentId;
+    
+    // Clear all fields
+    document.getElementById('editCycleDisplay').value = 'Loading...';
+    document.getElementById('editAreaDisplay').value = 'Loading...';
+    document.getElementById('editParameterDisplay').value = 'Loading...';
+    document.getElementById('editIndicatorDisplay').value = 'Loading...';
+    document.getElementById('editProgramDisplay').value = 'Loading...';
+    document.getElementById('editFacultyDisplay').value = 'Loading...';
+    document.getElementById('editStatusDisplay').value = 'Loading...';
+    document.getElementById('editAssignedByDisplay').value = 'Loading...';
+    document.getElementById('editAssignedDateDisplay').value = 'Loading...';
+    document.getElementById('editUpdatedDateDisplay').value = 'Loading...';
+    document.getElementById('editIndicatorDescription').value = 'Loading...';
 
     // Load assignment details via AJAX
     $.ajax({
@@ -516,51 +432,68 @@ function editAssignment(assignmentId, indicatorId, programId, facultyId, status,
         method: 'POST',
         dataType: 'json',
         data: {
-            assignment_id: assignmentId,
-            include_sub_indicators: true
+            assignment_id: assignmentId
         },
         success: function(response) {
+            console.log('AJAX Response:', response); // Debug log
+            
             if (response.status == 1 && response.data) {
                 var data = response.data;
                 
-                // Display main assignment info
-                document.getElementById('editCycleDisplay').value = data.cycle_display || 'N/A';
-                document.getElementById('editMainIndicatorDisplay').value = 
-                    (data.indicator_code || '') + ' - ' + (data.indicator_description?.substring(0, 50) || '') + '...';
+                // Populate all fields
+                document.getElementById('editCycleDisplay').value = 
+                    (data.cycle_name || '') + ' (' + (data.academic_year || '') + ')';
+                document.getElementById('editAreaDisplay').value = 
+                    (data.area_number || '') + ' - ' + (data.area_name || '');
+                document.getElementById('editParameterDisplay').value = 
+                    (data.parameter_code || '') + ' - ' + (data.parameter_name || '');
+                document.getElementById('editIndicatorDisplay').value = 
+                    data.indicator_code || 'No code';
                 document.getElementById('editProgramDisplay').value = 
                     (data.program_name || '') + ' (' + (data.program_code || '') + ')';
-                document.getElementById('editFacultyDisplay').value = data.faculty_name || 'N/A';
-                document.getElementById('editStatusDisplay').value = 
-                    status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ');
-                document.getElementById('editAssignedByDisplay').value = data.assigned_by_name || 'System';
-                
-                // Display sub-indicators (either from AJAX response or passed parameter)
-                var subsToDisplay = data.sub_indicators || subIndicators;
-                displaySubIndicators(subsToDisplay);
+                document.getElementById('editFacultyDisplay').value = 
+                    (data.faculty_firstname || '') + ' ' + (data.faculty_lastname || '');
+                document.getElementById('editStatusDisplay').value = formatStatus(data.status);
+                document.getElementById('editAssignedByDisplay').value = 
+                    (data.assigned_by_firstname || '') + ' ' + (data.assigned_by_lastname || '') || 'System';
+                document.getElementById('editAssignedDateDisplay').value = formatDate(data.assigned_at);
+                document.getElementById('editUpdatedDateDisplay').value = formatDate(data.updated_at || data.assigned_at);
+                document.getElementById('editIndicatorDescription').value = data.indicator_description || 'No description available';
             } else {
-                // Fallback to passed parameters if AJAX fails
-                document.getElementById('editCycleDisplay').value = 'Active Cycle';
-                document.getElementById('editMainIndicatorDisplay').value = 'Indicator ID: ' + indicatorId;
-                document.getElementById('editProgramDisplay').value = 'Program ID: ' + programId;
-                document.getElementById('editFacultyDisplay').value = 'Faculty ID: ' + facultyId;
-                document.getElementById('editStatusDisplay').value = 
-                    status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ');
-                document.getElementById('editAssignedByDisplay').value = 'System';
+                // Show error message
+                var errorMsg = response.message || 'Failed to load assignment details';
+                alert('Error: ' + errorMsg);
                 
-                displaySubIndicators(subIndicators);
+                // Reset to placeholder
+                document.getElementById('editCycleDisplay').value = 'Error loading data';
+                document.getElementById('editAreaDisplay').value = 'N/A';
+                document.getElementById('editParameterDisplay').value = 'N/A';
+                document.getElementById('editIndicatorDisplay').value = 'N/A';
+                document.getElementById('editProgramDisplay').value = 'N/A';
+                document.getElementById('editFacultyDisplay').value = 'N/A';
+                document.getElementById('editStatusDisplay').value = 'N/A';
+                document.getElementById('editAssignedByDisplay').value = 'N/A';
+                document.getElementById('editAssignedDateDisplay').value = 'N/A';
+                document.getElementById('editUpdatedDateDisplay').value = 'N/A';
+                document.getElementById('editIndicatorDescription').value = 'N/A';
             }
         },
-        error: function() {
-            // Fallback to passed parameters
-            document.getElementById('editCycleDisplay').value = 'Active Cycle';
-            document.getElementById('editMainIndicatorDisplay').value = 'Indicator ID: ' + indicatorId;
-            document.getElementById('editProgramDisplay').value = 'Program ID: ' + programId;
-            document.getElementById('editFacultyDisplay').value = 'Faculty ID: ' + facultyId;
-            document.getElementById('editStatusDisplay').value = 
-                status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ');
-            document.getElementById('editAssignedByDisplay').value = 'System';
+        error: function(xhr, status, error) {
+            console.error('AJAX Error:', xhr.responseText, status, error);
+            alert('Failed to load assignment details. Please try again.');
             
-            displaySubIndicators(subIndicators);
+            // Reset to placeholder
+            document.getElementById('editCycleDisplay').value = 'Network Error';
+            document.getElementById('editAreaDisplay').value = 'N/A';
+            document.getElementById('editParameterDisplay').value = 'N/A';
+            document.getElementById('editIndicatorDisplay').value = 'N/A';
+            document.getElementById('editProgramDisplay').value = 'N/A';
+            document.getElementById('editFacultyDisplay').value = 'N/A';
+            document.getElementById('editStatusDisplay').value = 'N/A';
+            document.getElementById('editAssignedByDisplay').value = 'N/A';
+            document.getElementById('editAssignedDateDisplay').value = 'N/A';
+            document.getElementById('editUpdatedDateDisplay').value = 'N/A';
+            document.getElementById('editIndicatorDescription').value = 'N/A';
         }
     });
 
@@ -568,6 +501,18 @@ function editAssignment(assignmentId, indicatorId, programId, facultyId, status,
     var editModal = new bootstrap.Modal(document.getElementById('editAssignmentModal'));
     editModal.show();
 }
+
+// Update button click handler
+$(document).ready(function() {
+    // If you're using buttons with onclick attributes, update them to:
+    // onclick="viewAssignment('<?= $assignment['assignment_id'] ?>')"
+    
+    // Or if using event delegation:
+    $('body').on('click', '.view-assignment-btn', function() {
+        var assignmentId = $(this).data('assignment-id');
+        viewAssignment(assignmentId);
+    });
+});
 </script>
 <script>
 // Global variables

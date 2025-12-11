@@ -20,7 +20,7 @@
                 <a href="index.php?page=contents/accreditation_framework" class="nav-item nav-accreditation_framework my-1 rounded-2">
                     <span class=""><i class="fa-solid fa-clipboard-list"></i></span> Accreditation Framework
                 </a>
-                <a href="index.php?page=contents/accre_dept" class="nav-item nav-accre_dept my-1 rounded-2">
+                <a href="index.php?page=contents/accre_dept" class="nav-item nav-accre_dept nav-program_history my-1 rounded-2">
                     <span class=""><i class="fa-solid fa-clipboard-check"></i></span> Accreditation Timeline
                 </a>
             </div>
@@ -33,9 +33,9 @@
                 <a href="index.php?page=contents/accreditation_cycles" class="nav-item nav-accreditation_cycles my-1 rounded-2">
                     <span class=""><i class="fa-solid fa-calendar-alt"></i></span> Accreditation Cycles
                 </a>
-                <a href="index.php?page=contents/document_management" class="nav-item nav-document_management my-1 rounded-2">
+                <!-- <a href="index.php?page=contents/document_management" class="nav-item nav-document_management my-1 rounded-2">
                     <span class=""><i class="fa-solid fa-folder-open"></i></span> Document Management
-                </a>
+                </a> -->
                 <a href="index.php?page=contents/compliance_tracking" class="nav-item nav-compliance_tracking my-1 rounded-2">
                     <span class=""><i class="fa-solid fa-chart-line"></i></span> Compliance Tracking
                 </a>

@@ -9,6 +9,7 @@ $complianceStmt = $pdo->prepare("
         ac.academic_year,
         ai.indicator_code,
         ai.indicator_description,
+        ap.parameter_name,
         aa.area_number,
         aa.area_name,
         u.first_name as reviewer_first,
@@ -21,7 +22,8 @@ $complianceStmt = $pdo->prepare("
     JOIN programs p ON ct.program_id = p.program_id
     JOIN accreditation_cycles ac ON ct.cycle_id = ac.cycle_id
     JOIN accreditation_indicators ai ON ct.indicator_id = ai.indicator_id
-    JOIN accreditation_areas aa ON ai.area_id = aa.area_id
+    JOIN accreditation_parameters ap ON ai.parameter_id = ap.parameter_id 
+    JOIN accreditation_areas aa ON ap.area_id = aa.area_id 
     LEFT JOIN users u ON ct.reviewer_id = u.user_id
     ORDER BY aa.area_number, ai.indicator_code, ct.program_id
 ");

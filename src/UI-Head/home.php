@@ -125,32 +125,44 @@
       }
       
       // Fetch compliance tracking for active cycles
-      $complianceData = [];
-      $cycle_ids = array_column($cycles, 'cycle_id');
+      // Fetch compliance tracking for active cycles
+$complianceData = [];
+$cycle_ids = array_column($cycles, 'cycle_id');
+
+if (!empty($cycle_ids)) {
+    $cycle_ids_placeholder = implode(',', array_fill(0, count($cycle_ids), '?'));
+    $complianceStmt = $pdo->prepare("
+        SELECT 
+            ct.*,
+            p.program_name,
+            p.program_code,
+            ai.indicator_code,
+            ai.indicator_description,
+            ap.parameter_name,
+            ap.parameter_code,
+            aa.area_name,
+            aa.area_number,
+            aa.description as area_description,
+            ac.cycle_name,
+            ac.academic_year,
+            ac.status as cycle_status,
+            ct.status as compliance_status,
+            ct.compliance_score,
+            ct.review_date,
+            ct.comments
+        FROM compliance_tracking ct
+        LEFT JOIN programs p ON ct.program_id = p.program_id
+        LEFT JOIN accreditation_indicators ai ON ct.indicator_id = ai.indicator_id
+        LEFT JOIN accreditation_parameters ap ON ai.parameter_id = ap.parameter_id
+        LEFT JOIN accreditation_areas aa ON ap.area_id = aa.area_id
+        LEFT JOIN accreditation_cycles ac ON ct.cycle_id = ac.cycle_id
+        WHERE ct.cycle_id IN ($cycle_ids_placeholder)
+        ORDER BY aa.area_number, ap.parameter_code, ai.indicator_code
+    ");
+    $complianceStmt->execute($cycle_ids);
+    $complianceData = $complianceStmt->fetchAll(PDO::FETCH_ASSOC);
+}
       
-      if (!empty($cycle_ids)) {
-          $cycle_ids_placeholder = implode(',', array_fill(0, count($cycle_ids), '?'));
-          $complianceStmt = $pdo->prepare("
-              SELECT 
-                  ct.*,
-                  p.program_name,
-                  p.program_code,
-                  ai.indicator_code,
-                  a.area_name,
-                  a.area_number,
-                  ac.cycle_name,
-                  ac.academic_year
-              FROM compliance_tracking ct
-              LEFT JOIN programs p ON ct.program_id = p.program_id
-              LEFT JOIN accreditation_indicators ai ON ct.indicator_id = ai.indicator_id
-              LEFT JOIN accreditation_areas a ON ai.area_id = a.area_id
-              LEFT JOIN accreditation_cycles ac ON ct.cycle_id = ac.cycle_id
-              WHERE ct.cycle_id IN ($cycle_ids_placeholder)
-              ORDER BY a.area_number, ai.indicator_code
-          ");
-          $complianceStmt->execute($cycle_ids);
-          $complianceData = $complianceStmt->fetchAll(PDO::FETCH_ASSOC);
-      }
       
       // Calculate statistics
       $stats = [];

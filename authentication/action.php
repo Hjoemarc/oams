@@ -336,8 +336,9 @@ if ($action === 'get_sub_indicators_by_assignment') {
 }
 
 if ($action === 'get_assignment_details') {
-    echo get_assignment_details();
-    exit();
+    $result = $crud->get_assignment_details();
+    echo $result;
+    exit;
 }
 
 // docuemnt feedbacks ===================================================
