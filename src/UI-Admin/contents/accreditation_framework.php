@@ -524,7 +524,14 @@
                                         <!-- INDICATOR LEVEL -->
                                         <div class="col-md-3">
                                             <label class="form-label">Indicator Level</label>
-                                            <input type="number" class="form-control" name="indicator_level" value="1" min="1" max="5">
+                                            <select name="indicator_level" id="" class="form-select">
+                                                <option value="I">I</option>
+                                                <option value="II">II</option>
+                                                <option value="III">III</option>
+                                                <option value="III(Phase 2)">III(Phase 2)</option>
+                                                <option value="IV">IV</option>
+                                                <option value="IV(Phase 5)">IV(Phase 5)</option>
+                                            </select>
                                         </div>
 
                                         <!-- SORT ORDER -->

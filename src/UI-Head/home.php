@@ -1,5 +1,5 @@
 <body class="w-100">
-   <section class="col-md-10">
+   <section class="col-md-12">
       <div class="mb-4">
          <div class="mx-2">
             <h4><i class="fa fa-tv mx-2"></i>Department Dashboard</h4>
@@ -18,11 +18,13 @@
               u.first_name,
               u.last_name,
               u.user_role,
+              p.program_id,
               d.department_id,
               d.department_name,
               d.department_code
           FROM users u
           LEFT JOIN departments d ON u.department_id = d.department_id
+          LEFT JOIN programs p ON u.program_id = p.program_id
           WHERE u.user_id = ?
           AND u.user_role IN ('head', 'admin')
       ");
@@ -35,16 +37,17 @@
       }
       
       $department_id = $userInfo['department_id'];
+      $program_id = $userInfo['program_id'];
       $department_name = $userInfo['department_name'];
       $department_code = $userInfo['department_code'];
       
       // Fetch all programs in this department
       $programsStmt = $pdo->prepare("
           SELECT * FROM programs 
-          WHERE department_id = ?
+          WHERE program_id = ?
           ORDER BY program_name
       ");
-      $programsStmt->execute([$department_id]);
+      $programsStmt->execute([$program_id]);
       $programs = $programsStmt->fetchAll(PDO::FETCH_ASSOC);
       
       if (empty($programs)) {
@@ -90,29 +93,50 @@
           $cycles = [];
       }
       
-      // Fetch program accreditation history
-      if (!empty($program_ids)) {
-          $accreditationStmt = $pdo->prepare("
-              SELECT 
-                  pa.*,
-                  p.program_name,
-                  p.program_code,
-                  al.level_name,
-                  al.level_code,
-                  al.sort_order,
-                  DATE_FORMAT(pa.survey_date, '%Y') as survey_year,
-                  DATE_FORMAT(pa.survey_date, '%M %d, %Y') as survey_date_formatted
-              FROM program_accreditation pa
-              LEFT JOIN programs p ON pa.program_id = p.program_id
-              LEFT JOIN accreditation_levels al ON pa.accreditation_level = al.level_name OR pa.accreditation_level = al.level_code
-              WHERE pa.program_id IN ($program_ids_placeholder)
-              ORDER BY p.program_name, pa.survey_date DESC
-          ");
-          $accreditationStmt->execute($program_ids);
-          $accreditations = $accreditationStmt->fetchAll(PDO::FETCH_ASSOC);
-      } else {
-          $accreditations = [];
-      }
+      // Fetch program accreditation history - FIXED
+if (!empty($program_ids)) {
+    // First, get accreditation records from program_accreditation
+    $accreditationStmt = $pdo->prepare("
+        SELECT 
+            pa.*,
+            p.program_name,
+            p.program_code,
+            DATE_FORMAT(pa.survey_date, '%Y') as survey_year,
+            DATE_FORMAT(pa.survey_date, '%M %d, %Y') as survey_date_formatted
+        FROM program_accreditation pa
+        LEFT JOIN programs p ON pa.program_id = p.program_id
+        WHERE pa.program_id IN ($program_ids_placeholder)
+        ORDER BY p.program_name, pa.survey_date DESC
+    ");
+    $accreditationStmt->execute($program_ids);
+    $accreditations = $accreditationStmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Then, get current accreditation levels from program_levels
+    $levelsStmt = $pdo->prepare("
+        SELECT 
+            pl.*,
+            p.program_name,
+            p.program_code,
+            al.level_name,
+            al.level_code,
+            al.sort_order
+        FROM program_levels pl
+        LEFT JOIN programs p ON pl.program_id = p.program_id
+        LEFT JOIN accreditation_levels al ON pl.accreditation_level = al.level_code
+        WHERE pl.program_id IN ($program_ids_placeholder)
+    ");
+    $levelsStmt->execute($program_ids);
+    $programLevelsData = $levelsStmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Combine the data for easier access
+    $programCurrentLevels = [];
+    foreach ($programLevelsData as $levelData) {
+        $programCurrentLevels[$levelData['program_id']] = $levelData;
+    }
+} else {
+    $accreditations = [];
+    $programCurrentLevels = [];
+}
       
       // Organize accreditation history by program
       $programAccreditationHistory = [];
@@ -311,65 +335,67 @@ if (!empty($cycle_ids)) {
       }
       
       // Get all accreditation levels for tracking
-      $levelsStmt = $pdo->query("SELECT * FROM accreditation_levels ORDER BY sort_order");
+      $levelsStmt = $pdo->query("SELECT * FROM accreditation_levels
+      ORDER BY sort_order");
       $allLevels = $levelsStmt->fetchAll(PDO::FETCH_ASSOC);
       
       // Calculate program level progress
-      $programLevels = [];
-      foreach ($programs as $program) {
-          $program_id = $program['program_id'];
-          $programLevels[$program_id] = [
-              'program' => $program,
-              'current_level' => 'Not Accredited',
-              'next_level' => null,
-              'level_progress' => 0
-          ];
-          
-          // Find highest accreditation level for this program
-          $highestAcc = null;
-          foreach ($accreditations as $acc) {
-              if ($acc['program_id'] == $program_id) {
-                  if (!$highestAcc || ($acc['sort_order'] > $highestAcc['sort_order'])) {
-                      $highestAcc = $acc;
-                  }
-              }
-          }
-          
-          if ($highestAcc) {
-              $programLevels[$program_id]['current_level'] = $highestAcc['level_name'] ?? $highestAcc['accreditation_level'];
-              
-              // Find next level
-              foreach ($allLevels as $level) {
-                  if ($level['sort_order'] > ($highestAcc['sort_order'] ?? 0)) {
-                      $programLevels[$program_id]['next_level'] = $level['level_name'];
-                      break;
-                  }
-              }
-          }
-          
-          // Calculate progress for this program (based on compliance for active cycles)
-          $programCompliance = array_filter($complianceData, function($c) use ($program_id) {
-              return $c['program_id'] == $program_id;
-          });
-          
-          if (!empty($programCompliance)) {
-              $totalProgramIndicators = count($programCompliance);
-              $programCompliantCount = 0;
-              $programPartialCount = 0;
-              
-              foreach ($programCompliance as $record) {
-                  if ($record['status'] == 'compliant') $programCompliantCount++;
-                  if ($record['status'] == 'partial') $programPartialCount++;
-              }
-              
-              $programTotalScore = ($programCompliantCount * 100) + ($programPartialCount * 50);
-              $programMaxScore = $totalProgramIndicators * 100;
-              
-              if ($programMaxScore > 0) {
-                  $programLevels[$program_id]['level_progress'] = round(($programTotalScore / $programMaxScore) * 100, 1);
-              }
-          }
-      }
+$programLevels = [];
+foreach ($programs as $program) {
+    $program_id = $program['program_id'];
+    $currentLevelData = $programCurrentLevels[$program_id] ?? null;
+    
+    $programLevels[$program_id] = [
+        'program' => $program,
+        'current_level' => 'Not Accredited',
+        'next_level' => null,
+        'level_progress' => 0
+    ];
+    
+    if ($currentLevelData) {
+        $programLevels[$program_id]['current_level'] = $currentLevelData['level_name'] ?? $currentLevelData['accreditation_level'];
+        
+        // Find next level based on sort_order
+        if ($currentLevelData['sort_order']) {
+            $nextLevelStmt = $pdo->prepare("
+                SELECT level_name, level_code 
+                FROM accreditation_levels 
+                WHERE sort_order > ? 
+                ORDER BY sort_order ASC 
+                LIMIT 1
+            ");
+            $nextLevelStmt->execute([$currentLevelData['sort_order']]);
+            $nextLevel = $nextLevelStmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($nextLevel) {
+                $programLevels[$program_id]['next_level'] = $nextLevel['level_name'];
+            }
+        }
+    }
+    
+    // Calculate progress for this program (based on compliance for active cycles)
+    $programCompliance = array_filter($complianceData, function($c) use ($program_id) {
+        return $c['program_id'] == $program_id;
+    });
+    
+    if (!empty($programCompliance)) {
+        $totalProgramIndicators = count($programCompliance);
+        $programCompliantCount = 0;
+        $programPartialCount = 0;
+        
+        foreach ($programCompliance as $record) {
+            if ($record['status'] == 'compliant') $programCompliantCount++;
+            if ($record['status'] == 'partial') $programPartialCount++;
+        }
+        
+        $programTotalScore = ($programCompliantCount * 100) + ($programPartialCount * 50);
+        $programMaxScore = $totalProgramIndicators * 100;
+        
+        if ($programMaxScore > 0) {
+            $programLevels[$program_id]['level_progress'] = round(($programTotalScore / $programMaxScore) * 100, 1);
+        }
+    }
+}
       ?>
 
       <!-- Welcome Header -->
@@ -559,61 +585,67 @@ if (!empty($cycle_ids)) {
 
 
       <!-- Accreditation History -->
-      <?php if (!empty($accreditations)): ?>
-      <div class="row mb-4">
-         <div class="col-md-12">
-            <div class="card shadow mb-4">
-               <div class="card-header py-3">
-                  <h6 class="m-0 font-weight-bold text-dark">
-                     <i class="fa fa-history mr-2"></i>Accreditation History
-                  </h6>
-               </div>
-               <div class="card-body">
-                  <div class="timeline">
-                     <?php 
-                     // Sort accreditations by date
-                     usort($accreditations, function($a, $b) {
-                         return strtotime($b['survey_date']) - strtotime($a['survey_date']);
-                     });
-                     
-                     $currentYear = null;
-                     foreach ($accreditations as $acc): 
+<?php if (!empty($accreditations)): ?>
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-dark">
+                    <i class="fa fa-history mr-2"></i>Accreditation Survey History
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="timeline">
+                    <?php 
+                    // Sort accreditations by date
+                    usort($accreditations, function($a, $b) {
+                        return strtotime($b['survey_date']) - strtotime($a['survey_date']);
+                    });
+                    
+                    $currentYear = null;
+                    foreach ($accreditations as $acc): 
+                        $program_id = $acc['program_id'];
+                        $currentLevel = $programCurrentLevels[$program_id]['accreditation_level'] ?? 'Not Accredited';
+                        $levelName = $programCurrentLevels[$program_id]['level_name'] ?? $currentLevel;
+                        
                         if ($currentYear != $acc['survey_year']):
                            $currentYear = $acc['survey_year'];
-                     ?>
-                     <div class="timeline-year">
+                    ?>
+                    <div class="timeline-year">
                         <h5><?php echo $currentYear; ?></h5>
-                     </div>
-                     <?php endif; ?>
-                     <div class="timeline-item">
+                    </div>
+                    <?php endif; ?>
+                    <div class="timeline-item">
                         <div class="timeline-marker">
-                           <i class="fa fa-award text-success"></i>
+                            <i class="fa fa-calendar-check text-success"></i>
                         </div>
                         <div class="timeline-content">
-                           <h6>
-                              <strong><?php echo htmlspecialchars($acc['program_name']); ?></strong>
-                              achieved
-                              <span class="badge badge-info"><?php echo htmlspecialchars($acc['level_name'] ?? $acc['accreditation_level']); ?></span>
-                           </h6>
-                           <p class="text-muted mb-1">
-                              <i class="fa fa-calendar"></i> 
-                              <?php echo $acc['survey_date_formatted']; ?> 
-                              • 
-                              <i class="fa fa-university"></i> 
-                              <?php echo htmlspecialchars($acc['accrediting_body']); ?>
-                           </p>
-                           <?php if ($acc['remarks']): ?>
-                           <p class="mb-0"><?php echo htmlspecialchars(substr($acc['remarks'], 0, 100)); ?>...</p>
-                           <?php endif; ?>
+                            <h6>
+                                <strong><?php echo htmlspecialchars($acc['program_name']); ?></strong>
+                                survey completed
+                                <?php if ($levelName != 'Not Accredited'): ?>
+                                <span class="badge badge-info ml-2">Current: <?php echo htmlspecialchars($levelName); ?></span>
+                                <?php endif; ?>
+                            </h6>
+                            <p class="text-muted mb-1">
+                                <i class="fa fa-calendar"></i> 
+                                <?php echo $acc['survey_date_formatted']; ?> 
+                                • 
+                                <i class="fa fa-university"></i> 
+                                <?php echo htmlspecialchars($acc['accrediting_body']); ?>
+                            </p>
+                            <?php if ($acc['remarks']): ?>
+                            <p class="mb-0"><?php echo htmlspecialchars(substr($acc['remarks'], 0, 100)); ?>...</p>
+                            <?php endif; ?>
                         </div>
-                     </div>
-                     <?php endforeach; ?>
-                  </div>
-               </div>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
             </div>
-         </div>
-      </div>
-      <?php endif; ?>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
    </section>
 

@@ -107,7 +107,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (logoutDomain.style.display === 'none' || !logoutDomain.style.display) {
             logoutDomain.style.opacity = '0';
             logoutDomain.style.display = 'flex';
-            logoutDomain.style.transform = 'translateY(-10px)';
+            logoutDomain.style.transform = 'translateY(0)';
 
             setTimeout(() => {
                 logoutDomain.style.opacity = '1';

@@ -7,6 +7,7 @@ if (!isset($_SESSION['adminData'])) {
 
 $admin_id = $_SESSION['adminData']['user_id'];
 $getEmployee = $employees["employee_data"];
+
 ?>
 
 <div class="bg-gradient-primary justify-content-between d-flex">
@@ -18,7 +19,6 @@ $getEmployee = $employees["employee_data"];
         <div class="notification me-5">
         </div>
         <div class="">
-            <i class="fas fa-user-shield"></i>
             <span><?php echo get_employee('first_name',$admin_id) . " " . get_employee('last_name',$admin_id); ?></span>
         </div>
 

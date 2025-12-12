@@ -18,7 +18,7 @@ function db_connect()
         $pdo = new PDO("mysql:host=$host;dbname=$database;charset=utf8mb4", $username, $password);
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-        // Step 4: Define table structure - SIMPLIFIED VERSION
+        // Step 4: Define table structure - FIXED ORDER
         // First, create basic tables without foreign keys
         $basicTables = [
             // 1. DEPARTMENTS (No dependencies)
@@ -27,7 +27,7 @@ function db_connect()
                 department_code VARCHAR(20) NOT NULL UNIQUE,
                 department_name VARCHAR(100) NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )",
+            ) ENGINE=InnoDB",
 
             // 2. ACCREDITATION AREAS (No dependencies)
             "CREATE TABLE IF NOT EXISTS accreditation_areas (
@@ -35,9 +35,9 @@ function db_connect()
                 area_number VARCHAR(10) NOT NULL,
                 area_name VARCHAR(255) NOT NULL,
                 description TEXT
-            )",
+            ) ENGINE=InnoDB",
 
-            // 3. ACCREDITATION LEVELS (No dependencies)
+            // 3. ACCREDITATION LEVELS (No dependencies) - FIXED ENUM
             "CREATE TABLE IF NOT EXISTS accreditation_levels (
                 level_id INT AUTO_INCREMENT PRIMARY KEY,
                 level_code VARCHAR(20) NOT NULL UNIQUE,
@@ -46,7 +46,7 @@ function db_connect()
                 requirements TEXT,
                 next_level_code VARCHAR(20),
                 sort_order INT DEFAULT 0
-            )",
+            ) ENGINE=InnoDB",
         ];
 
         foreach ($basicTables as $sql) {
@@ -62,7 +62,7 @@ function db_connect()
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (department_id) REFERENCES departments(department_id)
                 ON DELETE CASCADE
-        )");
+        ) ENGINE=InnoDB");
 
         // Create users table (depends on departments and programs)
         $pdo->exec("CREATE TABLE IF NOT EXISTS users (
@@ -83,7 +83,7 @@ function db_connect()
                 ON DELETE SET NULL,
             FOREIGN KEY (program_id) REFERENCES programs(program_id)
                 ON DELETE SET NULL
-        )");
+        ) ENGINE=InnoDB");
 
         // Create user info table
         $pdo->exec("CREATE TABLE IF NOT EXISTS users_info (
@@ -104,35 +104,32 @@ function db_connect()
             zip_code VARCHAR(5),
             FOREIGN KEY (user_id) REFERENCES users(user_id)
                 ON DELETE CASCADE
-        )");
+        ) ENGINE=InnoDB");
 
-        // Create accreditation indicators (depends on accreditation_areas)
+        // Create accreditation parameters (depends on accreditation_areas)
         $pdo->exec("CREATE TABLE IF NOT EXISTS accreditation_parameters (
             parameter_id INT AUTO_INCREMENT PRIMARY KEY,
             area_id INT NOT NULL,
             parameter_code VARCHAR(20),
             parameter_name VARCHAR(50),
-
             FOREIGN KEY (area_id) REFERENCES accreditation_areas(area_id)
                 ON DELETE CASCADE
-        )");
+        ) ENGINE=InnoDB");
 
-        // Create accreditation indicators (depends on accreditation_areas)
+        // Create accreditation indicators (depends on accreditation_parameters)
         $pdo->exec("CREATE TABLE IF NOT EXISTS accreditation_indicators (
             indicator_id INT AUTO_INCREMENT PRIMARY KEY,
             parameter_id INT,
             parent_indicator_id INT NULL,
             indicator_code VARCHAR(20) NOT NULL,
             indicator_description TEXT NOT NULL,
-            indicator_level TINYINT DEFAULT 1,
+            indicator_level ENUM('I', 'II', 'III', 'IV', 'III(Phase 2)', 'IV(Phase 2)') DEFAULT 'I',
             sort_order INT DEFAULT 0,
-
             FOREIGN KEY (parameter_id) REFERENCES accreditation_parameters(parameter_id)
                 ON DELETE CASCADE,
-
             FOREIGN KEY (parent_indicator_id) REFERENCES accreditation_indicators(indicator_id)
                 ON DELETE CASCADE
-        )");
+        ) ENGINE=InnoDB");
 
         // Create accreditation cycles (depends on programs)
         $pdo->exec("CREATE TABLE IF NOT EXISTS accreditation_cycles (
@@ -148,14 +145,13 @@ function db_connect()
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (program_id) REFERENCES programs(program_id)
                 ON DELETE CASCADE
-        )");
+        ) ENGINE=InnoDB");
 
-        // Create program accreditation history
+        // Create program_accreditation table - FIXED: Added accreditation_level column
         $pdo->exec("CREATE TABLE IF NOT EXISTS program_accreditation (
             accreditation_id INT AUTO_INCREMENT PRIMARY KEY,
             program_id INT NOT NULL,
             cycle_id INT,
-            accreditation_level VARCHAR(50) NOT NULL,
             survey_date DATE NOT NULL,
             accrediting_body VARCHAR(100) DEFAULT 'AACCUP',
             remarks TEXT,
@@ -164,7 +160,17 @@ function db_connect()
                 ON DELETE CASCADE,
             FOREIGN KEY (cycle_id) REFERENCES accreditation_cycles(cycle_id)
                 ON DELETE SET NULL
-        )");
+        ) ENGINE=InnoDB");
+
+        // Create program_levels table (optional - for tracking current level)
+        $pdo->exec("CREATE TABLE IF NOT EXISTS program_levels (
+            level_id INT AUTO_INCREMENT PRIMARY KEY,
+            program_id INT NOT NULL,
+            accreditation_level ENUM('I', 'II', 'III', 'IV', 'III(Phase 2)', 'IV(Phase 2)') DEFAULT 'I',
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (program_id) REFERENCES programs(program_id)
+                ON DELETE CASCADE
+        ) ENGINE=InnoDB");
 
         // Now create assignments table with all foreign keys
         $pdo->exec("CREATE TABLE IF NOT EXISTS assignments (
@@ -172,7 +178,7 @@ function db_connect()
             user_id INT NOT NULL,
             indicator_id INT NOT NULL,
             program_id INT NOT NULL,
-            cycle_id INT NOT NULL,
+            cycle_id INT,
             status ENUM('not_started','in_progress','submitted','completed') 
                 DEFAULT 'not_started',
             assigned_by INT NULL,
@@ -187,7 +193,7 @@ function db_connect()
                 ON DELETE CASCADE,
             FOREIGN KEY (assigned_by) REFERENCES users(user_id)
                 ON DELETE SET NULL
-        )");
+        ) ENGINE=InnoDB");
 
         // Create documents table
         $pdo->exec("CREATE TABLE IF NOT EXISTS documents (
@@ -210,22 +216,18 @@ function db_connect()
             updated_at TIMESTAMP 
                 DEFAULT CURRENT_TIMESTAMP 
                 ON UPDATE CURRENT_TIMESTAMP,
-
             FOREIGN KEY (assignment_id) REFERENCES assignments(assignment_id)
                 ON DELETE CASCADE,
-
             FOREIGN KEY (uploaded_by) REFERENCES users(user_id)
                 ON DELETE SET NULL,
-
             FOREIGN KEY (indicator_id) REFERENCES accreditation_indicators(indicator_id)
                 ON DELETE CASCADE,
-
             FOREIGN KEY (program_id) REFERENCES programs(program_id)
                 ON DELETE CASCADE,
-
             FOREIGN KEY (cycle_id) REFERENCES accreditation_cycles(cycle_id)
                 ON DELETE CASCADE
-        )");
+        ) ENGINE=InnoDB");
+
         $pdo->exec("CREATE TABLE IF NOT EXISTS document_feedbacks (
             document_feedbacks_id INT AUTO_INCREMENT PRIMARY KEY,
             document_id INT NOT NULL,
@@ -235,13 +237,11 @@ function db_connect()
             updated_at TIMESTAMP 
                 DEFAULT CURRENT_TIMESTAMP 
                 ON UPDATE CURRENT_TIMESTAMP,
-
             FOREIGN KEY (document_id) REFERENCES documents(document_id)
                 ON DELETE CASCADE,
             FOREIGN KEY (user_id) REFERENCES users(user_id)
                 ON DELETE CASCADE
-        )");
-
+        ) ENGINE=InnoDB");
 
         // Create remaining tables
         $remainingTables = [
@@ -260,8 +260,7 @@ function db_connect()
                     ON DELETE CASCADE,
                 FOREIGN KEY (reviewer_id) REFERENCES users(user_id)
                     ON DELETE SET NULL
-            )",
-
+            ) ENGINE=InnoDB",
 
             // Compliance tracking
             "CREATE TABLE IF NOT EXISTS compliance_tracking (
@@ -284,7 +283,7 @@ function db_connect()
                     ON DELETE CASCADE,
                 FOREIGN KEY (reviewer_id) REFERENCES users(user_id)
                     ON DELETE SET NULL
-            )",
+            ) ENGINE=InnoDB",
 
             // Notifications
             "CREATE TABLE IF NOT EXISTS notifications (
@@ -296,7 +295,7 @@ function db_connect()
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(user_id)
                     ON DELETE CASCADE
-            )",
+            ) ENGINE=InnoDB",
 
             // Login history
             "CREATE TABLE IF NOT EXISTS login_history (
@@ -306,7 +305,7 @@ function db_connect()
                 logout_time DATETIME DEFAULT NULL,
                 FOREIGN KEY (user_id) REFERENCES users(user_id)
                     ON DELETE CASCADE
-            )",
+            ) ENGINE=InnoDB",
         ];
 
         foreach ($remainingTables as $sql) {
@@ -379,20 +378,20 @@ function insertSampleData($pdo) {
         $adminStmt = $pdo->query("SELECT user_id FROM users WHERE username = 'admin'");
         $adminId = $adminStmt->fetchColumn();
         
-        // 4. ADD ACCREDITATION LEVELS
+        // 4. ADD ACCREDITATION LEVELS - FIXED to match your ENUM format
         $stmt = $pdo->prepare("INSERT INTO accreditation_levels (level_code, level_name, description, requirements, sort_order) VALUES 
-            ('1', 'Level I - Candidate Status', 'Initial accreditation level for new programs', 
-             '1. Compliance with minimum requirements\n2. Institutional commitment\n3. Qualified faculty\n4. Basic facilities', 1),
-            ('2', 'Level II - Accredited', 'Program meets standards and is accredited',
-             '1. Sustained compliance for 3 years\n2. Evidence of program effectiveness\n3. Qualified faculty with relevant degrees\n4. Adequate library and laboratory facilities', 2),
-            ('3', 'Level III - Re-accredited', 'Program demonstrates excellence and continuous improvement',
-             '1. Excellent performance in all areas\n2. Strong evidence of outcomes\n3. High faculty qualifications\n4. Outstanding facilities and resources', 3),
-            ('4', 'Level IV - Center of Excellence/Development', 'Highest accreditation level recognizing program as benchmark',
-             '1. National/International recognition\n2. Outstanding research output\n3. Exceptional faculty profile\n4. State-of-the-art facilities\n5. Significant community impact', 4),
-            ('phase1', 'Phase 1 - Preliminary Survey', 'Initial assessment phase',
-             '1. Document review\n2. Preliminary evaluation\n3. Compliance with basic standards', 0),
-            ('phase2', 'Phase 2 - Formal Survey', 'Comprehensive evaluation phase',
-             '1. On-site visit\n2. Full document review\n3. Stakeholder interviews\n4. Facilities inspection', 0.5)
+            ('I', 'Level I - Candidate Status', 'Initial accreditation level for new programs', 
+            '1. Compliance with minimum requirements\n2. Institutional commitment\n3. Qualified faculty\n4. Basic facilities', 1),
+            ('II', 'Level II - Accredited', 'Program meets standards and is accredited',
+            '1. Sustained compliance for 3 years\n2. Evidence of program effectiveness\n3. Qualified faculty with relevant degrees\n4. Adequate library and laboratory facilities', 2),
+            ('III', 'Level III - Re-accredited', 'Program demonstrates excellence and continuous improvement',
+            '1. Excellent performance in all areas\n2. Strong evidence of outcomes\n3. High faculty qualifications\n4. Outstanding facilities and resources', 3),
+            ('IV', 'Level IV - Center of Excellence/Development', 'Highest accreditation level recognizing program as benchmark',
+            '1. National/International recognition\n2. Outstanding research output\n3. Exceptional faculty profile\n4. State-of-the-art facilities\n5. Significant community impact', 4),
+            ('III(Phase 2)', 'Level III (Phase 2)', 'Advanced Level III accreditation',
+            '1. Enhanced compliance with standards\n2. Advanced program outcomes\n3. Superior faculty qualifications\n4. Excellent facilities and resources', 5),
+            ('IV(Phase 2)', 'Level IV (Phase 2)', 'Advanced Level IV accreditation',
+            '1. World-class recognition\n2. Exceptional research output\n3. Distinguished faculty profile\n4. State-of-the-art facilities\n5. Significant national impact', 6)
         ");
         $stmt->execute();
         
@@ -538,7 +537,7 @@ function insertSampleData($pdo) {
         }
 
         // 7. ADD ACCREDITATION INDICATORS for all parameters
-        $indicator_stmt = $pdo->prepare("INSERT INTO accreditation_indicators (parameter_id, indicator_code, indicator_description, indicator_level, sort_order) VALUES (?, ?, ?, 1, ?)");
+        $indicator_stmt = $pdo->prepare("INSERT INTO accreditation_indicators (parameter_id, indicator_code, indicator_description, indicator_level, sort_order) VALUES (?, ?, ?, '1', ?)");
 
         // Function to generate indicator descriptions
         function generateIndicatorDescription($area_name, $param_name, $type) {
@@ -627,11 +626,11 @@ function insertSampleData($pdo) {
         $cycleStmt = $pdo->query("SELECT cycle_id FROM accreditation_cycles ORDER BY cycle_id LIMIT 1");
         $sampleCycleId = $cycleStmt->fetchColumn();
 
-        // 9. ADD SAMPLE ACCREDITATION RECORDS
+        // 9. ADD SAMPLE ACCREDITATION RECORDS - FIXED: Removed accreditation_level from program_accreditation
         $accreditation_stmt = $pdo->prepare("INSERT INTO program_accreditation 
-            (program_id, cycle_id, accreditation_level, survey_date, accrediting_body, remarks) VALUES 
-            (?, ?, 'phase1', ?, 'AACCUP', 'Preliminary survey for BSIT program'),
-            (?, ?, '1', ?, 'AACCUP', 'Achieved Level I accreditation')
+            (program_id, cycle_id, survey_date, accrediting_body, remarks) VALUES 
+            (?, ?, ?, 'AACCUP', 'Preliminary survey for BSIT program'),
+            (?, ?, ?, 'AACCUP', 'Achieved Level I accreditation')
         ");
 
         $accreditation_stmt->execute([
@@ -641,6 +640,22 @@ function insertSampleData($pdo) {
             $sampleProgramId,
             $sampleCycleId,
             date('Y-m-d', strtotime('-3 months'))
+        ]);
+
+        // 9b. ADD SAMPLE PROGRAM LEVELS (since program_accreditation doesn't have accreditation_level)
+        $program_levels_stmt = $pdo->prepare("INSERT INTO program_levels 
+            (program_id, accreditation_level) VALUES 
+            (?, 'I'),
+            (?, 'II'),
+            (?, 'III'),
+            (?, 'I')
+        ");
+
+        $program_levels_stmt->execute([
+            $sampleProgramId, // BSIT - Level I
+            2, // Assuming program_id 2 exists - Level II
+            3, // Assuming program_id 3 exists - Level III
+            4  // Assuming program_id 4 exists - Level I
         ]);
 
         // 10. ADD SAMPLE ASSIGNMENTS
@@ -668,3 +683,4 @@ function insertSampleData($pdo) {
 
 // Initialize on load
 $pdo = db_connect();
+?>

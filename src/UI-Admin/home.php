@@ -1,5 +1,5 @@
 <body class="w-100">
-    <section class="scroll leave-height col-md-11">
+    <section class="scroll leave-height col-md-12">
         <div class="d-flex justify-content-between align-items-center mb-2">
             <div class="mx-2">
                 <h4><i class="fa fa-tv mx-2"></i>Main Dashboard</h4>
@@ -103,7 +103,7 @@
                 p.program_name,
                 d.department_name,
                 COUNT(DISTINCT pa.accreditation_id) as total_accreditations,
-                MAX(pa.accreditation_level) as current_level,
+                MAX(pl.accreditation_level) as current_level,
                 COUNT(DISTINCT ai.indicator_id) as total_indicators,
                 COUNT(DISTINCT ct.indicator_id) as assessed_indicators,
                 COALESCE(
@@ -125,6 +125,7 @@
             LEFT JOIN accreditation_cycles ac ON p.program_id = ac.program_id AND ac.status = 'active'
             LEFT JOIN compliance_tracking ct ON p.program_id = ct.program_id AND ac.cycle_id = ct.cycle_id
             LEFT JOIN accreditation_indicators ai ON ct.indicator_id = ai.indicator_id
+            LEFT JOIN program_levels pl ON p.program_id = pl.program_id
             WHERE p.program_id IS NOT NULL
             GROUP BY p.program_id, p.program_code, p.program_name, d.department_name
             ORDER BY program_progress DESC
@@ -143,21 +144,22 @@
                 l.next_level_code,
                 l.sort_order,
                 COUNT(DISTINCT pa.program_id) as total_programs,
-                COUNT(DISTINCT CASE WHEN pa.accreditation_level = l.level_name THEN pa.program_id END) as programs_at_level,
+                COUNT(DISTINCT CASE WHEN pl.accreditation_level = l.level_name THEN pa.program_id END) as programs_at_level,
                 COALESCE(
                     ROUND(
-                        (COUNT(DISTINCT CASE WHEN pa.accreditation_level = l.level_name THEN pa.program_id END) * 100.0 / 
+                        (COUNT(DISTINCT CASE WHEN pl.accreditation_level = l.level_name THEN pa.program_id END) * 100.0 / 
                         NULLIF(COUNT(DISTINCT p.program_id), 0))
                     , 0),
                     0
                 ) as completion_rate,
                 CASE 
-                    WHEN COUNT(DISTINCT CASE WHEN pa.accreditation_level = l.level_name THEN pa.program_id END) >= 1 THEN 'completed'
+                    WHEN COUNT(DISTINCT CASE WHEN pl.accreditation_level = l.level_name THEN pa.program_id END) >= 1 THEN 'completed'
                     WHEN COUNT(DISTINCT p.program_id) > 0 THEN 'current'
                     ELSE 'pending'
                 END as status
             FROM accreditation_levels l
             LEFT JOIN programs p ON 1=1
+            LEFT JOIN program_levels pl ON p.program_id = pl.program_id
             LEFT JOIN program_accreditation pa ON p.program_id = pa.program_id
             GROUP BY l.level_id, l.level_code, l.level_name, l.description, l.requirements, l.next_level_code, l.sort_order
             ORDER BY l.sort_order
@@ -317,7 +319,7 @@
 
         <!-- Accreditation Progress Charts -->
         <div class="row mb-4">
-            <div class="col-lg-8">
+            <div class="col-lg-12">
                 <div class="card shadow mb-4">
                     <div class="card-header py-3">
                         <h6 class="m-0 font-weight-bold text-dark">Accreditation Progress by Department</h6>
@@ -328,164 +330,8 @@
                 </div>
             </div>
 
-            <div class="col-lg-4">
-                <div class="card shadow mb-4">
-                    <div class="card-header py-3">
-                        <h6 class="m-0 font-weight-bold text-dark">Document Status Distribution</h6>
-                    </div>
-                    <div class="card-body">
-                        <canvas id="documentStatusChart"></canvas>
-                    </div>
-                </div>
-            </div>
         </div>
 
-
-        <!-- Top Performing Programs -->
-        <div class="row mb-4">
-            <div class="col-lg-6">
-                <div class="card shadow mb-4">
-                    <div class="card-header py-3">
-                        <h6 class="m-0 font-weight-bold text-dark">Top Performing Programs</h6>
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-bordered" width="100%" cellspacing="0">
-                                <thead>
-                                    <tr>
-                                        <th>Program</th>
-                                        <th>Department</th>
-                                        <th>Current Level</th>
-                                        <th>Progress</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach($programProgress as $program): ?>
-                                    <?php 
-                                    $progress = $program['program_progress'] ?? 0;
-                                    $statusColor = $progress >= 80 ? 'text-success' : ($progress >= 50 ? 'text-warning' : 'text-danger');
-                                    ?>
-                                    <tr>
-                                        <td>
-                                            <strong><?php echo htmlspecialchars($program['program_code']); ?></strong><br>
-                                            <small class="text-muted"><?php echo htmlspecialchars($program['program_name']); ?></small>
-                                        </td>
-                                        <td><?php echo htmlspecialchars($program['department_name']); ?></td>
-                                        <td><?php echo htmlspecialchars($program['current_level'] ?? 'Not Accredited'); ?></td>
-                                        <td>
-                                            <div class="progress progress-bar-custom">
-                                                <div class="progress-bar bg-success" role="progressbar" 
-                                                     style="width: <?php echo $progress; ?>%"
-                                                     aria-valuenow="<?php echo $progress; ?>" 
-                                                     aria-valuemin="0" 
-                                                     aria-valuemax="100">
-                                                    <?php echo $progress; ?>%
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td class="<?php echo $statusColor; ?> font-weight-bold">
-                                            <?php 
-                                            if ($progress >= 80) echo 'Excellent';
-                                            elseif ($progress >= 50) echo 'Good';
-                                            elseif ($progress > 0) echo 'Needs Improvement';
-                                            else echo 'Not Started';
-                                            ?>
-                                        </td>
-                                    </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- User Role Distribution -->
-            <div class="col-lg-6">
-                <div class="card shadow mb-4">
-                    <div class="card-header py-3">
-                        <h6 class="m-0 font-weight-bold text-dark">User Role Distribution</h6>
-                    </div>
-                    <div class="card-body">
-                        <canvas id="userRoleChart"></canvas>
-                        <div class="mt-4">
-                            <?php foreach($userRoleData as $role): ?>
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>
-                                    <i class="fa fa-user fa-fw text-gray-400"></i>
-                                    <?php echo ucfirst($role['user_role']); ?>
-                                </span>
-                                <span class="font-weight-bold"><?php echo $role['count']; ?> users</span>
-                            </div>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Accreditation Level Progress -->
-        <div class="row mb-4">
-            <div class="col-lg-12">
-                <div class="card shadow mb-4">
-                    <div class="card-header py-3">
-                        <h6 class="m-0 font-weight-bold text-dark">Accreditation Level Progress</h6>
-                    </div>
-                    <div class="card-body">
-                        <div class="progress-tracker" id="levelProgressTracker">
-                            <?php 
-                            $levelIndex = 0;
-                            foreach($levelProgress as $level): 
-                                $levelIndex++;
-                                $statusIcon = $level['status'] === 'completed' ? '✓' : 
-                                            ($level['status'] === 'current' ? '→' : '○');
-                                $statusClass = $level['status'] === 'completed' ? 'bg-success' : 
-                                             ($level['status'] === 'current' ? 'bg-primary' : 'bg-secondary');
-                                $statusText = ucfirst($level['status']);
-                                $completionRate = $level['completion_rate'] ?? 0;
-                            ?>
-                            <div class="progress-step <?php echo $level['status']; ?>">
-                                <div class="step-icon"><?php echo $statusIcon; ?></div>
-                                <div class="step-content">
-                                    <h5><?php echo htmlspecialchars($level['level_name']); ?> 
-                                        <small class="text-muted">(<?php echo htmlspecialchars($level['level_code']); ?>)</small></h5>
-                                    <p class="text-muted mb-2"><?php echo htmlspecialchars($level['description'] ?: 'No description available'); ?></p>
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <span>
-                                            <i class="fa fa-graduation-cap fa-fw"></i>
-                                            <?php echo $level['programs_at_level']; ?> of <?php echo $level['total_programs']; ?> programs
-                                        </span>
-                                        <span class="badge <?php echo $statusClass; ?>">
-                                            <?php echo $statusText; ?>
-                                        </span>
-                                    </div>
-                                    <div class="progress progress-bar-custom mt-2">
-                                        <div class="progress-bar <?php echo $statusClass; ?>" 
-                                             role="progressbar" 
-                                             style="width: <?php echo $completionRate; ?>%"
-                                             aria-valuenow="<?php echo $completionRate; ?>" 
-                                             aria-valuemin="0" 
-                                             aria-valuemax="100">
-                                        </div>
-                                    </div>
-                                    <div class="d-flex justify-content-between mt-1">
-                                        <small class="text-muted">Completion: <?php echo $completionRate; ?>%</small>
-                                        <?php if($level['next_level_code']): ?>
-                                        <small class="text-muted">Next: <?php echo $level['next_level_code']; ?></small>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-                                <?php if($levelIndex < count($levelProgress)): ?>
-                                <div class="step-connector <?php echo $level['status'] === 'completed' ? 'completed' : ''; ?>"></div>
-                                <?php endif; ?>
-                            </div>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
     </section>
 
     <style>

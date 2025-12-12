@@ -133,25 +133,7 @@ $totalCount = count($notifications);
 </body>
 
 <script>
-// Mark notification as read
-function markAsRead(notificationId, element) {
-    $.ajax({
-        url: 'mark_notification_read.php',
-        method: 'POST',
-        data: { notification_id: notificationId },
-        success: function(response) {
-            if (response.status === 1) {
-                // Update UI
-                $(element).closest('.notification-item').removeClass('bg-light');
-                $(element).find('h6').removeClass('fw-bold');
-                $(element).find('.badge').remove();
-                
-                // Update badge count
-                updateNotificationBadge();
-            }
-        }
-    });
-}
+
 
 // Mark all notifications as read
 function markAllAsRead() {

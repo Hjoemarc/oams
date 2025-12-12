@@ -1,13 +1,13 @@
 <?php
-$departmentSTMT = $pdo->prepare("SELECT departments.department_id FROM departments 
-INNER JOIN users ON departments.department_id = users.department_id
+$departmentSTMT = $pdo->prepare("SELECT programs.program_id FROM programs 
+INNER JOIN users ON programs.program_id = users.program_id
 WHERE users.user_id = :user_id");
 $departmentSTMT->execute([
     'user_id' => $user_id
 ]);
 $departmentData = $departmentSTMT->fetch(PDO::FETCH_ASSOC);
 
-$department_id = $departmentData["department_id"];
+$program_id = $departmentData["program_id"];
 
 // Fetch all assignments that need review
 $stmtAssignments = $pdo->prepare("SELECT 
@@ -17,34 +17,39 @@ $stmtAssignments = $pdo->prepare("SELECT
     a.*,
     u.user_id as faculty_id,
     CONCAT(u.first_name, ' ', u.last_name) as faculty_name,
+    ac.deadline,
+    u.user_id as faculty_id,
     i.indicator_code,
     i.indicator_description,
     p.program_code,
     p.program_name,
+    p.department_id,
     ac.cycle_name,
+    ac.status as cycle_status,
     d.department_name
 FROM assignments a
 INNER JOIN users u ON a.user_id = u.user_id
 INNER JOIN accreditation_indicators i ON a.indicator_id = i.indicator_id
 INNER JOIN programs p ON a.program_id = p.program_id
+INNER JOIN departments d ON p.department_id = d.department_id
 INNER JOIN accreditation_cycles ac ON a.cycle_id = ac.cycle_id
-INNER JOIN departments d ON u.department_id = d.department_id
-WHERE d.department_id = :department_id
+WHERE p.program_id = :program_id
+GROUP BY a.assignment_id  -- Add GROUP BY to prevent duplicates
 ORDER BY ac.deadline ASC, a.assigned_at DESC");
 $stmtAssignments->execute([
-    'department_id' => $department_id
+    'program_id' => $program_id
 ]);
 $assignments = $stmtAssignments->fetchAll(PDO::FETCH_ASSOC);
 
 // Fetch reviewers (users with QA role)
 $stmtReviewers = $pdo->prepare("SELECT user_id, CONCAT(first_name, ' ', last_name) as name, user_role 
                                FROM users 
-                               INNER JOIN departments ON users.department_id = departments.department_id
-                               WHERE user_role = 'qa' AND departments.department_id = :department_id
+                               INNER JOIN programs ON users.program_id = programs.program_id
+                               WHERE user_role = 'qa' AND programs.program_id = :program_id
                                AND is_active = 'Active' 
                                ORDER BY first_name");
 $stmtReviewers->execute([
-    'department_id' => $department_id
+    'program_id' => $program_id
 ]);
 $reviewers = $stmtReviewers->fetchAll(PDO::FETCH_ASSOC);
 
@@ -70,11 +75,11 @@ INNER JOIN departments dp ON p.department_id = dp.department_id
 INNER JOIN accreditation_cycles ac ON d.cycle_id = ac.cycle_id
 LEFT JOIN reviews r ON d.document_id = r.document_id
 WHERE d.status IN ('submitted', 'under_review', 'needs_revision') AND
-dp.department_id = :department_id
+p.program_id = :program_id
 GROUP BY d.document_id
 ORDER BY d.created_at DESC");
 $stmtDocuments->execute([
-    'department_id' => $department_id
+    'program_id' => $program_id
 ]);
 $documents = $stmtDocuments->fetchAll(PDO::FETCH_ASSOC);
 
@@ -150,6 +155,14 @@ $documentCount = 1;
                         class="fa-solid fa-file-alt me-2"></i> Document Reviews</a>
             </li>
         </ul>
+        <?php 
+            $stmt = $pdo->prepare("SELECT accreditation_level FROM program_levels WHERE program_id = :program_id");
+            $stmt->execute([
+                'program_id' => $program_id
+            ]);
+            $accreditation_level_data = $stmt->fetch(PDO::FETCH_ASSOC);
+            $accreditation_level = $accreditation_level_data["accreditation_level"];
+        ?>
         <div class="col-md-6 d-flex justify-content-end">
             <button class="btn bg-gradient-primary" data-bs-toggle="modal" data-bs-target="#createAccounts">+ create
                 assignment</button>
@@ -580,10 +593,7 @@ $documentCount = 1;
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"
                     onclick="location.reload()"></button>
             </div>
-            <div class="modal-body">
-                <form class="row g-1 align-items-start justify-content-start" id="assignment-form">
-                    <div class="mx-2 col-12">
-                        <?php
+                    <?php
                         $stmt = $pdo->prepare("SELECT * FROM accreditation_cycles WHERE status = 'active'");
                         $stmt->execute();
                         $cycles = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -595,16 +605,20 @@ $documentCount = 1;
                         
                         $stmt = $pdo->prepare("SELECT * FROM programs 
                         INNER JOIN departments ON programs.department_id = departments.department_id
-                        WHERE departments.department_id = :department_id");
+                        WHERE programs.program_id = :program_id");
                         $stmt->execute([
-                            'department_id' => $department_id
+                            'program_id' => $program_id
                         ]);
                         $programs = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         $cycle_name = $cycles["cycle_name"] ?? '';
                         $academic_year = $cycles["academic_year"] ?? '';
                         $cycle_id = $cycles["cycle_id"] ?? '';
                     ?>
-                        <label class="form-label">Cycle</label>
+            <div class="modal-body">
+                <form class="row g-1 align-items-start justify-content-start" id="assignment-form">
+                    <input type="hidden" name="user_id" value="<?= htmlspecialchars($user_id) ?>">
+                    <label class="form-label">Cycle</label>
+                    <div class=" col-12">
                         <input type="hidden" class="form-control" name="cycle_id"
                             value="<?= htmlspecialchars($cycle_id) ?>">
                         <p class="form-control text-dark border" readonly>
@@ -617,11 +631,36 @@ $documentCount = 1;
                             ?>
                         </p>
                     </div>
+                     <div class=" col-12">
+                        <label class="form-label">Program</label>
+                        <select name="program_id" id="program_id" class="form-select" required>
+                            <option value="">Select Program</option>
+                            <?php foreach($programs as $prog) : ?>
+                            <option value="<?= htmlspecialchars($prog["program_id"]) ?>">
+                                <?= htmlspecialchars($prog["program_name"] . ' (' . $prog["program_code"] . ')') ?>
+                            </option>
+                            <?php endforeach ?>
+                        </select>
+                    </div>
 
-                    <input type="hidden" name="user_id" value="<?= htmlspecialchars($user_id) ?>">
+                    <!-- Faculty Selection (will be loaded dynamically) -->
+                    <div class=" col-12">
+                        <label class="form-label">Faculty</label>
+                        <select name="faculty_id" id="faculty_id" class="form-select" required disabled>
+                            <option value="">Select Faculty</option>
+                            <!-- Faculty options will be loaded dynamically via AJAX -->
+                        </select>
+                    </div>
+                    <div class=" col-12">
+                    
+                    <?php 
+                        if($accreditation_level == 'I' || $accreditation_level == 'II'){
+                    ?>
+                    </div>
+
 
                     <!-- Area Selection -->
-                    <div class="mx-2 col-md-12">
+                    <div class=" col-12">
                         <label class="form-label">Area</label>
                         <select name="area_id" id="area_id" class="form-select" required>
                             <option value="">Select Area</option>
@@ -634,7 +673,7 @@ $documentCount = 1;
                     </div>
 
                     <!-- Parameter Selection (will be loaded dynamically) -->
-                    <div class="mx-2 col-md-12">
+                    <div class=" col-12">
                         <label class="form-label">Parameter</label>
                         <select name="parameter_id" id="parameter_id" class="form-select" required disabled>
                             <option value="">Select Parameter</option>
@@ -643,7 +682,7 @@ $documentCount = 1;
                     </div>
 
                     <!-- Indicators Checkbox Section -->
-                    <div class="mx-2 col-12">
+                    <div class=" col-12">
                         <label class="form-label">Indicators <span class="text-danger">*</span></label>
                         <div class="border rounded p-3 bg-light" id="indicators_container" style="display: none;">
                             <div class="form-check mb-2">
@@ -667,31 +706,64 @@ $documentCount = 1;
                             Please select at least one indicator
                         </div>
                     </div>
-
-                    <!-- Program Selection -->
-                    <div class="mx-2 col-md-12">
-                        <label class="form-label">Program</label>
-                        <select name="program_id" id="program_id" class="form-select" required>
-                            <option value="">Select Program</option>
-                            <?php foreach($programs as $prog) : ?>
-                            <option value="<?= htmlspecialchars($prog["program_id"]) ?>">
-                                <?= htmlspecialchars($prog["program_name"] . ' (' . $prog["program_code"] . ')') ?>
-                            </option>
-                            <?php endforeach ?>
-                        </select>
-                    </div>
-
-                    <!-- Faculty Selection (will be loaded dynamically) -->
-                    <div class="mx-2 col-md-12">
-                        <label class="form-label">Faculty</label>
-                        <select name="faculty_id" id="faculty_id" class="form-select" required disabled>
-                            <option value="">Select Faculty</option>
-                            <!-- Faculty options will be loaded dynamically via AJAX -->
-                        </select>
-                    </div>
-
+                    <?php }else{ ?>
+                        <?php 
+                        $stmtIndicators = $pdo->prepare("SELECT * FROM accreditation_indicators WHERE indicator_level = :indicator_level");
+                        $stmtIndicators->execute(['indicator_level' => $accreditation_level]);
+                        $indicators = $stmtIndicators->fetchAll(PDO::FETCH_ASSOC);
+                        ?>
+                        
+                        <div class="col-12">
+                            <label class="form-label">Select Indicators</label>
+                            <div class="border rounded p-3 bg-light">
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="select_all_indicators_advanced">
+                                    <label class="form-check-label fw-bold" for="select_all_indicators_advanced">
+                                        Select All Indicators
+                                    </label>
+                                </div>
+                                <hr class="my-2">
+                                <div id="indicators_checkboxes_advanced" class="row">
+                                    <?php if(count($indicators) > 0): ?>
+                                        <?php foreach($indicators as $indi): ?>
+                                            <div class="col-md-6 mb-2">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" 
+                                                        name="indicator_ids[]" 
+                                                        value="<?= htmlspecialchars($indi['indicator_id']) ?>" 
+                                                        id="indicator_<?= $indi['indicator_id'] ?>">
+                                                    <label class="form-check-label" for="indicator_<?= $indi['indicator_id'] ?>">
+                                                        <strong><?= htmlspecialchars($indi['indicator_code']) ?></strong>
+                                                        <?php if(!empty($indi['indicator_description'])): ?>
+                                                            <br><small class="text-muted"><?= htmlspecialchars($indi['indicator_description']) ?></small>
+                                                        <?php endif; ?>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    <?php else: ?>
+                                        <div class="col-12 text-center text-muted">
+                                            <i class="bi bi-info-circle"></i> No indicators found for this accreditation level
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                            <small class="text-muted">Select indicators for this assignment.</small>
+                        </div>
+                        
+                        <script>
+                        // Add "Select All" functionality for Level III+ indicators
+                        $(document).ready(function() {
+                            $('#select_all_indicators_advanced').change(function() {
+                                const isChecked = $(this).prop('checked');
+                                $('#indicators_checkboxes_advanced input[type="checkbox"]').prop('checked', isChecked);
+                            });
+                        });
+                        </script>
+                    <?php } ?>
+                   
                     <!-- Status Selection -->
-                    <div class="mx-2 col-md-12">
+                    <div class=" col-12">
                         <label class="form-label">Status</label>
                         <select name="status" id="status" class="form-select" required>
                             <option value="">Select status</option>
@@ -731,14 +803,6 @@ $(document).ready(function() {
     $('#program_id').on('change', function() {
         var programId = $(this).val();
         loadFacultyForProgram(programId);
-    });
-
-    // Form submission handler
-    $('#assignment-form').on('submit', function(e) {
-        e.preventDefault();
-        if (validateForm()) {
-            submitAssignmentForm();
-        }
     });
 });
 

@@ -47,7 +47,8 @@ html{
 /* LOGOUT BUTTON */
 #logoutDomain {
     transition: all 0.5s ease-out;
-    left: 67rem !important;
+    left: 40% !important;
+    top: 35% !important;
     opacity: 1;
     z-index: 99;
 }

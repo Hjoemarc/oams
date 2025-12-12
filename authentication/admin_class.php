@@ -923,7 +923,7 @@ class Action
             $parent_indicator_id = $_POST["parent_indicator_id"] ?? NULL;
             $indicator_code = trim($_POST["indicator_code"] ?? '');
             $indicator_description = trim($_POST["indicator_description"] ?? '');
-            $indicator_level = (int)($_POST["indicator_level"] ?? 1);
+            $indicator_level = $_POST["indicator_level"] ?? 'I';
             $sort_order = (int)($_POST["sort_order"] ?? 0);
 
             // Convert empty strings to NULL explicitly
@@ -1359,6 +1359,15 @@ class Action
                 return json_encode(['status' => 0, 'message' => 'Please select a file']);
             }
 
+            $getHead = $this->db->prepare("SELECT assigned_by FROM assignments
+            WHERE indicator_id = :indicator_id AND program_id = :program_id");
+            $getHead->execute([
+                'program_id' => $program_id,
+                'indicator_id' => $indicator_id
+            ]);
+            $getDataHead = $getHead->fetch(PDO::FETCH_ASSOC);
+            $user_id = $getDataHead["assigned_by"];
+
             $file = $_FILES['document_file'];
             
             // Extended file validation
@@ -1439,6 +1448,12 @@ class Action
                 $cycle_id,
                 $description,
                 $is_archive
+            ]);
+
+            $stmtNotifi = $this->db->prepare("INSERT INTO notifications (user_id, title, message) VALUES
+                (:user_id, 'Document Uploaded', 'A faculty Uploaded a document, you can now assign a reviewer!')");
+            $stmtNotifi->execute([
+                'user_id' => $user_id
             ]);
 
             $document_id = $this->db->lastInsertId();
@@ -1569,6 +1584,30 @@ class Action
                 $document_id
             ]);
 
+            $reviewStmt = $this->db->prepare("SELECT r.reviewer_id FROM reviews r
+                WHERE r.document_id = :document_id AND r.reviewer_id IS NOT NULL
+                LIMIT 1");
+            $reviewStmt->execute([
+                'document_id' => $document_id
+            ]);
+            $getData = $reviewStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($getData && isset($getData["reviewer_id"])) {
+                $user_id = $getData["reviewer_id"];
+                
+                $notifStmt = $this->db->prepare("
+                    INSERT INTO notifications 
+                    (user_id, title, message) 
+                    VALUES (:user_id, 'Document have been Updated!', 'Faculty Updated a document.')
+                ");
+                $notifStmt->execute([':user_id' => $user_id]);
+            } else {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'No reviewer found for document ID: ' . $document_id
+                ]);
+            }
+
             return json_encode([
                 'status' => 1,
                 'message' => 'Document updated successfully!'
@@ -1675,8 +1714,8 @@ class Action
             }
              $notifStmt = $this->db->prepare("
                             INSERT INTO notifications 
-                            (user_id, title, message, created_at) 
-                            VALUES (:user_id, 'Document have been Approved!', 'Your submitted document meets the requirements.', NOW())
+                            (user_id, title, message) 
+                            VALUES (:user_id, 'Document have been Approved!', 'Your submitted document meets the requirements.')
                         ");
                         $notifStmt->execute([':user_id' => $uploader_id]);
 
@@ -2625,51 +2664,94 @@ class Action
             ]);
         }
     }
-    function assignment_form() {
+   function assignment_form() {
         try {
             $cycle_id = $_POST['cycle_id'] ?? '';
             $user_id = $_POST['user_id'] ?? '';
             $faculty_id = $_POST['faculty_id'] ?? '';
-            $indicator_ids_str = $_POST['indicator_ids'] ?? '';
             $program_id = $_POST['program_id'] ?? '';
             $status = $_POST['status'] ?? 'not_started';
             
-            $stmt = $this->db->prepare("SELECT * FROM accreditation_cycles c
-            INNER JOIN programs p ON c.program_id = p.program_id
-            WHERE p.program_id = :program_id AND c.status = 'Active'");
-            $stmt->execute(['program_id' => $program_id]);
+            // DEBUG: Log received data
+            error_log("assignment_form POST data: " . print_r($_POST, true));
+            
+            // Handle indicator_ids - check both formats
+            $indicator_ids = [];
+            
+            if (isset($_POST['indicator_ids']) && is_array($_POST['indicator_ids'])) {
+                // FORMAT 1: Array from checkboxes (name="indicator_ids[]")
+                $indicator_ids = array_filter(array_map('trim', $_POST['indicator_ids']));
+                error_log("Format 1: Array from checkboxes - " . implode(',', $indicator_ids));
+                
+            } elseif (isset($_POST['indicator_ids']) && is_string($_POST['indicator_ids'])) {
+                // FORMAT 2: String from hidden field (name="indicator_ids")
+                $indicator_ids_str = trim($_POST['indicator_ids']);
+                if (!empty($indicator_ids_str)) {
+                    $indicator_ids = array_filter(array_map('trim', explode(',', $indicator_ids_str)));
+                }
+                error_log("Format 2: String from hidden field - " . $indicator_ids_str);
+                
+            } elseif (isset($_POST['indicators']) && is_array($_POST['indicators'])) {
+                // FORMAT 3: Old format for backward compatibility (name="indicators[]")
+                $indicator_ids = array_filter(array_map('trim', $_POST['indicators']));
+                error_log("Format 3: Old array format - " . implode(',', $indicator_ids));
+            }
+            
+            // DEBUG: Log processed data
+            error_log("assignment_form processed: cycle_id=$cycle_id, faculty_id=$faculty_id, program_id=$program_id, indicator_count=" . count($indicator_ids));
+            
+            // Validate required fields
+            if (empty($cycle_id) || empty($faculty_id) || empty($program_id)) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Cycle, Faculty, and Program are required fields'
+                ]);
+            }
+            
+            if (empty($indicator_ids)) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Please select at least one indicator'
+                ]);
+            }
+            
+            // FIXED: Check if the specified cycle exists and is active (lowercase 'active')
+            $stmt = $this->db->prepare("
+                SELECT * FROM accreditation_cycles c
+                INNER JOIN programs p ON c.program_id = p.program_id
+                WHERE c.cycle_id = :cycle_id 
+                AND p.program_id = :program_id 
+                AND c.status = 'active'
+            ");
+            $stmt->execute([
+                ':cycle_id' => $cycle_id,
+                ':program_id' => $program_id
+            ]);
             $cycleData = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if(!$cycleData){
-                // First check if there are ANY cycles (active or not)
+                // Get the actual status of this cycle for better error message
                 $checkStmt = $this->db->prepare("SELECT status FROM accreditation_cycles 
-                                                WHERE program_id = :program_id 
-                                                ORDER BY created_at DESC LIMIT 1");
-                $checkStmt->execute(['program_id' => $program_id]);
-                $latestCycle = $checkStmt->fetch(PDO::FETCH_ASSOC);
+                                                WHERE cycle_id = :cycle_id 
+                                                AND program_id = :program_id 
+                                                LIMIT 1");
+                $checkStmt->execute([
+                    ':cycle_id' => $cycle_id,
+                    ':program_id' => $program_id
+                ]);
+                $actualCycle = $checkStmt->fetch(PDO::FETCH_ASSOC);
                 
-                if($latestCycle){
-                    return json_encode([
-                        'status' => 0,
-                        'message' => 'Cycle is currently ' . $latestCycle['status'] . '. Please wait until it becomes active!'
-                    ]);
-                } else {
-                    return json_encode([
-                        'status' => 0,
-                        'message' => 'No accreditation cycle found for this program.'
-                    ]);
-                }
-            }
-            
-            // Convert comma-separated string to array
-            $indicator_ids = [];
-            if (!empty($indicator_ids_str)) {
-                $indicator_ids = array_filter(array_map('trim', explode(',', $indicator_ids_str)));
-            }
-
-            // Validate required fields
-            if (empty($cycle_id) || empty($faculty_id) || empty($program_id) || empty($indicator_ids)) {
-                return json_encode(['status' => 0, 'message' => 'All fields are required']);
+                // if($actualCycle){
+                //     return json_encode([
+                //         'status' => 0,
+                //         'message' => 'Cycle is currently ' . $actualCycle['status'] . '. Please select an active cycle!'
+                //     ]);
+                // } else {
+                //     return json_encode([
+                //         'status' => 0,
+                //         'message' => 'Cycle not found for this program.'
+                //     ]);
+                // }
             }
 
             $assigned_count = 0;
@@ -2678,6 +2760,14 @@ class Action
             
             // Create a separate assignment for EACH indicator
             foreach ($indicator_ids as $indicator_id) {
+                // Validate indicator exists
+                $indicatorCheck = $this->db->prepare("SELECT indicator_id FROM accreditation_indicators WHERE indicator_id = ?");
+                $indicatorCheck->execute([$indicator_id]);
+                if (!$indicatorCheck->fetch()) {
+                    $errors[] = "Invalid indicator ID: $indicator_id";
+                    continue;
+                }
+                
                 // Check if assignment already exists for this combination
                 $checkStmt = $this->db->prepare("
                     SELECT assignment_id 
@@ -2698,7 +2788,7 @@ class Action
                 if ($checkStmt->rowCount() > 0) {
                     // Assignment already exists for this indicator
                     $existing = $checkStmt->fetch(PDO::FETCH_ASSOC);
-                    $errors[] = "Indicator ID $indicator_id already has an assignment (ID: {$existing['assignment_id']})";
+                    $errors[] = "Indicator ID $indicator_id already has an assignment";
                     continue;
                 }
                 
@@ -2706,30 +2796,41 @@ class Action
                 $stmt = $this->db->prepare("
                     INSERT INTO assignments 
                     (user_id, indicator_id, program_id, status, cycle_id, assigned_by) 
-                    VALUES (:faculty_id, :indicator_id, :program_id, :status, :cycle_id, :assigned_by)
+                    VALUES (:user_id, :indicator_id, :program_id, :status, :cycle_id, :assigned_by)
                 ");
                 
-                $stmt->execute([
-                    ':faculty_id' => $faculty_id,
+                $result = $stmt->execute([
+                    ':user_id' => $faculty_id,
                     ':indicator_id' => $indicator_id,
                     ':program_id' => $program_id,
                     ':status' => $status,
                     ':cycle_id' => $cycle_id,
                     ':assigned_by' => $user_id
                 ]);
-
-                $assignment_id = $this->db->lastInsertId();
-                $assignment_ids[] = $assignment_id;
-                $assigned_count++;
+                
+                if ($result) {
+                    $assignment_id = $this->db->lastInsertId();
+                    $assignment_ids[] = $assignment_id;
+                    $assigned_count++;
+                    error_log("Created assignment $assignment_id for indicator $indicator_id");
+                } else {
+                    $errors[] = "Failed to create assignment for indicator $indicator_id";
+                }
             }
             
             if ($assigned_count === 0) {
                 return json_encode([
                     'status' => 0,
-                    'message' => 'No new assignments created. ' . implode(' ', $errors)
+                    'message' => 'No assignments created. ' . implode(' ', $errors)
                 ]);
             }
-            
+
+            $stmtNotifi = $this->db->prepare("INSERT INTO notifications (user_id, title, message) VALUES
+                (:user_id, 'New Assignment', 'You are assigned to: Review and submit documents for specific accreditation indicators.')");
+            $stmtNotifi->execute([
+                'user_id' => $faculty_id
+            ]);
+
             return json_encode([
                 'status' => 1,
                 'message' => 'Successfully created ' . $assigned_count . ' assignment(s)' . 
@@ -2739,6 +2840,7 @@ class Action
             ]);
             
         } catch (PDOException $e) {
+            error_log("assignment_form PDOException: " . $e->getMessage());
             return json_encode([
                 'status' => 0,
                 'message' => 'Database error: ' . $e->getMessage()
@@ -2947,9 +3049,9 @@ class Action
             ]);
 
             $stmtNotification = $this->db->prepare("INSERT INTO notifications (user_id, title, message)
-            VALUES (:user_id, 'Review Document', 'Review this document')");
+            VALUES (:user_id, 'Review Document', 'You have assign to review a document. please view it at Document managament')");
             $stmtNotification->execute([
-                'user_id' => $faculty_id
+                'user_id' => $reviewer_id
             ]);
             
             return json_encode([
@@ -3096,89 +3198,42 @@ class Action
                 throw new Exception("Database connection failed");
             }
 
-            // Initialize summary array
+            // Initialize summary array - only what frontend needs
             $summary = [
-                'total_programs' => 0,
-                'level1' => 0,
-                'level2' => 0,
-                'level3' => 0,
                 'level4' => 0,
-                'phase1' => 0,
-                'phase2' => 0,
-                'not_accredited' => 0,
-                'upcoming_surveys' => 0,
-                'accreditation_rate' => 0
+                'level3' => 0,
+                'level2' => 0,
+                'level1' => 0
             ];
 
-            // 1. Get total programs count
-            $programsQuery = "SELECT COUNT(*) as total FROM programs";
-            $programsStmt = $this->db->query($programsQuery);
-            if ($programsStmt) {
-                $result = $programsStmt->fetch(PDO::FETCH_ASSOC);
-                $summary['total_programs'] = (int)($result['total'] ?? 0);
-            }
-
-            // 2. Get programs with their latest accreditation
+            // Get counts from program_levels table (this is where accreditation_level is stored)
             $query = "
-                SELECT p.program_id, 
-                    (SELECT pa.accreditation_level 
-                        FROM program_accreditation pa 
-                        WHERE pa.program_id = p.program_id 
-                        ORDER BY pa.survey_date DESC 
-                        LIMIT 1) as latest_level
-                FROM programs p
+                SELECT 
+                    accreditation_level,
+                    COUNT(*) as count
+                FROM program_levels
+                WHERE accreditation_level IS NOT NULL
+                AND accreditation_level != ''
+                GROUP BY accreditation_level
             ";
 
             $stmt = $this->db->query($query);
             if ($stmt) {
-                $accreditedCount = 0;
-                
                 while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                    $level = strtolower($row['latest_level'] ?? '');
+                    $level = $row['accreditation_level'] ?? '';
+                    $count = (int)($row['count'] ?? 0);
                     
-                    if (empty($level)) {
-                        $summary['not_accredited']++;
-                    } else {
-                        $accreditedCount++;
-                        
-                        // Count by level
-                        if (in_array($level, ['1', 'i', 'level i', 'level 1'])) {
-                            $summary['level1']++;
-                        } elseif (in_array($level, ['2', 'ii', 'level ii', 'level 2'])) {
-                            $summary['level2']++;
-                        } elseif (in_array($level, ['3', 'iii', 'level iii', 'level 3'])) {
-                            $summary['level3']++;
-                        } elseif (in_array($level, ['4', 'iv', 'level iv', 'level 4'])) {
-                            $summary['level4']++;
-                        } elseif (strpos($level, 'phase1') !== false || strpos($level, 'phase 1') !== false) {
-                            $summary['phase1']++;
-                        } elseif (strpos($level, 'phase2') !== false || strpos($level, 'phase 2') !== false) {
-                            $summary['phase2']++;
-                        }
+                    // Map your ENUM values to the frontend expected format
+                    if ($level === 'IV' || $level === 'IV(Phase 2)') {
+                        $summary['level4'] += $count;
+                    } elseif ($level === 'III' || $level === 'III(Phase 2)') {
+                        $summary['level3'] += $count;
+                    } elseif ($level === 'II') {
+                        $summary['level2'] += $count;
+                    } elseif ($level === 'I') {
+                        $summary['level1'] += $count;
                     }
                 }
-                
-                // Calculate accreditation rate
-                if ($summary['total_programs'] > 0) {
-                    $summary['accreditation_rate'] = round(
-                        ($accreditedCount / $summary['total_programs']) * 100, 
-                        1
-                    );
-                }
-            }
-
-            // 3. Get upcoming surveys
-            $upcomingQuery = "
-                SELECT COUNT(DISTINCT program_id) as count
-                FROM program_accreditation 
-                WHERE survey_date >= CURDATE() 
-                AND survey_date <= DATE_ADD(CURDATE(), INTERVAL 60 DAY)
-            ";
-            
-            $upcomingStmt = $this->db->query($upcomingQuery);
-            if ($upcomingStmt) {
-                $result = $upcomingStmt->fetch(PDO::FETCH_ASSOC);
-                $summary['upcoming_surveys'] = (int)($result['count'] ?? 0);
             }
 
             // Return JSON response
@@ -3202,7 +3257,7 @@ class Action
         try {
             // Get POST data
             $program_id = isset($_POST['program_id']) ? $_POST['program_id'] : 
-                         (isset($_POST['program_id_select']) ? $_POST['program_id_select'] : null);
+                        (isset($_POST['program_id_select']) ? $_POST['program_id_select'] : null);
             
             if (!$program_id) {
                 return json_encode([
@@ -3225,8 +3280,13 @@ class Action
                 ]);
             }
             
-            // Validate program exists
-            $programCheck = $this->db->prepare("SELECT program_name FROM programs WHERE program_id = ?");
+            // Validate program exists and get department info
+            $programCheck = $this->db->prepare("
+                SELECT p.program_name, p.department_id, d.department_name 
+                FROM programs p
+                LEFT JOIN departments d ON p.department_id = d.department_id
+                WHERE p.program_id = ?
+            ");
             $programCheck->execute([$program_id]);
             $program = $programCheck->fetch(PDO::FETCH_ASSOC);
             
@@ -3237,25 +3297,71 @@ class Action
                 ]);
             }
             
-            // Insert accreditation record
+            // 1. Insert accreditation record (without accreditation_level)
             $stmt = $this->db->prepare("
                 INSERT INTO program_accreditation 
-                (program_id, accreditation_level, cycle_id, survey_date, accrediting_body, remarks)
-                VALUES (?, ?, ?, ?, ?, ?)
+                (program_id, cycle_id, survey_date, accrediting_body, remarks)
+                VALUES (?, ?, ?, ?, ?)
             ");
             
             $stmt->execute([
                 $program_id,
-                $accreditation_level,
                 $cycle_id,
                 $survey_date,
                 $accrediting_body,
                 $remarks
             ]);
             
+            // 2. Update or insert into program_levels table
+            $checkLevelStmt = $this->db->prepare("
+                SELECT level_id FROM program_levels WHERE program_id = ?
+            ");
+            $checkLevelStmt->execute([$program_id]);
+            $existingLevel = $checkLevelStmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($existingLevel) {
+                // Update existing record
+                $updateStmt = $this->db->prepare("
+                    UPDATE program_levels 
+                    SET accreditation_level = ?, updated_at = CURRENT_TIMESTAMP 
+                    WHERE program_id = ?
+                ");
+                $updateStmt->execute([$accreditation_level, $program_id]);
+            } else {
+                // Insert new record
+                $insertStmt = $this->db->prepare("
+                    INSERT INTO program_levels (program_id, accreditation_level)
+                    VALUES (?, ?)
+                ");
+                $insertStmt->execute([$program_id, $accreditation_level]);
+            }
+            
+            // 3. Check if department exists, insert if not
+            $checkDeptStmt = $this->db->prepare("
+                SELECT department_id FROM departments WHERE department_id = ?
+            ");
+            $checkDeptStmt->execute([$program['department_id']]);
+            $existingDept = $checkDeptStmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$existingDept && $program['department_id']) {
+                // Insert department if it doesn't exist (this shouldn't happen if foreign keys work)
+                $insertDeptStmt = $this->db->prepare("
+                    INSERT INTO departments (department_id, department_code, department_name)
+                    VALUES (?, ?, ?)
+                ");
+                // You need to get department_code somehow - adjust as needed
+                $dept_code = 'DEPT_' . $program['department_id'];
+                $insertDeptStmt->execute([
+                    $program['department_id'],
+                    $dept_code,
+                    $program['department_name'] ?? 'Unknown Department'
+                ]);
+            }
+            
             return json_encode([
                 'status' => 1,
-                'message' => 'Accreditation record added successfully for ' . $program['program_name']
+                'message' => 'Accreditation record added successfully for ' . $program['program_name'] . 
+                            ' and accreditation level updated to ' . $accreditation_level
             ]);
             
         } catch (PDOException $e) {

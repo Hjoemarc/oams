@@ -107,22 +107,27 @@ try {
         <?php foreach($colleges as $college): ?>
         <?php
             try {
-                // Get programs for this college
+                // Get programs for this college - FIXED QUERY
                 $programsStmt = $pdo->prepare("
-                    SELECT p.*,
+                    SELECT 
+                        p.*,
                         COALESCE(
-                            (SELECT pa.accreditation_level 
+                            (SELECT pl.accreditation_level 
                             FROM program_accreditation pa 
+                            INNER JOIN program_levels pl ON pa.program_id = pl.program_id
                             WHERE pa.program_id = p.program_id 
                             ORDER BY pa.survey_date DESC 
                             LIMIT 1),
                             'not_accredited'
                         ) as current_level,
-                        (SELECT pa.survey_date 
-                        FROM program_accreditation pa 
-                        WHERE pa.program_id = p.program_id 
-                        ORDER BY pa.survey_date DESC 
-                        LIMIT 1) as survey_date
+                        COALESCE(
+                            (SELECT pa.survey_date 
+                            FROM program_accreditation pa 
+                            WHERE pa.program_id = p.program_id 
+                            ORDER BY pa.survey_date DESC 
+                            LIMIT 1),
+                            NULL
+                        ) as survey_date
                     FROM programs p
                     WHERE p.department_id = ?
                     ORDER BY p.program_name
@@ -156,7 +161,9 @@ try {
                     </thead>
                     <tbody>
                         <?php foreach($programs as $program): 
-                            $levelClass = getLevelBadgeClass($program['current_level']);
+                            // Fix: Handle NULL current_level properly
+                            $currentLevel = $program['current_level'] ?? 'not_accredited';
+                            $levelClass = getLevelBadgeClass($currentLevel);
                             $surveyDate = $program['survey_date'] ? date('F j, Y', strtotime($program['survey_date'])) : 'Not scheduled';
                         ?>
                         <tr>
@@ -165,9 +172,9 @@ try {
                                 <small class="text-muted"><?= htmlspecialchars($program['program_code']) ?></small>
                             </td>
                             <td>
-                                <?php if($program['current_level'] && $program['current_level'] != 'not_accredited'): ?>
+                                <?php if($currentLevel && $currentLevel != 'not_accredited'): ?>
                                 <span class="badge <?= $levelClass ?>">
-                                    <?= formatLevelText($program['current_level']) ?>
+                                    <?= formatLevelText($currentLevel) ?>
                                 </span>
                                 <?php else: ?>
                                 <span class="badge bg-light text-dark">Not Accredited</span>
@@ -194,7 +201,7 @@ try {
                                         <i class="fas fa-edit"></i>
                                     </button>
                                     <button class="btn btn-warning btn-sm m-0"
-                                        onclick="viewNextLevelInfo(<?= $program['program_id'] ?>, '<?= addslashes($program['current_level'] ?? '') ?>')">
+                                        onclick="viewNextLevelInfo(<?= $program['program_id'] ?>, '<?= addslashes($currentLevel) ?>')">
                                         <i class="fas fa-arrow-up"></i>
                                     </button>
                                 </div>
@@ -270,7 +277,6 @@ try {
                                 <option value="">Select Cycle</option>
                                 <?php 
                                 try {
-                                    // FIXED: Changed from "cycles" to "accreditation_cycles"
                                     $allCycles = $pdo->query("SELECT * FROM accreditation_cycles ORDER BY academic_year DESC")->fetchAll();
                                     foreach($allCycles as $cycle): ?>
                                     <option value="<?= $cycle['cycle_id'] ?>">
@@ -346,20 +352,32 @@ try {
 </section>
 
 <?php
-// Helper functions
+// Helper functions - FIXED
 function getLevelBadgeClass($level) {
+    // Convert to string and lowercase for consistency
+    $level = strtolower((string)$level);
+    
     $classes = [
         '1' => 'bg-secondary',
         '2' => 'bg-primary',
         '3' => 'bg-success',
         '4' => 'bg-warning text-dark',
         'phase1' => 'bg-info',
-        'phase2' => 'bg-dark'
+        'phase2' => 'bg-dark',
+        'not_accredited' => 'bg-light text-dark',
+        '' => 'bg-light text-dark',
+        null => 'bg-light text-dark'
     ];
     return $classes[$level] ?? 'bg-light text-dark';
 }
 
 function formatLevelText($level) {
+    // Convert to string and handle null/empty
+    $level = (string)$level;
+    if(empty($level) || $level == 'not_accredited') {
+        return 'Not Accredited';
+    }
+    
     $texts = [
         '1' => 'Level I',
         '2' => 'Level II',
@@ -382,6 +400,7 @@ function isUpcomingSurvey($date) {
     }
 }
 ?>
+
 <script>
 $(document).ready(function() {
     // Update summary counts

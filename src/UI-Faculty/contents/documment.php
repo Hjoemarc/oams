@@ -1,4 +1,5 @@
 <?php
+// Change INNER JOIN to LEFT JOIN for assignments
 $stmtDocuments = $pdo->prepare("
     SELECT 
         d.*,
@@ -16,16 +17,21 @@ $stmtDocuments = $pdo->prepare("
         aa.area_name,
         ac.cycle_name,
         ac.academic_year,
-        dept.department_name
+        dept.department_name,
+        a.assignment_id as assignment_id,
+        a.user_id as assigned_to_user_id,
+        CONCAT(u2.first_name, ' ', u2.last_name) as assigned_to_name
     FROM documents d
+    LEFT JOIN assignments a ON d.assignment_id = a.assignment_id 
     INNER JOIN users u ON d.uploaded_by = u.user_id
+    LEFT JOIN users u2 ON a.user_id = u2.user_id  
     INNER JOIN accreditation_indicators ai ON d.indicator_id = ai.indicator_id
-    INNER JOIN accreditation_parameters ap ON ai.parameter_id = ap.parameter_id
-    INNER JOIN accreditation_areas aa ON ap.area_id = aa.area_id
+    LEFT JOIN accreditation_parameters ap ON ai.parameter_id = ap.parameter_id
+    LEFT JOIN accreditation_areas aa ON ap.area_id = aa.area_id
     INNER JOIN programs p ON d.program_id = p.program_id
     INNER JOIN accreditation_cycles ac ON d.cycle_id = ac.cycle_id
     INNER JOIN departments dept ON p.department_id = dept.department_id
-    WHERE u.user_id = :user_id
+    WHERE a.user_id = :user_id OR d.uploaded_by = :user_id 
     ORDER BY d.created_at DESC
 ");
 $stmtDocuments->execute([
@@ -34,11 +40,11 @@ $stmtDocuments->execute([
 $documents = $stmtDocuments->fetchAll(PDO::FETCH_ASSOC);
 
 // DEBUG: Add this after fetching documents
-echo "<!-- DEBUG: User ID = " . $user_id . " -->\n";
-echo "<!-- DEBUG: Number of documents found = " . count($documents) . " -->\n";
+echo " <!-- DEBUG: User ID = " . $user_id . " <br> -->";
+echo " <!-- DEBUG: Number of documents found = " . count($documents) . " <br> -->";
 if (count($documents) === 0) {
-    echo "<!-- DEBUG: No documents found for user ID " . $user_id . " -->\n";
-    echo "<!-- DEBUG: Query executed successfully: " . ($stmtDocuments->rowCount() ? 'Yes' : 'No') . " -->\n";
+    echo " <!-- DEBUG: No documents found for user ID " . $user_id . " <br> -->";
+    echo " <!-- DEBUG: Query executed successfully: " . ($stmtDocuments->rowCount() ? 'Yes' : 'No') . " <br> -->";
 }
 
 // Fetch data for dropdowns
@@ -80,6 +86,7 @@ $cycles = $stmtCycles->fetch(PDO::FETCH_ASSOC);
                             $academic_year = $cycles["academic_year"] ?? '';
                             $cycle_id = $cycles["cycle_id"] ?? '';
 ?>
+
 <section>
     <div class="d-flex justify-content-between align-items-center mb-2">
         <div class="mx-2">
