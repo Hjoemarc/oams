@@ -25,6 +25,8 @@
                 i.indicator_id,
                 i.indicator_code,
                 i.indicator_description,
+                i.indicator_level,
+                i.sort_order,
                 i.parameter_id,
                 p.parameter_code,
                 p.parameter_name,
@@ -448,7 +450,7 @@
                 <!-- Indicators -->
                 <div class="tab-pane fade" id="indicatorsInfo" role="tabpanel">
                     <!-- INDICATORS ADD AND SEARCH -->
-                    <div class="col-md-11 col-12 d-flex justify-content-between mb-3">
+                    <div class="col-md-12 col-12 d-flex justify-content-between mb-3">
                         <div class="col-md-4 col-12">
                             <input type="text" placeholder="Search by indicator code or description"
                                 id="searchIndicators" class="form-control">
@@ -479,8 +481,8 @@
 
                                         <!-- PARAMETER -->
                                         <div class="col-md-6">
-                                            <label class="form-label">Parameter</label>
-                                            <select name="parameter_id" class="form-select" required>
+                                            <label class="form-label">Parameter (optional)</label>
+                                            <select name="parameter_id" class="form-select">
                                                 <option value="">Select Parameter</option>
                                                 <?php foreach($parametersData as $parameter) : ?>
                                                 <option value="<?= htmlspecialchars($parameter["parameter_id"]) ?>">
@@ -559,8 +561,8 @@
 
                                     <div class="row g-3">
                                         <div class="col-md-6">
-                                            <label class="form-label">Parameter</label>
-                                            <select name="parameter_id" id="editParameterIds" class="form-select" required>
+                                            <label class="form-label">Parameter (optional)</label>
+                                            <select name="parameter_id" id="editParameterIds" class="form-select">
                                                 <option value="">Select Parameter</option>
                                                 <?php foreach($parametersData as $parameter) : ?>
                                                 <option value="<?= $parameter['parameter_id'] ?>">
@@ -668,17 +670,29 @@
                                     </td>
                                     <td>
                                         <div class="btn-group btn-group-sm" role="group">
-                                            <button type="button" class="btn btn-sm btn-primary" onclick="editIndicator(
-                                                '<?= $indicator['indicator_id'] ?>',
-                                                '<?= $indicator['parameter_id'] ?>',
-                                                '<?= htmlspecialchars($indicator['indicator_code']) ?>',
-                                                '<?= htmlspecialchars($indicator['indicator_description']) ?>',
-                                                '<?= $indicator['indicator_level'] ?? 1 ?>',
-                                                '<?= $indicator['sort_order'] ?? 0 ?>'
-                                            )">
+                                         <?php
+                                            // prepare safe values
+                                            $ind_id = (int)($indicator['indicator_id'] ?? 0);
+                                            $param_id = isset($indicator['parameter_id']) ? (int)$indicator['parameter_id'] : '';
+                                            $code = htmlspecialchars($indicator['indicator_code'] ?? '', ENT_QUOTES);
+                                            $desc = htmlspecialchars($indicator['indicator_description'] ?? '', ENT_QUOTES);
+                                            // replace newlines with HTML entity so attribute stays valid
+                                            $desc = str_replace(["\r\n", "\r", "\n"], "&#10;", $desc);
+                                            $level = (int)($indicator['indicator_level'] ?? 1);
+                                            $sort = (int)($indicator['sort_order'] ?? 0);
+                                            ?>
+                                            <button 
+                                                type="button"
+                                                class="btn btn-sm btn-primary editIndicatorBtn"
+                                                data-indicator-id="<?= $ind_id ?>"
+                                                data-parameter-id="<?= $param_id ?>"
+                                                data-indicator-code="<?= $code ?>"
+                                                data-indicator-description="<?= $desc ?>"
+                                                data-indicator-level="<?= $level ?>"
+                                                data-sort-order="<?= $sort ?>"
+                                            >
                                                 <i class="fas fa-edit"></i> Edit
                                             </button>
-
                                             <button type="button" class="btn btn-sm btn-danger"
                                                 onclick="setDeleteIndicatorId('<?= $indicator['indicator_id'] ?>')"
                                                 data-bs-toggle="modal" data-bs-target="#deleteIndicatorModal">
@@ -769,7 +783,22 @@ function setDeleteParameterId(parameterId) {
 }
 
 // JavaScript functions for Indicators
-function editIndicator(indicatorId, parameterId, indicatorCode, indicatorDescription, indicatorLevel = 1, sortOrder = 0) {
+document.addEventListener('click', function(e) {
+    const btn = e.target.closest && e.target.closest('.editIndicatorBtn');
+    if (!btn) return;
+
+    // get raw attribute values (safer for entities)
+    const indicatorId = btn.getAttribute('data-indicator-id') || '';
+    const parameterId = btn.getAttribute('data-parameter-id') || '';
+    const indicatorCode = btn.getAttribute('data-indicator-code') || '';
+    const indicatorDescriptionAttr = btn.getAttribute('data-indicator-description') || '';
+    const indicatorLevel = btn.getAttribute('data-indicator-level') || '1';
+    const sortOrder = btn.getAttribute('data-sort-order') || '0';
+
+    // convert the stored &#10; back into real newlines for the textarea
+    const indicatorDescription = indicatorDescriptionAttr.replace(/&#10;/g, '\n');
+
+    // populate modal inputs
     document.getElementById('editIndicatorId').value = indicatorId;
     document.getElementById('editParameterIds').value = parameterId;
     document.getElementById('editIndicatorCode').value = indicatorCode;
@@ -777,9 +806,11 @@ function editIndicator(indicatorId, parameterId, indicatorCode, indicatorDescrip
     document.getElementById('editIndicatorLevel').value = indicatorLevel;
     document.getElementById('editSortOrder').value = sortOrder;
 
-    var editModal = new bootstrap.Modal(document.getElementById('editIndicatorModal'));
-    editModal.show();
-}
+    // show modal
+    new bootstrap.Modal(document.getElementById('editIndicatorModal')).show();
+});
+
+
 
 function setDeleteIndicatorId(indicatorId) {
     document.getElementById('deleteIndicatorId').value = indicatorId;

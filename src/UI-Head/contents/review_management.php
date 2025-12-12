@@ -363,10 +363,10 @@ $documentCount = 1;
                                 <strong><?= htmlspecialchars($assignment['program_code']) ?></strong><br>
                                 <small><?= htmlspecialchars($assignment['program_name']) ?></small>
                             </td>
-                            <td>
+                            <td style="width: 3rem !important;">
                                 <span
                                     class="badge bg-info"><?= htmlspecialchars($assignment['indicator_code']) ?></span><br>
-                                <small><?= htmlspecialchars(substr($assignment['indicator_description'], 0, 50)) ?>...</small>
+                                <small><?= htmlspecialchars(substr($assignment['indicator_description'], 0, 20)) ?>...</small>
                             </td>
                             <td>
                                 <?= htmlspecialchars($assignment['deadline'] ?? 'No deadline') ?>

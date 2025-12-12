@@ -918,22 +918,37 @@ class Action
 
     function indicator_form() {
         try {
-            $parameter_id = $_POST["parameter_id"] ?? '';
-            $parent_indicator_id = !empty($_POST["parent_indicator_id"])
-                ? $_POST["parent_indicator_id"]
-                : NULL;
-            $indicator_code = $_POST["indicator_code"] ?? '';
-            $indicator_description = $_POST["indicator_description"] ?? '';
-            $indicator_level = $_POST["indicator_level"] ?? 1;
-            $sort_order = $_POST["sort_order"] ?? 0;
+            // Clean values
+            $parameter_id = $_POST["parameter_id"] ?? NULL;
+            $parent_indicator_id = $_POST["parent_indicator_id"] ?? NULL;
+            $indicator_code = trim($_POST["indicator_code"] ?? '');
+            $indicator_description = trim($_POST["indicator_description"] ?? '');
+            $indicator_level = (int)($_POST["indicator_level"] ?? 1);
+            $sort_order = (int)($_POST["sort_order"] ?? 0);
 
-            if (empty($parameter_id) || empty($indicator_code) || empty($indicator_description)) {
+            // Convert empty strings to NULL explicitly
+            if ($parameter_id === "" || $parameter_id === "0") {
+                $parameter_id = NULL;
+            }
+
+            if ($parent_indicator_id === "" || $parent_indicator_id === "0") {
+                $parent_indicator_id = NULL;
+            }
+
+            // If indicator_level = 1 → force NO parent
+            if ($indicator_level == 1) {
+                $parent_indicator_id = NULL;
+            }
+
+            // Validate fields
+            if (empty($indicator_code) || empty($indicator_description)) {
                 return json_encode([
                     'status' => 0,
                     'message' => 'All fields are required.'
                 ]);
             }
 
+            // Prepare insert
             $stmt = $this->db->prepare("
                 INSERT INTO accreditation_indicators 
                 (parameter_id, parent_indicator_id, indicator_code, indicator_description, indicator_level, sort_order)
@@ -957,6 +972,7 @@ class Action
 
         } catch (PDOException $e) {
             error_log("Database error: " . $e->getMessage());
+
             return json_encode([
                 'status' => 0,
                 'message' => 'An error occurred. Please try again later.'
@@ -965,34 +981,69 @@ class Action
     }
 
 
+
     function edit_indicator_form() {
         try {
+            // Collect values
             $indicator_id = $_POST["indicator_id"] ?? '';
-            $area_id = $_POST["area_id"] ?? '';
-            $indicator_code = $_POST["indicator_code"] ?? '';
-            $indicator_description = $_POST["indicator_description"] ?? '';
+            $parameter_id = $_POST["parameter_id"] ?? NULL;
+            $parent_indicator_id = $_POST["parent_indicator_id"] ?? NULL;
+            $indicator_code = trim($_POST["indicator_code"] ?? '');
+            $indicator_description = trim($_POST["indicator_description"] ?? '');
+            $indicator_level = (int)($_POST["indicator_level"] ?? 1);
+            $sort_order = (int)($_POST["sort_order"] ?? 0);
 
-            // Validate required fields
-            if (empty($indicator_id) || empty($area_id) || empty($indicator_code) || empty($indicator_description)) {
+            // Convert empty values to NULL
+            if ($parameter_id === "" || $parameter_id === "0") {
+                $parameter_id = NULL;
+            }
+
+            if ($parent_indicator_id === "" || $parent_indicator_id === "0") {
+                $parent_indicator_id = NULL;
+            }
+
+            // If level 1 → MUST HAVE NO PARENT
+            if ($indicator_level == 1) {
+                $parent_indicator_id = NULL;
+            }
+
+            // Cannot be its own parent
+            if ($parent_indicator_id == $indicator_id) {
                 return json_encode([
                     'status' => 0,
-                    'message' => 'All fields are required.'
+                    'message' => 'An indicator cannot be its own parent.'
                 ]);
             }
 
+            // Validate required fields
+            if (empty($indicator_id) || empty($indicator_code) || empty($indicator_description)) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'All required fields must be filled.'
+                ]);
+            }
+
+            // Update query (includes ALL important fields)
             $stmt = $this->db->prepare("
                 UPDATE accreditation_indicators 
-                SET area_id = :area_id,
+                SET 
+                    parameter_id = :parameter_id,
+                    parent_indicator_id = :parent_indicator_id,
                     indicator_code = :indicator_code,
-                    indicator_description = :indicator_description
+                    indicator_description = :indicator_description,
+                    indicator_level = :indicator_level,
+                    sort_order = :sort_order
                 WHERE indicator_id = :indicator_id
             ");
 
             $stmt->execute([
                 'indicator_id' => $indicator_id,
-                'area_id' => $area_id,
+                'parameter_id' => $parameter_id,
+                'parent_indicator_id' => $parent_indicator_id,
                 'indicator_code' => $indicator_code,
-                'indicator_description' => $indicator_description
+                'indicator_description' => $indicator_description,
+                'indicator_level' => $indicator_level,
+                'sort_order' => $sort_order
             ]);
 
             return json_encode([
@@ -1008,6 +1059,7 @@ class Action
             ]);
         }
     }
+
     function delete_indicator_form(){
         try {
            $indicator_id = $_POST["indicator_id"];
@@ -2482,9 +2534,12 @@ class Action
                 LEFT JOIN departments d ON u.department_id = d.department_id
                 WHERE u.user_role IN ('faculty') 
                 AND u.is_active = 'Active'
+                AND u.program_id = :program_id
                 ORDER BY u.last_name, u.first_name
             ");
-            $stmt->execute();
+            $stmt->execute([
+                'program_id' => $program_id
+            ]);
             $faculty = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             return json_encode([
@@ -3812,5 +3867,6 @@ class Action
             ]);
         }
     }
+    
 
 }   

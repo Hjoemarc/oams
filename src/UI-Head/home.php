@@ -1,5 +1,5 @@
 <body class="w-100">
-   <section class="col-md-12">
+   <section class="col-md-10">
       <div class="mb-4">
          <div class="mx-2">
             <h4><i class="fa fa-tv mx-2"></i>Department Dashboard</h4>
@@ -476,7 +476,7 @@ if (!empty($cycle_ids)) {
 
       <!-- Program Accreditation Status -->
       <div class="row mb-4">
-         <div class="col-lg-12">
+         <div class="col-md-12">
             <div class="card shadow mb-4">
                <div class="card-header py-3">
                   <h6 class="m-0 font-weight-bold text-dark">
@@ -561,7 +561,7 @@ if (!empty($cycle_ids)) {
       <!-- Accreditation History -->
       <?php if (!empty($accreditations)): ?>
       <div class="row mb-4">
-         <div class="col-lg-12">
+         <div class="col-md-12">
             <div class="card shadow mb-4">
                <div class="card-header py-3">
                   <h6 class="m-0 font-weight-bold text-dark">

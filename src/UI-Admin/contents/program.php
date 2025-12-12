@@ -262,7 +262,7 @@
                                         </div>
                                         <div class="col-12 text-center mt-3">
                                             <button type="submit" class="btn btn-danger px-5">
-                                                <i class="bi bi-person-plus-fill me-1"></i> Add Job Title
+                                                <i class="bi bi-person-plus-fill me-1"></i> Add Program
                                             </button>
                                         </div>
                                     </form>

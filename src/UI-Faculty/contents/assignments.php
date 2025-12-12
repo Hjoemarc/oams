@@ -25,47 +25,6 @@ ORDER BY ac.deadline ASC, a.assigned_at DESC");
 $stmtAssignments->execute(['user_id' => $user_id]);
 $assignments = $stmtAssignments->fetchAll(PDO::FETCH_ASSOC);
 
-// Pre-fetch sub-indicators for all assignments
-$assignmentIds = array_column($assignments, 'assignment_id');
-$assignmentsWithSubIndicators = [];
-
-if (!empty($assignmentIds)) {
-    $placeholders = implode(',', array_fill(0, count($assignmentIds), '?'));
-    
-    $stmtSubIndicators = $pdo->prepare("
-        SELECT 
-            asi.assignment_id,
-            asi.assignment_sub_id,
-            asi.status as sub_status,
-            asi.assigned_at as sub_assigned_at,
-            asi.updated_at as sub_updated_at,
-            ai.indicator_id as sub_indicator_id,
-            ai.indicator_code as sub_indicator_code,
-            ai.indicator_description as sub_indicator_description
-        FROM assignment_sub_indicators asi
-        INNER JOIN accreditation_indicators ai ON asi.parent_indicator_id = ai.indicator_id
-        WHERE asi.assignment_id IN ($placeholders)
-        ORDER BY ai.indicator_code
-    ");
-    $stmtSubIndicators->execute($assignmentIds);
-    $allSubIndicators = $stmtSubIndicators->fetchAll(PDO::FETCH_ASSOC);
-    
-    // Group sub-indicators by assignment_id
-    $subIndicatorsByAssignment = [];
-    foreach ($allSubIndicators as $sub) {
-        $subIndicatorsByAssignment[$sub['assignment_id']][] = $sub;
-    }
-    
-    // Merge sub-indicators with assignments
-    foreach ($assignments as $assignment) {
-        $assignment['sub_indicators'] = $subIndicatorsByAssignment[$assignment['assignment_id']] ?? [];
-        $assignment['sub_indicator_count'] = count($assignment['sub_indicators']);
-        $assignmentsWithSubIndicators[] = $assignment;
-    }
-} else {
-    $assignmentsWithSubIndicators = $assignments;
-}
-
 $assignmentCount = 1;
 
 // Fetch reviewers (users with QA role)
@@ -208,32 +167,17 @@ $documentCount = 1;
                     </thead>
                     <tbody id="assignmentsTable">
                         <?php foreach($assignments as $assignment) : 
-                            // Fetch sub-indicators for this assignment
-                            $stmtSub = $pdo->prepare("
-                                SELECT 
-                                    asi.*,
-                                    ai.indicator_code as sub_indicator_code,
-                                    ai.indicator_description as sub_indicator_description
-                                FROM assignment_sub_indicators asi
-                                LEFT JOIN accreditation_indicators ai ON asi.parent_indicator_id = ai.indicator_id
-                                WHERE asi.assignment_id = ?
-                            ");
-                            $stmtSub->execute([$assignment['assignment_id']]);
-                            $subIndicators = $stmtSub->fetchAll(PDO::FETCH_ASSOC);
-                            
-                            // Convert to JSON for JavaScript
-                            $subIndicatorsJson = htmlspecialchars(json_encode($subIndicators), ENT_QUOTES, 'UTF-8');
-                            
                             // Determine status badge
                             $statusBadge = '';
                             switch($assignment['assignment_status']) {
                                 case 'submitted': $statusBadge = 'badge bg-success'; break;
                                 case 'in_progress': $statusBadge = 'badge bg-primary'; break;
                                 case 'not_started': $statusBadge = 'badge bg-secondary'; break;
+                                case 'completed': $statusBadge = 'badge bg-success'; break;
                                 default: $statusBadge = 'badge bg-warning';
                             }
                             
-                            // Check if overdue - FIXED: Calculate inside the loop
+                            // Check if overdue
                             $isOverdue = false;
                             if (!empty($assignment['deadline']) && $assignment['assignment_status'] != 'completed') {
                                 $deadlineTimestamp = strtotime($assignment['deadline']);

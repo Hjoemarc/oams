@@ -86,27 +86,7 @@ try {
         </div>
     </div>
 
-    <!-- Filters -->
-    <div class="row mb-3">
-        <div class="col-md-6">
-            <select id="filterCollege" class="form-select form-select-sm">
-                <option value="">All Colleges/Schools</option>
-                <?php if(is_array($colleges)): ?>
-                <?php foreach($colleges as $college): ?>
-                <option value="<?= $college['department_id'] ?>">
-                    <?= htmlspecialchars($college['department_name']) ?> (<?= $college['program_count'] ?>)
-                </option>
-                <?php endforeach; ?>
-                <?php endif; ?>
-            </select>
-        </div>
-        <div class="col-md-6">
-            <div class="input-group">
-                <input type="text" placeholder="Search programs..." id="searchPrograms"
-                    class="form-control form-control-sm">
-            </div>
-        </div>
-    </div>
+
 
     <!-- Main Accreditation Display (Like ZPPSU Website) -->
     <div id="accreditationDisplay">
