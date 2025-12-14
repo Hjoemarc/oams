@@ -362,4 +362,9 @@ if ($action === 'unread_count') {
     echo $result;
     exit;
 }
+if ($action === 'getCyclesByPorgram') {
+    $result = $crud->getCyclesByPorgram();
+    echo $result;
+    exit;
+}
 ?>

@@ -193,7 +193,8 @@ try {
                             </td>
                             <td class="text-center">
                                 <div class="btn-group btn-group-sm">
-                                    <a href="index.php?page=contents/program_history&program_id=<?= $program['program_id'] ?>" class="btn btn-info btn-sm m-0">
+                                    <a href="index.php?page=contents/program_history&program_id=<?= $program['program_id'] ?>"
+                                        class="btn btn-info btn-sm m-0">
                                         <i class="fas fa-history"></i>
                                     </a>
                                     <button class="btn btn-danger btn-sm m-0"
@@ -222,11 +223,10 @@ try {
         <?php endif; ?>
     </div>
 
-    <!-- Add/Update Accreditation Modal -->
     <div class="modal fade" id="addAccreditationModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-header  bg-gradient-primary text-white">
+                <div class="modal-header bg-gradient-primary text-white">
                     <h5 class="modal-title text-white"><i class="fas fa-award"></i> Update Accreditation Status</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
@@ -238,17 +238,17 @@ try {
                             <select name="program_id_select" id="programSelect" class="form-select" required>
                                 <option value="">Select Program</option>
                                 <?php 
-                                try {
-                                    $allPrograms = $pdo->query("SELECT p.*, d.department_name FROM programs p JOIN departments d ON p.department_id = d.department_id ORDER BY d.department_name, p.program_name")->fetchAll();
-                                    foreach($allPrograms as $program): ?>
-                                    <option value="<?= $program['program_id'] ?>">
-                                        <?= htmlspecialchars($program['department_name'] . ' - ' . $program['program_name']) ?>
-                                    </option>
-                                    <?php endforeach;
-                                } catch (PDOException $e) {
-                                    echo "<option value='' disabled>Error loading programs</option>";
-                                }
-                                ?>
+                            try {
+                                $allPrograms = $pdo->query("SELECT p.*, d.department_name FROM programs p JOIN departments d ON p.department_id = d.department_id ORDER BY d.department_name, p.program_name")->fetchAll();
+                                foreach($allPrograms as $program): ?>
+                                <option value="<?= $program['program_id'] ?>">
+                                    <?= htmlspecialchars($program['department_name'] . ' - ' . $program['program_name']) ?>
+                                </option>
+                                <?php endforeach;
+                            } catch (PDOException $e) {
+                                echo "<option value='' disabled>Error loading programs</option>";
+                            }
+                            ?>
                             </select>
                         </div>
                         <div class="mb-3">
@@ -273,20 +273,8 @@ try {
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Cycle</label>
-                            <select name="cycle_id" id="cycle_id" class="form-select" required>
-                                <option value="">Select Cycle</option>
-                                <?php 
-                                try {
-                                    $allCycles = $pdo->query("SELECT * FROM accreditation_cycles ORDER BY academic_year DESC")->fetchAll();
-                                    foreach($allCycles as $cycle): ?>
-                                    <option value="<?= $cycle['cycle_id'] ?>">
-                                        <?= htmlspecialchars($cycle['cycle_name'] . ' - ' . $cycle['academic_year']) ?>
-                                    </option>
-                                    <?php endforeach;
-                                } catch (PDOException $e) {
-                                    echo "<option value='' disabled>Error loading cycles</option>";
-                                }
-                                ?>
+                            <select name="cycle_id" id="cycleSelect" class="form-select" required>
+                                <option value="">First select a program</option>
                             </select>
                         </div>
                         <div class="mb-3">
@@ -303,6 +291,8 @@ try {
             </div>
         </div>
     </div>
+
+
 
     <!-- View History Modal -->
     <div class="modal fade" id="viewHistoryModal" tabindex="-1" aria-hidden="true">
@@ -774,7 +764,7 @@ $(document).ready(function() {
                 return '<ul class="list-group list-group-flush">' +
                     lines.map(line =>
                         `<li class="list-group-item border-0 py-1"><i class="fas fa-check-circle text-success me-2"></i>${line.trim()}</li>`
-                        ).join('') +
+                    ).join('') +
                     '</ul>';
             }
             return `<div class="p-3 border rounded bg-light">${requirements}</div>`;
@@ -842,6 +832,86 @@ $(document).ready(function() {
         bsToast.show();
         setTimeout(() => toast.remove(), 3000);
     }
+});
+</script>
+<script>
+$(document).ready(function() {
+    const programSelect = $('#programSelect');
+    const cycleSelect = $('#cycleSelect');
+    
+    programSelect.on('change', function() {
+        const programId = $(this).val();
+        
+        // Clear and disable cycle select
+        cycleSelect.html('<option value="">Loading cycles...</option>').prop('disabled', true);
+        
+        if (!programId) {
+            cycleSelect.html('<option value="">First select a program</option>').prop('disabled', true);
+            return;
+        }
+        
+        // AJAX call to get cycles for the selected program
+        $.ajax({
+             url: base_url + "authentication/action.php?action=getCyclesByPorgram",
+            type: 'POST',
+            data: {
+                action: 'get_program_cycles',
+                program_id: programId
+            },
+            dataType: 'json',
+            beforeSend: function() {
+                // Optional: Show loading indicator
+                cycleSelect.html('<option value="">Loading cycles...</option>');
+            },
+            success: function(response) {
+                if (response.status === 1) {
+                    cycleSelect.html('<option value="">Select Cycle</option>');
+                    
+                    if (response.cycles && response.cycles.length > 0) {
+                        $.each(response.cycles, function(index, cycle) {
+                            cycleSelect.append(
+                                $('<option></option>').val(cycle.cycle_id).text(
+                                    cycle.cycle_name + ' - ' + cycle.academic_year
+                                )
+                            );
+                        });
+                        cycleSelect.prop('disabled', false);
+                    } else {
+                        cycleSelect.html('<option value="">No cycles available for this program</option>');
+                        cycleSelect.prop('disabled', true);
+                    }
+                } else {
+                    cycleSelect.html('<option value="">Error loading cycles: ' + (response.message || 'Unknown error') + '</option>');
+                    console.error('Server error:', response.message);
+                    
+                    // Show error toast
+                    Swal.fire({
+                        title: "Error",
+                        text: response.message || "Failed to load cycles",
+                        icon: "error",
+                        toast: true,
+                        position: "top-end",
+                        timer: 3000,
+                        showConfirmButton: false,
+                    });
+                }
+            },
+            error: function(jqXHR, textStatus, err) {
+                console.error("AJAX error:", textStatus, err);
+                cycleSelect.html('<option value="">Error loading cycles</option>');
+                
+                Swal.fire({
+                    title: "Connection Error",
+                    text: "Please check your connection and try again.",
+                    icon: "error",
+                    toast: true,
+                    position: "top-end",
+                    timer: 3000,
+                    showConfirmButton: false,
+                });
+            }
+        });
+    });
 });
 </script>
 <style>

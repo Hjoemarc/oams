@@ -3653,7 +3653,7 @@ class Action
             $assignment_id = $_POST['assignment_id'];
             
             // Get the main indicator ID from the assignment
-            $mainStmt = $pdo->prepare("SELECT indicator_id FROM assignments WHERE assignment_id = ?");
+            $mainStmt = $this->db->prepare("SELECT indicator_id FROM assignments WHERE assignment_id = ?");
             $mainStmt->execute([$assignment_id]);
             $main_assignment = $mainStmt->fetch(PDO::FETCH_ASSOC);
             
@@ -3667,7 +3667,7 @@ class Action
             $main_indicator_id = $main_assignment['indicator_id'];
             
             // Method 1: Get sub-indicators from assignment_sub_indicators table
-            $stmt = $pdo->prepare("
+            $stmt = $this->db->prepare("
                 SELECT 
                     asi.assignment_sub_id,
                     asi.status,
@@ -3687,7 +3687,7 @@ class Action
             // If no results from assignment_sub_indicators, try Method 2: 
             // Get all indicators that have this as parent from accreditation_indicators
             if (empty($sub_indicators)) {
-                $stmt = $pdo->prepare("
+                $stmt = $this->db->prepare("
                     SELECT 
                         NULL as assignment_sub_id,
                         'not_started' as status,
@@ -3974,5 +3974,33 @@ class Action
         }
     }
     
+    function getCyclesByPorgram(){
+        if (!isset($_POST['program_id']) || empty($_POST['program_id'])) {
+        echo json_encode(['status' => 0, 'message' => 'Program ID is required']);
+            exit;
+        }
+        
+        $program_id = (int)$_POST['program_id'];
+        try {
+        $stmt = $this->db->prepare("
+            SELECT cycle_id, cycle_name, academic_year 
+            FROM accreditation_cycles 
+            WHERE program_id = :program_id 
+            ORDER BY academic_year DESC
+        ");
+        $stmt->execute([':program_id' => $program_id]);
+        $cycles = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        echo json_encode([
+            'status' => 1,
+            'cycles' => $cycles
+        ]);
+        } catch (PDOExcedption $e) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occured: ' . $e->getMessage()
+            ]);
+        }
+    }
 
 }   
