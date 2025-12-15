@@ -44,6 +44,7 @@ if ($action === 'changePassword_verification_form') {
 		echo $validation;
 	}
 }
+
 // ACCOUNT MANAGEMENT ===========================================
 if ($action === 'register_form') {
 	$validation = $crud->register_form();
@@ -137,6 +138,12 @@ if ($action === 'edit_indicator_form') {
 }
 if ($action === 'delete_indicator_form') {
 	$validation = $crud->delete_indicator_form();
+	if ($validation) {
+		echo $validation;
+	}
+}
+if ($action === 'changePass_form') {
+	$validation = $crud->changePass_form();
 	if ($validation) {
 		echo $validation;
 	}
@@ -367,4 +374,5 @@ if ($action === 'getCyclesByPorgram') {
     echo $result;
     exit;
 }
+
 ?>

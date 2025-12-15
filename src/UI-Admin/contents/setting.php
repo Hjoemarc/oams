@@ -203,24 +203,31 @@
     <!-- CHANGE PASSWORD MODAL -->
     <div class="modal fade" id="changePassword" tabindex="-1" aria-labelledby="passwordModalLabel" aria-hidden="true">
         <div class="modal-dialog">
-            <form id="changePass_form" class="modal-content">
-                <input type="hidden" name="admin_id" value="<?= $admin_id ?>">
+            <form id="changePass_form" class="modal-content" autocomplete="off">
+                <input type="hidden" name="user_id" value="<?= htmlspecialchars($admin_id) ?>">
+
                 <div class="modal-header bg-gradient-primary">
-                    <h5 class="modal-title text-start text-white w-100" id="passwordModalLabel">Change Password</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <h5 class="modal-title text-white" id="passwordModalLabel">
+                        Change Password
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
+
                 <div class="modal-body">
-                    <label for="currentPassword">Current Password:</label>
-                    <input type="password" name="current_password" id="currentPassword" class="form-control" required>
+                    <label class="form-label">Current Password</label>
+                    <input type="password" name="current_password" class="form-control" required>
                 </div>
+
                 <div class="modal-body">
-                    <label for="newPassword">New Password:</label>
-                    <input type="password" name="new_pass" id="newPassword" class="form-control" required>
+                    <label class="form-label">New Password</label>
+                    <input type="password" name="new_pass" class="form-control" minlength="8" required>
                 </div>
+
                 <div class="modal-body">
-                    <label for="confirmPassword">Confirm Password:</label>
-                    <input type="password" name="confirm_pass" id="confirmPassword" class="form-control" required>
+                    <label class="form-label">Confirm Password</label>
+                    <input type="password" name="confirm_pass" class="form-control" minlength="8" required>
                 </div>
+
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="submit" class="btn btn-primary">Confirm</button>
@@ -228,4 +235,5 @@
             </form>
         </div>
     </div>
+
 </section>

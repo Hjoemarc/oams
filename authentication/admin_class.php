@@ -419,6 +419,93 @@ class Action
             ]);
         }
     }
+    function changePass_form() {
+        try {
+            // Basic sanitization
+            $current_password = trim($_POST["current_password"] ?? '');
+            $new_pass         = trim($_POST["new_pass"] ?? '');
+            $confirm_pass     = trim($_POST["confirm_pass"] ?? '');
+            $user_id          = intval($_POST["user_id"] ?? 0);
+
+            // Validate required fields
+            // if (!$user_id || !$current_password || !$new_pass || !$confirm_pass) {
+            //     return json_encode([
+            //         'status' => 0,
+            //         'message' => 'All fields are required.'
+            //     ]);
+            // }
+
+            // Validate match
+            if ($new_pass !== $confirm_pass) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Passwords do not match.'
+                ]);
+            }
+
+            // Optional: password length rule
+            if (strlen($new_pass) < 8) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Password must be at least 8 characters long.'
+                ]);
+            }
+
+            // Fetch user password
+            $stmt = $this->db->prepare(
+                "SELECT password FROM users WHERE user_id = :user_id AND is_active = 'Active'"
+            );
+            $stmt->execute(['user_id' => $user_id]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$user) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'User not found or inactive.'
+                ]);
+            }
+
+            // Verify old password
+            if (!password_verify($current_password, $user["password"])) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Current password is incorrect.'
+                ]);
+            }
+
+            // Hash new password (future-proof)
+            $hash = password_hash($new_pass, PASSWORD_DEFAULT);
+
+            // Update password
+            $stmt = $this->db->prepare(
+                "UPDATE users SET password = :password WHERE user_id = :user_id"
+            );
+            $stmt->execute([
+                'password' => $hash,
+                'user_id'  => $user_id
+            ]);
+
+            if ($stmt->rowCount() === 0) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Password update failed.'
+                ]);
+            }
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Password changed successfully!'
+            ]);
+
+        } catch (PDOException $e) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'Database error.'
+            ]);
+        }
+    }
+
+    
     function forget_account_form()
     {
         try {
@@ -2054,235 +2141,124 @@ class Action
         }
     }
     function edit_compliance_form() {
-        try {
-            // Get form data
-            $compliance_id = $_POST["compliance_id"] ?? '';
-            $program_id = $_POST["program_id"] ?? '';
-            $cycle_id = $_POST["cycle_id"] ?? '';
-            $indicator_id = $_POST["indicator_id"] ?? '';
-            $criteria_id = $_POST["criteria_id"] ?? null;
-            $status = $_POST["status"] ?? 'not_assessed';
-            $compliance_score = $_POST["compliance_score"] ?? null;
-            $evidence_count = $_POST["evidence_count"] ?? 0;
-            $reviewer_id = $_POST["reviewer_id"] ?? null;
-            $review_date = $_POST["review_date"] ?? null;
-            $comments = $_POST["comments"] ?? '';
-            $current_user_id = $_POST["user_id"];
+    
+    try {
+        // Get form data
+        $compliance_id = $_POST["compliance_id"] ?? '';
+        $status = $_POST["status"] ?? 'not_assessed';
+        $compliance_score = $_POST["compliance_score"] ?? null;
+        $reviewer_id = $_POST["reviewer_id"] ?? null;
+        $review_date = $_POST["review_date"] ?? null;
+        $comments = $_POST["comments"] ?? '';
+        
+        $current_user_id = $_SESSION['user_id'] ?? 0; // Get from session instead of form
 
-            // Validate required fields
-            if (empty($compliance_id) || empty($program_id) || empty($cycle_id) || empty($indicator_id)) {
-                return json_encode([
-                    'status' => 0,
-                    'message' => 'All required fields must be filled.'
-                ]);
-            }
+        if($_SESSION["adminData"]["user_id"]){
+            $current_user_id = $_SESSION["adminData"]["user_id"];
+        }else if($_SESSION['headData']['user_id']){
+            $current_user_id = $_SESSION['headData']['user_id'];
+        }
 
-            // Check if compliance record exists
-            $checkExists = $this->db->prepare("SELECT compliance_id FROM compliance_tracking WHERE compliance_id = ?");
-            $checkExists->execute([$compliance_id]);
-            if (!$checkExists->fetch()) {
-                return json_encode([
-                    'status' => 0,
-                    'message' => 'Compliance record not found.'
-                ]);
-            }
-
-            // Validate program exists
-            $checkProgram = $this->db->prepare("SELECT program_id FROM programs WHERE program_id = ?");
-            $checkProgram->execute([$program_id]);
-            if (!$checkProgram->fetch()) {
-                return json_encode([
-                    'status' => 0,
-                    'message' => 'Selected program does not exist.'
-                ]);
-            }
-
-            // Validate cycle exists
-            $checkCycle = $this->db->prepare("SELECT cycle_id FROM accreditation_cycles WHERE cycle_id = ?");
-            $checkCycle->execute([$cycle_id]);
-            if (!$checkCycle->fetch()) {
-                return json_encode([
-                    'status' => 0,
-                    'message' => 'Selected accreditation cycle does not exist.'
-                ]);
-            }
-
-            // Validate indicator exists
-            $checkIndicator = $this->db->prepare("SELECT indicator_id FROM accreditation_indicators WHERE indicator_id = ?");
-            $checkIndicator->execute([$indicator_id]);
-            if (!$checkIndicator->fetch()) {
-                return json_encode([
-                    'status' => 0,
-                    'message' => 'Selected indicator does not exist.'
-                ]);
-            }
-
-            // Validate criteria if provided
-            if (!empty($criteria_id)) {
-                $checkCriteria = $this->db->prepare("SELECT criteria_id FROM accreditation_criteria WHERE criteria_id = ?");
-                $checkCriteria->execute([$criteria_id]);
-                if (!$checkCriteria->fetch()) {
-                    return json_encode([
-                        'status' => 0,
-                        'message' => 'Selected criteria does not exist.'
-                    ]);
-                }
-            }
-
-            // Validate status
-            $allowed_statuses = ['compliant', 'non_compliant', 'partial', 'not_assessed'];
-            if (!in_array($status, $allowed_statuses)) {
-                $status = 'not_assessed';
-            }
-
-            // Validate compliance score (0-100)
-            if ($compliance_score !== null && $compliance_score !== '') {
-                $compliance_score = floatval($compliance_score);
-                if ($compliance_score < 0 || $compliance_score > 100) {
-                    return json_encode([
-                        'status' => 0,
-                        'message' => 'Compliance score must be between 0 and 100.'
-                    ]);
-                }
-            } else {
-                $compliance_score = null;
-            }
-
-            // Validate evidence count
-            $evidence_count = intval($evidence_count);
-            if ($evidence_count < 0) {
-                $evidence_count = 0;
-            }
-
-            // Validate reviewer if provided
-            if (!empty($reviewer_id)) {
-                $checkReviewer = $this->db->prepare("SELECT user_id FROM users WHERE user_id = ?");
-                $checkReviewer->execute([$reviewer_id]);
-                if (!$checkReviewer->fetch()) {
-                    return json_encode([
-                        'status' => 0,
-                        'message' => 'Selected reviewer does not exist.'
-                    ]);
-                }
-            }
-
-            // Validate review date if provided
-            if (!empty($review_date)) {
-                $review_date_obj = DateTime::createFromFormat('Y-m-d', $review_date);
-                if (!$review_date_obj || $review_date_obj->format('Y-m-d') !== $review_date) {
-                    return json_encode([
-                        'status' => 0,
-                        'message' => 'Invalid review date format. Use YYYY-MM-DD.'
-                    ]);
-                }
-            }
-
-            // Check for duplicate compliance record (excluding current one)
-            $checkDuplicate = $this->db->prepare("
-                SELECT compliance_id 
-                FROM compliance_tracking 
-                WHERE program_id = ? 
-                AND cycle_id = ? 
-                AND indicator_id = ?
-                AND (criteria_id = ? OR (? IS NULL AND criteria_id IS NULL))
-                AND compliance_id != ?
-            ");
-            $checkDuplicate->execute([$program_id, $cycle_id, $indicator_id, $criteria_id, $criteria_id, $compliance_id]);
-            
-            if ($checkDuplicate->fetch()) {
-                return json_encode([
-                    'status' => 0,
-                    'message' => 'Another compliance record already exists for this program, cycle, and indicator combination.'
-                ]);
-            }
-
-            // Update the compliance record
-            $stmt = $this->db->prepare("
-                UPDATE compliance_tracking 
-                SET program_id = :program_id,
-                    cycle_id = :cycle_id,
-                    indicator_id = :indicator_id,
-                    criteria_id = :criteria_id,
-                    status = :status,
-                    compliance_score = :compliance_score,
-                    evidence_count = :evidence_count,
-                    reviewer_id = :reviewer_id,
-                    review_date = :review_date,
-                    comments = :comments
-                WHERE compliance_id = :compliance_id
-            ");
-
-            $stmt->execute([
-                ':compliance_id' => $compliance_id,
-                ':program_id' => $program_id,
-                ':cycle_id' => $cycle_id,
-                ':indicator_id' => $indicator_id,
-                ':criteria_id' => $criteria_id,
-                ':status' => $status,
-                ':compliance_score' => $compliance_score,
-                ':evidence_count' => $evidence_count,
-                ':reviewer_id' => $reviewer_id,
-                ':review_date' => $review_date,
-                ':comments' => $comments
-            ]);
-
-            if ($stmt->rowCount() === 0) {
-                return json_encode([
-                    'status' => 0,
-                    'message' => 'No changes were made.'
-                ]);
-            }
-
-            // Log the action
-            if ($current_user_id > 0) {
-                $logStmt = $this->db->prepare("
-                    INSERT INTO activity_logs 
-                        (user_id, action, description, ip_address, user_agent)
-                    VALUES 
-                        (:user_id, :action, :description, :ip_address, :user_agent)
-                ");
-                
-                // Get IP address
-                $ip_address = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-                if (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-                    $ip_address = $_SERVER['HTTP_X_FORWARDED_FOR'];
-                }
-                
-                // Get user agent
-                $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
-                
-                $logStmt->execute([
-                    ':user_id' => $current_user_id,
-                    ':action' => 'edit_compliance',
-                    ':description' => "Updated compliance record #{$compliance_id} - Program:{$program_id}, Indicator:{$indicator_id}, Status:{$status}, Score:{$compliance_score}",
-                    ':ip_address' => $ip_address,
-                    ':user_agent' => $user_agent
-                ]);
-            }
-
-            return json_encode([
-                'status' => 1,
-                'message' => 'Compliance assessment updated successfully!',
-                'compliance_id' => $compliance_id
-            ]);
-
-        } catch (PDOException $e) {
-            error_log("Database error in edit_compliance_form: " . $e->getMessage());
-            
-            // Check for foreign key constraint violation
-            if (strpos($e->getMessage(), 'foreign key constraint') !== false) {
-                return json_encode([
-                    'status' => 0,
-                    'message' => 'Invalid reference. Please check the selected program, cycle, or indicator.'
-                ]);
-            }
-            
+        // Validate required fields
+        if (empty($compliance_id)) {
             return json_encode([
                 'status' => 0,
-                'message' => 'An error occurred. Please try again later.'
+                'message' => 'Compliance ID is required.'
             ]);
         }
+
+        // Validate status
+        $allowed_statuses = ['compliant', 'non_compliant', 'partial', 'not_assessed'];
+        if (!in_array($status, $allowed_statuses)) {
+            $status = 'not_assessed';
+        }
+
+        // Validate compliance score (0-100 or null)
+        if ($compliance_score !== null && $compliance_score !== '') {
+            $compliance_score = floatval($compliance_score);
+            if ($compliance_score < 0 || $compliance_score > 100) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Compliance score must be between 0 and 100.'
+                ]);
+            }
+        } else {
+            $compliance_score = null;
+        }
+
+        // Validate reviewer if provided
+        if (!empty($reviewer_id)) {
+            $checkReviewer = $this->db->prepare("SELECT user_id FROM users WHERE user_id = ?");
+            $checkReviewer->execute([$reviewer_id]);
+            if (!$checkReviewer->fetch()) {
+                $reviewer_id = null; // Set to null if invalid
+            }
+        } else {
+            $reviewer_id = null;
+        }
+
+        // Validate review date if provided
+        if (!empty($review_date)) {
+            $review_date_obj = DateTime::createFromFormat('Y-m-d', $review_date);
+            if (!$review_date_obj || $review_date_obj->format('Y-m-d') !== $review_date) {
+                $review_date = null; // Set to null if invalid
+            }
+        } else {
+            $review_date = null;
+        }
+
+        // Check if compliance record exists
+        $checkExists = $this->db->prepare("SELECT compliance_id FROM compliance_tracking WHERE compliance_id = ?");
+        $checkExists->execute([$compliance_id]);
+        if (!$checkExists->fetch()) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'Compliance record not found.'
+            ]);
+        }
+
+        // Update the compliance record - REMOVED evidence_count field
+        $stmt = $this->db->prepare("
+            UPDATE compliance_tracking 
+            SET status = :status,
+                compliance_score = :compliance_score,
+                reviewer_id = :reviewer_id,
+                review_date = :review_date,
+                comments = :comments
+            WHERE compliance_id = :compliance_id
+        ");
+
+        $stmt->execute([
+            ':compliance_id' => $compliance_id,
+            ':status' => $status,
+            ':compliance_score' => $compliance_score,
+            ':reviewer_id' => $reviewer_id,
+            ':review_date' => $review_date,
+            ':comments' => $comments
+        ]);
+
+        if ($stmt->rowCount() === 0) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'No changes were made.'
+            ]);
+        }
+
+        return json_encode([
+            'status' => 1,
+            'message' => 'Compliance assessment updated successfully!',
+            'compliance_id' => $compliance_id
+        ]);
+
+    } catch (PDOException $e) {
+        error_log("Database error in edit_compliance_form: " . $e->getMessage());
+        
+        return json_encode([
+            'status' => 0,
+            'message' => 'Database error: ' . $e->getMessage()
+        ]);
     }
+}
     function delete_compliance_form() {
         try {
             $compliance_id = $_POST["compliance_id"] ?? '';

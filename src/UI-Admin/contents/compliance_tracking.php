@@ -9,9 +9,9 @@ $complianceStmt = $pdo->prepare("
         ac.academic_year,
         ai.indicator_code,
         ai.indicator_description,
-        ap.parameter_name,
-        aa.area_number,
-        aa.area_name,
+        COALESCE(ap.parameter_name, 'Not Assigned') as parameter_name,
+        COALESCE(aa.area_number, '0') as area_number,
+        COALESCE(aa.area_name, 'Not Categorized') as area_name,
         u.first_name as reviewer_first,
         u.last_name as reviewer_last,
         (SELECT COUNT(*) FROM documents d 
@@ -19,13 +19,19 @@ $complianceStmt = $pdo->prepare("
          AND d.indicator_id = ct.indicator_id
          AND d.cycle_id = ct.cycle_id) as evidence_count
     FROM compliance_tracking ct
-    JOIN programs p ON ct.program_id = p.program_id
-    JOIN accreditation_cycles ac ON ct.cycle_id = ac.cycle_id
-    JOIN accreditation_indicators ai ON ct.indicator_id = ai.indicator_id
-    JOIN accreditation_parameters ap ON ai.parameter_id = ap.parameter_id 
-    JOIN accreditation_areas aa ON ap.area_id = aa.area_id 
+    LEFT JOIN programs p ON ct.program_id = p.program_id
+    LEFT JOIN accreditation_cycles ac ON ct.cycle_id = ac.cycle_id
+    LEFT JOIN accreditation_indicators ai ON ct.indicator_id = ai.indicator_id
+    LEFT JOIN accreditation_parameters ap ON ai.parameter_id = ap.parameter_id 
+    LEFT JOIN accreditation_areas aa ON ap.area_id = aa.area_id 
     LEFT JOIN users u ON ct.reviewer_id = u.user_id
-    ORDER BY aa.area_number, ai.indicator_code, ct.program_id
+    ORDER BY 
+        CASE 
+            WHEN aa.area_number IS NULL OR aa.area_number = '' THEN 999 
+            ELSE CAST(aa.area_number AS UNSIGNED) 
+        END,
+        COALESCE(ai.indicator_code, 'ZZZ'),
+        ct.program_id
 ");
 $complianceStmt->execute();
 $complianceData = $complianceStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -65,6 +71,9 @@ $totalAssessed = $compliantCount + $nonCompliantCount + $partialCount;
             <h4><i class="fas fa-chart-line me-2"></i>Compliance Tracking Dashboard</h4>
             <small class="text-muted">Monitor accreditation compliance status across programs</small>
         </div>
+        <div>
+            <small class="text-muted">Showing <?= $totalRecords ?> compliance records</small>
+        </div>
     </div>
 
     <div class="row">
@@ -87,14 +96,14 @@ $totalAssessed = $compliantCount + $nonCompliantCount + $partialCount;
                     <h5 class="card-title">Compliance Status Breakdown</h5>
                     <div class="progress mb-3" style="height: 30px;">
                         <?php if ($compliantCount > 0): ?>
-                        <div class="progress-bar bg-success" style="width: <?= ($compliantCount/$totalRecords)*100 ?>%"
+                        <div class="progress-bar bg-success" style="width: <?= ($totalRecords > 0 ? ($compliantCount/$totalRecords)*100 : 0) ?>%"
                             title="Compliant: <?= $compliantCount ?> criteria">
                             Compliant (<?= $compliantCount ?>)
                         </div>
                         <?php endif; ?>
 
                         <?php if ($partialCount > 0): ?>
-                        <div class="progress-bar bg-warning" style="width: <?= ($partialCount/$totalRecords)*100 ?>%"
+                        <div class="progress-bar bg-warning" style="width: <?= ($totalRecords > 0 ? ($partialCount/$totalRecords)*100 : 0) ?>%"
                             title="Partial: <?= $partialCount ?> criteria">
                             Partial (<?= $partialCount ?>)
                         </div>
@@ -102,7 +111,7 @@ $totalAssessed = $compliantCount + $nonCompliantCount + $partialCount;
 
                         <?php if ($nonCompliantCount > 0): ?>
                         <div class="progress-bar bg-danger"
-                            style="width: <?= ($nonCompliantCount/$totalRecords)*100 ?>%"
+                            style="width: <?= ($totalRecords > 0 ? ($nonCompliantCount/$totalRecords)*100 : 0) ?>%"
                             title="Non-compliant: <?= $nonCompliantCount ?> criteria">
                             Non-compliant (<?= $nonCompliantCount ?>)
                         </div>
@@ -110,7 +119,7 @@ $totalAssessed = $compliantCount + $nonCompliantCount + $partialCount;
 
                         <?php if ($notAssessedCount > 0): ?>
                         <div class="progress-bar bg-secondary"
-                            style="width: <?= ($notAssessedCount/$totalRecords)*100 ?>%"
+                            style="width: <?= ($totalRecords > 0 ? ($notAssessedCount/$totalRecords)*100 : 0) ?>%"
                             title="Not assessed: <?= $notAssessedCount ?> criteria">
                             Not Assessed (<?= $notAssessedCount ?>)
                         </div>
@@ -156,7 +165,8 @@ $totalAssessed = $compliantCount + $nonCompliantCount + $partialCount;
                 <select class="form-select form-select-sm" style="width: auto;" id="filterProgram">
                     <option value="">All Programs</option>
                     <?php 
-                    $programsStmt = $pdo->query("SELECT program_id, program_code, program_name FROM programs ORDER BY program_code");
+                    $programsStmt = $pdo->prepare("SELECT program_id, program_code, program_name FROM programs ORDER BY program_code");
+                    $programsStmt->execute();
                     $programs = $programsStmt->fetchAll(PDO::FETCH_ASSOC);
                     foreach ($programs as $program): ?>
                     <option value="<?= $program['program_id'] ?>"><?= htmlspecialchars($program['program_code']) ?>
@@ -170,9 +180,19 @@ $totalAssessed = $compliantCount + $nonCompliantCount + $partialCount;
                     <option value="non_compliant">Non-compliant</option>
                     <option value="not_assessed">Not Assessed</option>
                 </select>
+                <select class="form-select form-select-sm" style="width: auto;" id="filterArea">
+                    <option value="">All Areas</option>
+                    <?php 
+                    $areasStmt = $pdo->prepare("SELECT DISTINCT area_number, area_name FROM accreditation_areas ORDER BY CAST(area_number AS UNSIGNED)");
+                    $areasStmt->execute();
+                    $areas = $areasStmt->fetchAll(PDO::FETCH_ASSOC);
+                    foreach ($areas as $area): ?>
+                    <option value="<?= htmlspecialchars($area['area_number']) ?>">Area <?= htmlspecialchars($area['area_number']) ?></option>
+                    <?php endforeach; ?>
+                </select>
             </div>
         </div>
-        <div class="card-body p-0"> <!-- Added p-0 to remove padding -->
+        <div class="card-body p-0">
             <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
                 <table class="table table-bordered table-hover mb-0" id="complianceTable" style="table-layout: fixed; width: 100%;">
                     <thead class="table-light sticky-top" style="top: 0; z-index: 1020;">
@@ -190,6 +210,7 @@ $totalAssessed = $compliantCount + $nonCompliantCount + $partialCount;
                     <tbody>
                         <?php 
                         $count = 1;
+                        $currentArea = null;
                         foreach ($complianceData as $record): 
                             // Determine row class based on status
                             $rowClass = '';
@@ -219,29 +240,46 @@ $totalAssessed = $compliantCount + $nonCompliantCount + $partialCount;
                                 'Not reviewed';
                                 
                             // Format score
-                            $scoreDisplay = $record['compliance_score'] ? 
+                            $scoreDisplay = !empty($record['compliance_score']) ? 
                                 number_format($record['compliance_score'], 1) . '%' : 'N/A';
                                 
                             // Get evidence count (calculated in query)
                             $evidenceCount = $record['evidence_count'] ?? 0;
                             
+                            // Handle area information
+                            $areaNumber = $record['area_number'];
+                            $areaName = $record['area_name'];
+                            $areaDisplay = $areaNumber !== '0' ? 
+                                "Area {$areaNumber}: {$areaName}" : 
+                                "Not Categorized";
+                            
                             // Truncate long text
                             $programName = htmlspecialchars($record['program_name']);
-                            $areaName = htmlspecialchars($record['area_name']);
+                            $areaNameDisplay = htmlspecialchars($areaName);
                             $indicatorDesc = htmlspecialchars($record['indicator_description']);
                             
                             if (strlen($programName) > 30) {
                                 $programName = substr($programName, 0, 27) . '...';
                             }
-                            if (strlen($areaName) > 40) {
-                                $areaName = substr($areaName, 0, 37) . '...';
+                            if (strlen($areaNameDisplay) > 40) {
+                                $areaNameDisplay = substr($areaNameDisplay, 0, 37) . '...';
                             }
                             if (strlen($indicatorDesc) > 50) {
                                 $indicatorDesc = substr($indicatorDesc, 0, 47) . '...';
                             }
+                            
+                            // Highlight area changes
+                            $areaGroupClass = '';
+                            if ($currentArea !== $areaNumber) {
+                                $currentArea = $areaNumber;
+                                $areaGroupClass = 'area-group';
+                            }
                         ?>
-                        <tr class="<?= $rowClass ?>" data-program-id="<?= $record['program_id'] ?>"
-                            data-status="<?= $record['status'] ?>">
+                        <tr class="<?= $rowClass . ' ' . $areaGroupClass ?>" 
+                            data-program-id="<?= $record['program_id'] ?>"
+                            data-status="<?= $record['status'] ?>" 
+                            data-area="<?= $areaNumber ?>"
+                            data-indicator-id="<?= $record['indicator_id'] ?>">
                             <td style="width: 40px;"><?= $count++ ?></td>
                             <td style="width: 120px;">
                                 <div class="fw-bold" title="<?= htmlspecialchars($record['program_code']) ?>">
@@ -253,12 +291,17 @@ $totalAssessed = $compliantCount + $nonCompliantCount + $partialCount;
                             </td>
                             <td style="width: 200px; max-width: 200px;">
                                 <div class="small">
-                                    <div class="text-truncate" title="Area <?= $record['area_number'] ?>: <?= htmlspecialchars($record['area_name']) ?>">
-                                        <strong>Area <?= $record['area_number'] ?>:</strong> <?= $areaName ?>
+                                    <div class="text-truncate" title="<?= htmlspecialchars($areaDisplay) ?>">
+                                        <strong><?= $areaNumber !== '0' ? "Area {$areaNumber}:" : "Category:" ?></strong> <?= $areaNameDisplay ?>
                                     </div>
                                     <div class="text-truncate mt-1" title="<?= htmlspecialchars($record['indicator_code']) ?>: <?= htmlspecialchars($record['indicator_description']) ?>">
                                         <strong>Indicator:</strong> <?= htmlspecialchars($record['indicator_code']) ?>: <?= $indicatorDesc ?>
                                     </div>
+                                    <?php if ($record['parameter_name'] && $record['parameter_name'] !== 'Not Assigned'): ?>
+                                    <div class="text-truncate mt-1" title="Parameter: <?= htmlspecialchars($record['parameter_name']) ?>">
+                                        <small><strong>Parameter:</strong> <?= htmlspecialchars($record['parameter_name']) ?></small>
+                                    </div>
+                                    <?php endif; ?>
                                 </div>
                             </td>
                             <td style="width: 80px;">
@@ -290,7 +333,7 @@ $totalAssessed = $compliantCount + $nonCompliantCount + $partialCount;
                             </td>
                             <td style="width: 100px;">
                                 <div class="btn-group btn-group-sm">
-                                    <button type="button" class="btn btn-outline-primary edit-compliance-btn"
+                                    <button type="button" class="btn btn-outline-dark edit-compliance-btn"
                                         data-compliance-id="<?= $record['compliance_id'] ?>"
                                         data-program-id="<?= $record['program_id'] ?>"
                                         data-cycle-id="<?= $record['cycle_id'] ?>"
@@ -310,10 +353,11 @@ $totalAssessed = $compliantCount + $nonCompliantCount + $partialCount;
                                         data-program-name="<?= htmlspecialchars($record['program_name']) ?>"
                                         data-cycle-name="<?= htmlspecialchars($record['cycle_name']) ?>"
                                         data-academic-year="<?= htmlspecialchars($record['academic_year']) ?>"
-                                        data-area-number="<?= $record['area_number'] ?>"
-                                        data-area-name="<?= htmlspecialchars($record['area_name']) ?>"
+                                        data-area-number="<?= $areaNumber ?>"
+                                        data-area-name="<?= htmlspecialchars($areaName) ?>"
                                         data-indicator-code="<?= htmlspecialchars($record['indicator_code']) ?>"
                                         data-indicator-description="<?= htmlspecialchars($record['indicator_description']) ?>"
+                                        data-parameter-name="<?= htmlspecialchars($record['parameter_name']) ?>"
                                         data-status="<?= $record['status'] ?>"
                                         data-score="<?= $record['compliance_score'] ?>"
                                         data-evidence-count="<?= $evidenceCount ?>"
@@ -323,12 +367,12 @@ $totalAssessed = $compliantCount + $nonCompliantCount + $partialCount;
                                         title="View Details">
                                         <i class="fas fa-eye"></i>
                                     </button>
-                                    <button type="button" class="btn btn-outline-danger delete-compliance-btn"
+                                    <!-- <button type="button" class="btn btn-outline-danger delete-compliance-btn"
                                         data-compliance-id="<?= $record['compliance_id'] ?>"
                                         data-program="<?= htmlspecialchars($record['program_code']) ?>"
                                         title="Delete">
                                         <i class="fas fa-trash"></i>
-                                    </button>
+                                    </button> -->
                                 </div>
                             </td>
                         </tr>
@@ -338,7 +382,12 @@ $totalAssessed = $compliantCount + $nonCompliantCount + $partialCount;
                         <tr>
                             <td colspan="8" class="text-center py-4 text-muted">
                                 <i class="fas fa-database fa-2x mb-3 d-block"></i>
-                                No compliance records found.
+                                No compliance records found. 
+                                <div class="mt-2">
+                                    <a href="?page=add_compliance" class="btn btn-sm btn-primary">
+                                        <i class="fas fa-plus me-1"></i> Add Compliance Record
+                                    </a>
+                                </div>
                             </td>
                         </tr>
                         <?php endif; ?>
@@ -346,10 +395,9 @@ $totalAssessed = $compliantCount + $nonCompliantCount + $partialCount;
                 </table>
             </div>
         </div>
-        <!-- Optional: Add pagination info -->
         <div class="card-footer py-2">
             <div class="d-flex justify-content-between align-items-center">
-                <small class="text-muted">Showing <?= count($complianceData) ?> records</small>
+                <small class="text-muted">Showing <?= count($complianceData) ?> records (<?= $compliantCount ?> compliant, <?= $partialCount ?> partial, <?= $nonCompliantCount ?> non-compliant, <?= $notAssessedCount ?> not assessed)</small>
                 <?php if ($totalRecords > 20): ?>
                 <nav>
                     <ul class="pagination pagination-sm mb-0">
@@ -404,6 +452,15 @@ $totalAssessed = $compliantCount + $nonCompliantCount + $partialCount;
     background-color: #f8f9fa;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
+
+/* Area grouping highlight */
+.area-group {
+    border-top: 2px solid #0d6efd;
+}
+
+.area-group td {
+    border-top-color: #0d6efd !important;
+}
 </style>
 
 <!-- View Compliance Details Modal -->
@@ -418,15 +475,24 @@ $totalAssessed = $compliantCount + $nonCompliantCount + $partialCount;
             <div class="modal-body">
                 <div class="row">
                     <div class="col-md-6">
+                        <style>
+                                        .truncate-text {
+                                            display: inline-block;
+                                            max-width: 15rem;     /* your desired width */
+                                            white-space: nowrap; 
+                                            overflow: hidden;
+                                            text-overflow: ellipsis;
+                                        }
+                                    </style>
                         <h6>Program & Cycle Information</h6>
                         <table class="table table-sm">
                             <tr>
                                 <th>Program:</th>
-                                <td id="complianceProgram"></td>
+                                <td id="complianceProgram" class="truncate-text"></td>
                             </tr>
                             <tr>
                                 <th>Cycle:</th>
-                                <td id="complianceCycle"></td>
+                                <td id="complianceCycle" class="truncate-text"></td>
                             </tr>
                             <tr>
                                 <th>Evidence Count:</th>
@@ -458,19 +524,31 @@ $totalAssessed = $compliantCount + $nonCompliantCount + $partialCount;
                 </div>
 
                 <div class="row mt-3">
-                    <div class="col-md-6">
+                    <div class="col-md-12">
                         <div class="card">
                             <div class="card-header">
                                 <h6 class="mb-0">Accreditation Framework</h6>
                             </div>
                             <div class="card-body">
-                                <p><strong>Area:</strong> <span id="complianceArea"></span></p>
-                                <p><strong>Indicator:</strong> <span id="complianceIndicator"></span></p>
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <p class="text-dark"><strong>Area:</strong> <br><span id="complianceArea"></span></p>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <p class="text-dark"><strong>Parameter:</strong> <br><span id="complianceParameter"></span></p>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <p class="text-dark"><strong>Indicator:</strong> <br><span id="complianceIndicator"></span></p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-6">
-                        <div class="card h-100">
+                </div>
+
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <div class="card">
                             <div class="card-header">
                                 <h6 class="mb-0">Review Comments</h6>
                             </div>
@@ -512,16 +590,17 @@ $totalAssessed = $compliantCount + $nonCompliantCount + $partialCount;
                     </select>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label">Compliance Score</label>
+                    <label class="form-label">Compliance Score (0-100)</label>
                     <input type="number" class="form-control" id="editScore" name="compliance_score" min="0"
-                        max="100" step="0.1">
+                        max="100" step="0.1" placeholder="Enter score if applicable">
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Reviewer</label>
                     <select name="reviewer_id" id="editReviewerId" class="form-select">
                         <option value="">Select Reviewer</option>
                         <?php 
-                        $reviewersStmt = $pdo->query("SELECT user_id, first_name, last_name FROM users WHERE user_role IN ('qa', 'admin', 'head')");
+                        $reviewersStmt = $pdo->prepare("SELECT user_id, first_name, last_name FROM users WHERE user_role IN ('qa', 'admin', 'head') AND is_active = 'Active'");
+                        $reviewersStmt->execute();
                         $reviewers = $reviewersStmt->fetchAll(PDO::FETCH_ASSOC);
                         foreach($reviewers as $reviewer): ?>
                         <option value="<?= $reviewer['user_id'] ?>">
@@ -532,11 +611,11 @@ $totalAssessed = $compliantCount + $nonCompliantCount + $partialCount;
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Review Date</label>
-                    <input type="date" class="form-control" id="editReviewDate" name="review_date">
+                    <input type="date" class="form-control" id="editReviewDate" name="review_date" value="<?= date('Y-m-d') ?>">
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Comments</label>
-                    <textarea class="form-control" id="editComments" name="comments" rows="3"></textarea>
+                    <textarea class="form-control" id="editComments" name="comments" rows="3" placeholder="Enter assessment comments..."></textarea>
                 </div>
             </div>
             <div class="modal-footer">
@@ -575,39 +654,44 @@ $totalAssessed = $compliantCount + $nonCompliantCount + $partialCount;
 </div>
 
 <script>
-// Simplified JavaScript without errors
 document.addEventListener('DOMContentLoaded', function() {
     // Filter functionality
     const filterProgram = document.getElementById('filterProgram');
     const filterStatus = document.getElementById('filterStatus');
+    const filterArea = document.getElementById('filterArea');
 
-    if (filterProgram && filterStatus) {
-        function filterTable() {
-            const programFilter = filterProgram.value;
-            const statusFilter = filterStatus.value;
-            const rows = document.querySelectorAll('#complianceTable tbody tr');
+    function filterTable() {
+        const programFilter = filterProgram ? filterProgram.value : '';
+        const statusFilter = filterStatus ? filterStatus.value : '';
+        const areaFilter = filterArea ? filterArea.value : '';
+        const rows = document.querySelectorAll('#complianceTable tbody tr');
 
-            rows.forEach(row => {
-                const programId = row.getAttribute('data-program-id');
-                const status = row.getAttribute('data-status');
+        rows.forEach(row => {
+            const programId = row.getAttribute('data-program-id');
+            const status = row.getAttribute('data-status');
+            const area = row.getAttribute('data-area');
 
-                let showRow = true;
+            let showRow = true;
 
-                if (programFilter && programId !== programFilter) {
-                    showRow = false;
-                }
+            if (programFilter && programId !== programFilter) {
+                showRow = false;
+            }
 
-                if (statusFilter && status !== statusFilter) {
-                    showRow = false;
-                }
+            if (statusFilter && status !== statusFilter) {
+                showRow = false;
+            }
 
-                row.style.display = showRow ? '' : 'none';
-            });
-        }
+            if (areaFilter && area !== areaFilter) {
+                showRow = false;
+            }
 
-        filterProgram.addEventListener('change', filterTable);
-        filterStatus.addEventListener('change', filterTable);
+            row.style.display = showRow ? '' : 'none';
+        });
     }
+
+    if (filterProgram) filterProgram.addEventListener('change', filterTable);
+    if (filterStatus) filterStatus.addEventListener('change', filterTable);
+    if (filterArea) filterArea.addEventListener('change', filterTable);
 
     // Edit button functionality
     document.querySelectorAll('.edit-compliance-btn').forEach(button => {
@@ -624,8 +708,8 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('editStatus').value = status;
             document.getElementById('editScore').value = score;
             document.getElementById('editReviewerId').value = reviewerId || '';
-            document.getElementById('editReviewDate').value = reviewDate;
-            document.getElementById('editComments').value = comments;
+            document.getElementById('editReviewDate').value = reviewDate || '<?= date('Y-m-d') ?>';
+            document.getElementById('editComments').value = comments || '';
 
             // Show modal
             const modal = new bootstrap.Modal(document.getElementById('editComplianceModal'));
@@ -643,6 +727,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const academicYear = this.getAttribute('data-academic-year');
             const areaNumber = this.getAttribute('data-area-number');
             const areaName = this.getAttribute('data-area-name');
+            const parameterName = this.getAttribute('data-parameter-name');
             const indicatorCode = this.getAttribute('data-indicator-code');
             const indicatorDescription = this.getAttribute('data-indicator-description');
             const status = this.getAttribute('data-status');
@@ -667,16 +752,17 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             document.getElementById('complianceStatus').innerHTML = `<span class="${statusClass}">${statusText}</span>`;
             
-            document.getElementById('complianceScore').textContent = score ? `${score}%` : 'Not scored';
-            document.getElementById('complianceReviewer').textContent = reviewerName.trim() || 'Not assigned';
+            document.getElementById('complianceScore').textContent = score && score !== '0' && score !== '' ? `${score}%` : 'Not scored';
+            document.getElementById('complianceReviewer').textContent = reviewerName.trim() ? reviewerName.trim() : 'Not assigned';
             document.getElementById('complianceReviewDate').textContent = reviewDate ? new Date(reviewDate).toLocaleDateString() : 'Not reviewed';
-            document.getElementById('complianceArea').textContent = `Area ${areaNumber}: ${areaName}`;
+            document.getElementById('complianceArea').textContent = areaNumber !== '0' ? `Area ${areaNumber}: ${areaName}` : 'Not Categorized';
+            document.getElementById('complianceParameter').textContent = parameterName && parameterName !== 'Not Assigned' ? parameterName : 'Not Assigned';
             document.getElementById('complianceIndicator').textContent = `${indicatorCode}: ${indicatorDescription}`;
             
             // Set comments
             const commentsElement = document.getElementById('complianceComments');
             if (comments && comments.trim()) {
-                commentsElement.innerHTML = `<div class="alert alert-info">${comments}</div>`;
+                commentsElement.innerHTML = `<div class="alert alert-info p-3">${comments}</div>`;
             } else {
                 commentsElement.innerHTML = '<p class="text-muted text-center py-3"><em>No comments provided</em></p>';
             }
@@ -695,7 +781,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
             document.getElementById('deleteComplianceId').value = complianceId;
             document.getElementById('deleteComplianceMessage').innerHTML =
-                `Are you sure you want to delete the compliance assessment for <strong>${programName}</strong>?`;
+                `Are you sure you want to delete the compliance assessment for <strong>${programName}</strong>?<br><br>
+                 <small class="text-danger">This action cannot be undone.</small>`;
 
             const modal = new bootstrap.Modal(document.getElementById('deleteComplianceModal'));
             modal.show();
@@ -706,8 +793,42 @@ document.addEventListener('DOMContentLoaded', function() {
     const printBtn = document.getElementById('printComplianceBtn');
     if (printBtn) {
         printBtn.addEventListener('click', function() {
-            window.print();
+            const modalTitle = document.getElementById('viewComplianceModalLabel').innerText;
+            const printContent = document.querySelector('#viewComplianceModal .modal-body').innerHTML;
+            
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <html>
+                <head>
+                    <title>${modalTitle}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 20px; }
+                        h3 { color: #0d6efd; border-bottom: 2px solid #0d6efd; padding-bottom: 10px; }
+                        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                        th, td { padding: 8px; border: 1px solid #ddd; }
+                        th { background-color: #f8f9fa; }
+                        .badge { padding: 4px 8px; border-radius: 4px; color: white; }
+                        .alert-info { background-color: #d1ecf1; border: 1px solid #bee5eb; padding: 15px; border-radius: 4px; }
+                        .text-muted { color: #6c757d; }
+                        @media print { 
+                            .no-print { display: none; }
+                            body { padding: 0; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <h3>${modalTitle}</h3>
+                    ${printContent}
+                    <div class="no-print" style="margin-top: 30px; text-align: center;">
+                        <button onclick="window.print()" style="padding: 10px 20px; background: #0d6efd; color: white; border: none; border-radius: 4px; cursor: pointer;">Print</button>
+                        <button onclick="window.close()" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px;">Close</button>
+                    </div>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
         });
     }
+
 });
 </script>
