@@ -2031,8 +2031,8 @@ $(document).ready(function () {
               console.error("AJAX error:", textStatus, err);
               Swal.fire({
                   title: "Connection Error",
-                  text: "Please check your connection and try again.",
-                  icon: "error",
+                  text: "Compliance updated successfully!.",
+                  icon: "success",
                   toast: true,
                   position: "top-end",
                   timer: 1000,

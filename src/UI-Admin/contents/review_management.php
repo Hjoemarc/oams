@@ -394,6 +394,15 @@ $documentCount = 1;
             </div>
 
             <!-- ASSIGNMENTS TABLE -->
+             <style>
+                                        .truncate-text {
+                                            display: inline-block;
+                                            max-width: 13rem;     /* your desired width */
+                                            white-space: nowrap; 
+                                            overflow: hidden;
+                                            text-overflow: ellipsis;
+                                        }
+                                    </style>
             <div class="table-responsive">
                 <table class="table table-sm table-hover" style="font-size: 0.875rem;">
                     <thead class="table-light">
@@ -422,7 +431,7 @@ $documentCount = 1;
                         ?>
                         <tr <?= $isOverdue ? 'class="table-warning"' : '' ?>>
                             <td><?= $assignmentCount++ ?></td>
-                            <td>
+                            <td class="truncate-text">
                                 <strong><?= htmlspecialchars($assignment['faculty_name']) ?></strong><br>
                                 <small
                                     class="text-muted"><?= htmlspecialchars($assignment['department_name']) ?></small>

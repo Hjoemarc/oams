@@ -161,7 +161,7 @@ $documentCount = 1;
                 'program_id' => $program_id
             ]);
             $accreditation_level_data = $stmt->fetch(PDO::FETCH_ASSOC);
-            $accreditation_level = $accreditation_level_data["accreditation_level"];
+            $accreditation_level = $accreditation_level_data["accreditation_level"] ?? 'none';
         ?>
         <div class="col-md-6 d-flex justify-content-end">
             <button class="btn bg-gradient-primary" data-bs-toggle="modal" data-bs-target="#createAccounts">+ create

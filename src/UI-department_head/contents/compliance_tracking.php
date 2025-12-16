@@ -415,11 +415,6 @@ $totalAssessed = $compliantCount + $nonCompliantCount + $partialCount;
                             <td colspan="8" class="text-center py-4 text-muted">
                                 <i class="fas fa-database fa-2x mb-3 d-block"></i>
                                 No compliance records found for your department's programs.
-                                <div class="mt-2">
-                                    <a href="?page=add_compliance" class="btn btn-sm btn-primary">
-                                        <i class="fas fa-plus me-1"></i> Add Compliance Record
-                                    </a>
-                                </div>
                             </td>
                         </tr>
                         <?php endif; ?>

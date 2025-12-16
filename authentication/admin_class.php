@@ -129,6 +129,27 @@ class Action
                     return json_encode(['status' => 0, 'message' => 'Incorrect password.']);
                 }
             }
+            else if($employees['user_role'] === 'department_head' && $employees["is_active"] === 'Active'){
+                if (password_verify($password, $employees['password'])) {
+                    $_SESSION['department_headData'] = [
+                        'first_name' => $employees['first_name'],
+                        'last_name' => $employees['last_name'],
+                        'user_role' => $employees['user_role'],
+                        'user_id' => $employees['user_id']
+                    ];
+                    $user_id = $employees['user_id'];
+                    $stmtHistory = $this->db->prepare("INSERT INTO login_history (user_id, login_time) VALUES ('$user_id', NOW())");
+                    $stmtHistory->execute();
+                    return json_encode([
+                        'status' => 1,
+                        'message' => 'Login successful.',
+                        'redirect_url' => 'src/UI-department_head/index.php',
+                        'user_role' => $employees['first_name'] . " " . $employees['last_name']
+                    ]);
+                } else {
+                    return json_encode(['status' => 0, 'message' => 'Incorrect password.']);
+                }
+            }
 
             if ($employees['user_role'] === 'faculty' && $employees["is_active"] === 'Active') {
 
@@ -540,14 +561,14 @@ class Action
                     $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
                     $mail->Port = 587;
 
-                    $mail->setFrom('pagotaisidromarcojean123@gmail.com', 'HR OFFICE');
+                    $mail->setFrom('pagotaisidromarcojean123@gmail.com', 'ZPPSU Cedentials');
                     $mail->addAddress($email, $firstName . ' ' . $lastName);
 
                     $mail->isHTML(true);
                     $mail->Subject = 'Verify Your Account';
                     $mail->Body = "
                         <h3>Hello " . htmlspecialchars($firstName) . "!</h3>
-                        <p>Welcome to Zamboanga Puericulture Center Org. No. 144.</p>
+                        <p>Welcome to Zamboanga Peninsula Polythecnic State University</p>
                         <p>Your verification code is:</p>
                         <h2 style='color:#2e6c80;'>" . htmlspecialchars($verification) . "</h2>
                         <p>This code will expire in 10 minutes.</p>
@@ -660,7 +681,7 @@ class Action
             }
             
             // Validate user_role
-            $allowed_roles = ['admin', 'qa', 'head', 'faculty', 'accreditor'];
+            $allowed_roles = ['admin', 'qa', 'head', 'faculty', 'accreditor', 'department_head'];
             if (!in_array($user_role, $allowed_roles)) {
                 $user_role = 'faculty'; // Default to faculty
             }
@@ -2833,12 +2854,12 @@ class Action
             $cycle_id = $_POST["cycle_id"] ?? '';
             
             // Validate required fields
-            if (empty($assignment_id) || empty($faculty_id) || empty($indicator_id) || empty($program_id) || empty($cycle_id)) {
-                return json_encode([
-                    'status' => 0,
-                    'message' => 'All required fields must be filled'
-                ]);
-            }
+            // if (empty($assignment_id) || empty($faculty_id) || empty($indicator_id) || empty($program_id) || empty($cycle_id)) {
+            //     return json_encode([
+            //         'status' => 0,
+            //         'message' => 'All required fields must be filled'
+            //     ]);
+            // }
             
             // Check if assignment exists
             $checkStmt = $this->db->prepare("SELECT assignment_id FROM assignments WHERE assignment_id = :assignment_id");
@@ -3773,8 +3794,15 @@ class Action
                 ]);
             }
             
-            $user_id = (int)$_POST["user_id"];
             $document_id = (int)$_POST["document_id"];
+
+            $stmt = $this->db->prepare("SELECT uploaded_by FROM documents WHERE document_id = :document_id");
+            $stmt->execute([
+                'document_id' => $document_id
+            ]);
+            $getUser = $stmt->fetch(PDO::FETCH_ASSOC);
+            $user_id = $getUser["uploaded_by"];
+
             $feedback = trim($_POST["feedback"]);
             
             // Validate document exists

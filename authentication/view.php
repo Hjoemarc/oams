@@ -12,6 +12,10 @@ function getEmployees(){
     }
     else if($_SESSION['headData']['user_id'] ?? '') {
         $user_id = $_SESSION['headData']['user_id'] ?? '';
+    }else if($_SESSION['department_headData']['user_id'] ?? '') {
+        $user_id = $_SESSION['department_headData']['user_id'] ?? '';
+    }else if($_SESSION['accreditorData']['user_id'] ?? '') {
+        $user_id = $_SESSION['accreditorData']['user_id'] ?? '';
     }else{
         $user_id = $_GET["id"] ?? '';   
     }

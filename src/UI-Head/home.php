@@ -407,7 +407,7 @@ foreach ($programs as $program) {
                   <p class="card-text text-dark">
                      <i class="fa fa-building text-dark"></i> 
                      <strong><?php echo htmlspecialchars($department_name); ?> (<?php echo htmlspecialchars($department_code); ?>)</strong> 
-                     | Department Head Dashboard
+                     | Program Head Dashboard
                   </p>
                </div>
             </div>

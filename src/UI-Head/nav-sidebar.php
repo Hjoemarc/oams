@@ -11,9 +11,6 @@
             <a href="index.php?page=contents/accre_dept" class="nav-item nav-accre_dept nav-program_history rounded-2 my-1">
                 <span class=""><i class=""></i></span> Accreditation Timeline
             </a>
-            <a href="index.php?page=contents/compliance_tracking" class="nav-item nav-compliance_tracking rounded-2 my-1">
-                <span class=""><i class=""></i></span> Compliance Tracking
-            </a>
             <a href="index.php?page=contents/setting" class="nav-item nav-setting rounded-2 my-1">
                 <span class=""><i class=""></i></span> Account Settings
             </a>

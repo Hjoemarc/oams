@@ -74,7 +74,7 @@ function db_connect()
             last_name VARCHAR(50) NOT NULL,
             middle_name VARCHAR(50),
             suffix VARCHAR(5),
-            user_role ENUM('admin', 'qa', 'head', 'faculty', 'accreditor') NOT NULL,
+            user_role ENUM('admin', 'qa', 'head', 'department_head', 'faculty', 'accreditor') NOT NULL,
             department_id INT,
             program_id INT,
             is_active ENUM('Active','Inactive','Pending') DEFAULT 'Pending',
@@ -663,18 +663,6 @@ function insertSampleData($pdo) {
         $indicatorStmt = $pdo->query("SELECT indicator_id FROM accreditation_indicators LIMIT 2");
         $indicators = $indicatorStmt->fetchAll(PDO::FETCH_COLUMN);
 
-        if (!empty($indicators)) {
-            $assignment_stmt = $pdo->prepare("INSERT INTO assignments 
-                (user_id, indicator_id, program_id, cycle_id, assigned_by, status) VALUES 
-                (?, ?, ?, ?, ?, 'in_progress'),
-                (?, ?, ?, ?, ?, 'not_started')
-            ");
-            
-            $assignment_stmt->execute([
-                $adminId, $indicators[0], $sampleProgramId, $sampleCycleId, $adminId,
-                $adminId, $indicators[1], $sampleProgramId, $sampleCycleId, $adminId
-            ]);
-        }
                 
             } catch (PDOException $e) {
                 die("Error inserting sample data: " . $e->getMessage());

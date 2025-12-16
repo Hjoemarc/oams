@@ -277,8 +277,7 @@
                             <form id="update-programs">
                                 <div class="modal-content">
                                     <div class="modal-header bg-gradient-primary text-white">
-                                        <h5 class="modal-title text-white" id="editJobTitlesModalLabel">Edit Job
-                                            Information</h5>
+                                        <h5 class="modal-title text-white" id="editJobTitlesModalLabel">Edit Program</h5>
                                         <button type="button" class="btn-close" data-bs-dismiss="modal"
                                             aria-label="Close"></button>
                                     </div>
@@ -287,12 +286,12 @@
                                         <input type="hidden" name="program_id" id="editProgram_id">
 
                                         <div class="mb-3">
-                                            <label for="jobTitle" class="form-label">Job Title</label>
+                                            <label for="jobTitle" class="form-label">Program name</label>
                                             <input type="text" class="form-control" id="program_name" value=""
                                                 name="program_name">
                                         </div>
                                         <div class="mb-3">
-                                            <label for="salary" class="form-label">Official Salary</label>
+                                            <label for="salary" class="form-label">Program Code</label>
                                             <input type="text" class="form-control" id="program_code" value="" name="program_code">
                                         </div>
                                         <div class="mb-2">
@@ -309,7 +308,7 @@
                                     </div>
 
                                     <div class="modal-footer">
-                                        <button type="submit" class="btn btn-danger">Update Job Title</button>
+                                        <button type="submit" class="btn btn-danger">Update Program</button>
                                         <button type="button" class="btn btn-dark"
                                             data-bs-dismiss="modal">Cancel</button>
                                     </div>

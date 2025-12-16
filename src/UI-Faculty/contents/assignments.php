@@ -185,10 +185,18 @@ $documentCount = 1;
                                     $isOverdue = true;
                                 }
                             }
-                        ?>
+                        ?><style>
+                                        .truncate-text {
+                                            display: inline-block;
+                                            max-width: 13rem;     /* your desired width */
+                                            white-space: nowrap; 
+                                            overflow: hidden;
+                                            text-overflow: ellipsis;
+                                        }
+                                    </style>
                         <tr <?= $isOverdue ? 'class="table-warning"' : '' ?>>
                             <td><?= $assignmentCount++ ?></td>
-                            <td>
+                            <td class="truncate-text">
                                 <strong><?= htmlspecialchars($assignment['faculty_name']) ?></strong><br>
                                 <small
                                     class="text-muted"><?= htmlspecialchars($assignment['department_name']) ?></small>
@@ -197,7 +205,8 @@ $documentCount = 1;
                                 <strong><?= htmlspecialchars($assignment['program_code']) ?></strong><br>
                                 <small><?= htmlspecialchars($assignment['program_name']) ?></small>
                             </td>
-                            <td>
+                            <td class="truncate-text">
+                                
                                 <span
                                     class="badge bg-info"><?= htmlspecialchars($assignment['indicator_code']) ?></span><br>
                                 <small><?= htmlspecialchars(substr($assignment['indicator_description'], 0, 50)) ?>...</small>
