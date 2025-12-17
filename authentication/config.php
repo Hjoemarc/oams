@@ -146,6 +146,15 @@ function db_connect()
             FOREIGN KEY (program_id) REFERENCES programs(program_id)
                 ON DELETE CASCADE
         ) ENGINE=InnoDB");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS accreditor_cycles (
+            cyclaccreditor_cycles_id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            cycle_id INT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(user_id)
+                ON DELETE CASCADE,
+            FOREIGN KEY (cycle_id) REFERENCES accreditation_cycles(cycle_id)
+                ON DELETE CASCADE
+        ) ENGINE=InnoDB");
 
         // Create program_accreditation table - FIXED: Added accreditation_level column
         $pdo->exec("CREATE TABLE IF NOT EXISTS program_accreditation (

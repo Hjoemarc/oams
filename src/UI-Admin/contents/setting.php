@@ -6,6 +6,15 @@
     $stmtCycles->execute();
     $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
 
+    $stmtAccre = $pdo->prepare("SELECT u.*, ac.*, a.*
+                FROM users u
+                LEFT JOIN accreditor_cycles ac ON u.user_id = ac.user_id
+                LEFT JOIN accreditation_cycles a ON ac.cycle_id = a.cycle_id
+                WHERE user_role = 'accreditor'
+                ORDER BY first_name DESC");
+    $stmtAccre->execute();
+    $Accreditors = $stmtAccre->fetchAll(PDO::FETCH_ASSOC);
+
     $counts = 1;
 ?>
 <section>
@@ -24,12 +33,17 @@
     <div class="d-flex justify-content-between align-items-center mb-0 col-md-12 col-12 flex-wrap">
         <div class="card-body col-md-8 col-12">
             <ul class="nav nav-tabs justify-content-start align-items-start col-md-12 col-12" id="ProfileInfoTabs">
-                <li class="nav-item col-md-2 col-12">
+                <li class="nav-item col-md-3 col-12">
                     <a class="nav-link active" data-bs-toggle="tab" data-bs-target="#Personal">
                         <i class="fa-solid fa-circle-info me-2"></i> Cycles activation
                     </a>
                 </li>
-                <li class="nav-item col-md-2 col-12">
+                <li class="nav-item col-md-3 col-12">
+                    <a class="nav-link" data-bs-toggle="tab" data-bs-target="#accreditor">
+                        <i class="fa-solid fa-circle-info me-2"></i> Accreditor activation
+                    </a>
+                </li>
+                <li class="nav-item col-md-3 col-12">
                     <a class="nav-link" data-bs-toggle="tab" data-bs-target="#history">
                         <i class="fa-solid fa-clock me-2"></i>Login History
                     </a>
@@ -102,7 +116,8 @@
         </div>
 
         <!-- PERSONAL INFORMATION TAB -->
-        <div class="column p-2 m-0 rounded-2 col-12 col-md-8 height tab-pane fade show active" role="tabpanel" id="Personal">
+        <div class="column p-2 m-0 rounded-2 col-12 col-md-8 height tab-pane fade show active" role="tabpanel"
+            id="Personal">
             <table class="table table-sm table-hover text-center" style="font-size: 0.875rem;">
                 <thead class="table-light">
                     <tr>
@@ -115,7 +130,7 @@
                 </thead>
                 <tbody class="text-center" id="cyclesTable" style="color: #666;">
                     <?php 
-                                    $cycleCount = 1;
+                                    $AccreditorCount = 1;
                                     foreach($cycles as $cycle) : 
                                         $statusClass = '';
                                         switch($cycle['status']) {
@@ -125,26 +140,75 @@
                                         }
                                     ?>
                     <tr>
-                        <td><?= $cycleCount++ ?></td>
+                        <td><?= $AccreditorCount++ ?></td>
                         <td><?= htmlspecialchars($cycle["cycle_name"]) ?></td>
                         <td><?= htmlspecialchars($cycle["academic_year"]) ?></td>
                         <td><span class="<?= $statusClass ?>"><?= ucfirst($cycle["status"]) ?></span></td>
                         <td>
                             <button type="button" class="btn btn-sm btn-primary edit-cycle-btn"
-                                data-id="<?= $cycle['cycle_id'] ?>"
-                                data-bs-toggle="modal"
-                                data-bs-target="#activateCycleModal"
-                                id="getCycleId">
+                                data-id="<?= $cycle['cycle_id'] ?>" data-bs-toggle="modal"
+                                data-bs-target="#activateCycleModal" id="getCycleId">
                                 <i class="fas fa-edit"></i> Activate
                             </button>
 
                             <button type="button" class="btn btn-sm btn-danger delete-cycle-btn"
-                                data-id="<?= $cycle['cycle_id'] ?>"
-                                data-bs-toggle="modal"
-                                data-bs-target="#closeCycleModal"
-                                id="getCycleId">
+                                data-id="<?= $cycle['cycle_id'] ?>" data-bs-toggle="modal"
+                                data-bs-target="#closeCycleModal" id="getCycleId">
                                 <i class="fas fa-trash"></i> Close
                             </button>
+                        </td>
+                    </tr>
+                    <?php endforeach ?>
+                </tbody>
+            </table>
+        </div>
+        <div class="column p-2 m-0 rounded-2 col-12 col-md-8 height tab-pane fade show active" role="tabpanel"
+            id="accreditor">
+            <table class="table table-sm table-hover text-center" style="font-size: 0.875rem;">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Name</th>
+                        <th>Cycle Year</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="text-center" id="cyclesTable" style="color: #666;">
+                    <?php 
+                                    $cycleCount = 1;
+                                    foreach($Accreditors as $accre) : 
+                                        $statusClass = '';
+                                        switch($accre['is_active']) {
+                                            case 'Active': $statusClass = 'badge bg-success'; break;
+                                            case 'Inactive': $statusClass = 'badge bg-info'; break;
+                                        }
+                                    ?>
+                    <tr>
+                        <td><?= $cycleCount++ ?></td>
+                        <td><?= htmlspecialchars($accre["first_name"] . ' ' . $accre["last_name"]) ?></td>
+                        <td>
+                            <?= 
+                                !empty($accre["cycle_name"]) || !empty($accre["academic_year"]) 
+                                ? htmlspecialchars($accre["cycle_name"] . '(' . $accre["academic_year"] . ')') 
+                                : 'No cycle yet'
+                            ?>
+                        </td>
+                        <td><span class="<?= $statusClass ?>"><?= ucfirst($accre["is_active"]) ?></span></td>
+                        <td class="d-flex justify-content-center gap-2">
+                            <button class="btn btn-danger btn-sm py-0 m-0"> <i class="fas fa-edit"></i> Add Cycles</button>
+                            <form class="form_select d-flex align-items-center">
+                                <input type="hidden" name="user_id" value="<?= htmlspecialchars($accre['user_id']) ?>">
+                                <select class="form-select m-0 p-2 select_status" name="is_active">
+                                    <option value="" disabled>Select Status</option>
+                                    <option value="Active" <?= ($accre['is_active'] === 'Active') ? 'selected' : '' ?>>
+                                        Active
+                                    </option>
+                                    <option value="Inactive"
+                                        <?= ($accre['is_active'] === 'Inactive') ? 'selected' : '' ?>>
+                                        Inactive</option>
+                                </select>
+                            </form>
                         </td>
                     </tr>
                     <?php endforeach ?>
