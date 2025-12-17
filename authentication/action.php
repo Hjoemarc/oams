@@ -64,6 +64,12 @@ if ($action === 'approval_form') {
 		echo $validation;
 	}
 }
+if ($action === 'select_status') {
+	$validation = $crud->select_status();
+	if ($validation) {
+		echo $validation;
+	}
+}
 
 // DEPARTMENTS AND PROGRAMS ==================================== 
 if ($action === 'department_form') {
@@ -180,7 +186,12 @@ if ($action === 'close_cycle_form') {
 		echo $validation;
 	}
 }
-
+if ($action === 'assign_cycle_for_accreditor') {
+	$validation = $crud->assign_cycle_for_accreditor();
+	if ($validation) {
+		echo $validation;
+	}
+}
 // Document Management ==================================================
 if ($action === 'document_form') {
 	$validation = $crud->document_form();

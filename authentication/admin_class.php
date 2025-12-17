@@ -791,6 +791,35 @@ class Action
             ]);
         }
     }
+    function select_status() {
+        try {
+            $is_active = $_POST["is_active"] ?? null;
+            $user_id = $_POST["user_id"] ?? null;
+
+            if (!$is_active || !$user_id) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Missing status or employee ID.'
+                ]);
+            }
+
+            $stmt = $this->db->prepare("UPDATE users SET is_active = :is_active WHERE user_id = :user_id");
+            $stmt->execute([
+                'is_active' => $is_active,
+                'user_id' => $user_id
+            ]);
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Status Updated Successfully'
+            ]);
+        } catch (PDOException $e) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred: ' . $e->getMessage()
+            ]);
+        }
+    }
     
     // DEPARTMENTS AND PROGRAMS ======================================
     function department_form()
@@ -1448,187 +1477,235 @@ class Action
             ]);
         }
     }
+    function assign_cycle_for_accreditor(){
+    try {
+        $user_id = $_POST["user_id"]; 
+        $cycle_id = $_POST["cycle_id"];
+        
+        // Check if the user has ANY cycle assignment
+        $checkStmt = $this->db->prepare("SELECT cyclaccreditor_cycles_id FROM accreditor_cycles WHERE user_id = :user_id");
+        $checkStmt->execute(['user_id' => $user_id]);
+        
+        $existingAssignment = $checkStmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($existingAssignment) {
+            // Get the ID from the fetched result
+            $cyclaccreditor_cycles_id = $existingAssignment["cyclaccreditor_cycles_id"];
+            
+            $stmt = $this->db->prepare("UPDATE accreditor_cycles SET cycle_id = :cycle_id WHERE cyclaccreditor_cycles_id = :cyclaccreditor_cycles_id");
+            $stmt->execute([
+                'cycle_id' => $cycle_id,
+                'cyclaccreditor_cycles_id' => $cyclaccreditor_cycles_id
+            ]);
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Assignment has been updated to the new cycle.',
+                'action' => 'updated'
+            ]);
+        } else {
+            // Insert new assignment
+            $stmt = $this->db->prepare("INSERT INTO accreditor_cycles (user_id, cycle_id) VALUES (:user_id, :cycle_id)");
+            $stmt->execute([
+                'user_id' => $user_id,
+                'cycle_id' => $cycle_id
+            ]);
+            
+            return json_encode([
+                'status' => 1,
+                'message' => 'Cycle has been assigned successfully!',
+                'action' => 'created'
+            ]);
+        }
+        
+    } catch (PDOException $e) {
+        return json_encode([
+            'status' => 0,
+            'message' => 'An error occurred: ' . $e->getMessage()
+        ]);
+    }
+}
 
 // Document Management ==================================================
     function document_form() {
-    try {
-        $indicator_id = $_POST["indicator_id"] ?? '';
-        $program_id   = $_POST["program_id"] ?? '';
-        $cycle_id     = $_POST["cycle_id"] ?? '';
-        $uploaded_by  = $_POST['user_id'] ?? 0;
-        $description  = $_POST["description"] ?? '';
+        try {
+            $indicator_id = $_POST["indicator_id"] ?? '';
+            $program_id   = $_POST["program_id"] ?? '';
+            $cycle_id     = $_POST["cycle_id"] ?? '';
+            $uploaded_by  = $_POST['user_id'] ?? 0;
+            $description  = $_POST["description"] ?? '';
 
-        if (
-            empty($indicator_id) || 
-            empty($program_id) || 
-            empty($cycle_id) || 
-            empty($uploaded_by)
-        ) {
-            return json_encode([
-                'status' => 0,
-                'message' => 'Missing required fields'
-            ]);
-        }
+            if (
+                empty($indicator_id) || 
+                empty($program_id) || 
+                empty($cycle_id) || 
+                empty($uploaded_by)
+            ) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Missing required fields'
+                ]);
+            }
 
-        if (!isset($_FILES['document_file']) || $_FILES['document_file']['error'] !== UPLOAD_ERR_OK) {
-            return json_encode([
-                'status' => 0,
-                'message' => 'Please select a file'
-            ]);
-        }
+            if (!isset($_FILES['document_file']) || $_FILES['document_file']['error'] !== UPLOAD_ERR_OK) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Please select a file'
+                ]);
+            }
 
-        // Get head / assigned_by
-        $getHead = $this->db->prepare("
-            SELECT assigned_by 
-            FROM assignments
-            WHERE indicator_id = :indicator_id 
-              AND program_id = :program_id
-            LIMIT 1
-        ");
-        $getHead->execute([
-            'indicator_id' => $indicator_id,
-            'program_id'   => $program_id
-        ]);
-        $getDataHead = $getHead->fetch(PDO::FETCH_ASSOC);
-        $notify_user = $getDataHead['assigned_by'] ?? null;
-
-        $file = $_FILES['document_file'];
-
-        // Create upload directory
-        $upload_dir = 'uploads/';
-        if (!is_dir($upload_dir)) {
-            mkdir($upload_dir, 0777, true);
-        }
-
-        // Safe filename
-        $original_filename = $file['name'];
-        $safe_filename = uniqid('doc_', true) . '_' .
-            preg_replace('/[^A-Za-z0-9\.\-_]/', '_', $original_filename);
-
-        $filepath = $upload_dir . $safe_filename;
-
-        if (!move_uploaded_file($file['tmp_name'], $filepath)) {
-            return json_encode([
-                'status' => 0,
-                'message' => 'Failed to upload file'
-            ]);
-        }
-
-        // Get or create assignment
-        $assignmentStmt = $this->db->prepare("
-            SELECT assignment_id 
-            FROM assignments 
-            WHERE user_id = ? 
-              AND indicator_id = ? 
-              AND program_id = ? 
-              AND cycle_id = ?
-        ");
-        $assignmentStmt->execute([
-            $uploaded_by,
-            $indicator_id,
-            $program_id,
-            $cycle_id
-        ]);
-        $assignment = $assignmentStmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$assignment) {
-            $assigned_by = $_SESSION['adminData']['user_id']
-                ?? $_SESSION['QAData']['user_id']
-                ?? $_SESSION['employeeData']['user_id']
-                ?? $uploaded_by;
-
-            $create = $this->db->prepare("
-                INSERT INTO assignments 
-                (user_id, indicator_id, program_id, cycle_id, assigned_by, status)
-                VALUES (?, ?, ?, ?, ?, 'in_progress')
+            // Get head / assigned_by
+            $getHead = $this->db->prepare("
+                SELECT assigned_by 
+                FROM assignments
+                WHERE indicator_id = :indicator_id 
+                AND program_id = :program_id
+                LIMIT 1
             ");
-            $create->execute([
+            $getHead->execute([
+                'indicator_id' => $indicator_id,
+                'program_id'   => $program_id
+            ]);
+            $getDataHead = $getHead->fetch(PDO::FETCH_ASSOC);
+            $notify_user = $getDataHead['assigned_by'] ?? null;
+
+            $file = $_FILES['document_file'];
+
+            // Create upload directory
+            $upload_dir = 'uploads/';
+            if (!is_dir($upload_dir)) {
+                mkdir($upload_dir, 0777, true);
+            }
+
+            // Safe filename
+            $original_filename = $file['name'];
+            $safe_filename = uniqid('doc_', true) . '_' .
+                preg_replace('/[^A-Za-z0-9\.\-_]/', '_', $original_filename);
+
+            $filepath = $upload_dir . $safe_filename;
+
+            if (!move_uploaded_file($file['tmp_name'], $filepath)) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Failed to upload file'
+                ]);
+            }
+
+            // Get or create assignment
+            $assignmentStmt = $this->db->prepare("
+                SELECT assignment_id 
+                FROM assignments 
+                WHERE user_id = ? 
+                AND indicator_id = ? 
+                AND program_id = ? 
+                AND cycle_id = ?
+            ");
+            $assignmentStmt->execute([
+                $uploaded_by,
+                $indicator_id,
+                $program_id,
+                $cycle_id
+            ]);
+            $assignment = $assignmentStmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$assignment) {
+                $assigned_by = $_SESSION['adminData']['user_id']
+                    ?? $_SESSION['QAData']['user_id']
+                    ?? $_SESSION['employeeData']['user_id']
+                    ?? $uploaded_by;
+
+                $create = $this->db->prepare("
+                    INSERT INTO assignments 
+                    (user_id, indicator_id, program_id, cycle_id, assigned_by, status)
+                    VALUES (?, ?, ?, ?, ?, 'in_progress')
+                ");
+                $create->execute([
+                    $uploaded_by,
+                    $indicator_id,
+                    $program_id,
+                    $cycle_id,
+                    $assigned_by
+                ]);
+                $assignment_id = $this->db->lastInsertId();
+            } else {
+                $assignment_id = $assignment['assignment_id'];
+            }
+
+            // Detect ZIP only for archive flag (optional)
+            $ext = strtolower(pathinfo($original_filename, PATHINFO_EXTENSION));
+            $is_archive = ($ext === 'zip') ? 1 : 0;
+
+            // Insert document
+            $stmt = $this->db->prepare("
+                INSERT INTO documents (
+                    filename,
+                    original_filename,
+                    file_path,
+                    file_size,
+                    assignment_id,
+                    uploaded_by,
+                    indicator_id,
+                    program_id,
+                    cycle_id,
+                    description,
+                    status,
+                    is_archive
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'submitted', ?)
+            ");
+
+            $stmt->execute([
+                $safe_filename,
+                $original_filename,
+                $filepath,
+                $file['size'],
+                $assignment_id,
                 $uploaded_by,
                 $indicator_id,
                 $program_id,
                 $cycle_id,
-                $assigned_by
+                $description,
+                $is_archive
             ]);
-            $assignment_id = $this->db->lastInsertId();
-        } else {
-            $assignment_id = $assignment['assignment_id'];
-        }
 
-        // Detect ZIP only for archive flag (optional)
-        $ext = strtolower(pathinfo($original_filename, PATHINFO_EXTENSION));
-        $is_archive = ($ext === 'zip') ? 1 : 0;
+            $document_id = $this->db->lastInsertId();
 
-        // Insert document
-        $stmt = $this->db->prepare("
-            INSERT INTO documents (
-                filename,
-                original_filename,
-                file_path,
-                file_size,
-                assignment_id,
-                uploaded_by,
-                indicator_id,
-                program_id,
-                cycle_id,
-                description,
-                status,
-                is_archive
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'submitted', ?)
-        ");
+            // Notify head / QA
+            if ($notify_user) {
+                $stmtNotifi = $this->db->prepare("
+                    INSERT INTO notifications (user_id, title, message)
+                    VALUES (:user_id, 'Document Uploaded',
+                    'A faculty uploaded an accreditation document. You may now assign a reviewer.')
+                ");
+                $stmtNotifi->execute([
+                    'user_id' => $notify_user
+                ]);
+            }
 
-        $stmt->execute([
-            $safe_filename,
-            $original_filename,
-            $filepath,
-            $file['size'],
-            $assignment_id,
-            $uploaded_by,
-            $indicator_id,
-            $program_id,
-            $cycle_id,
-            $description,
-            $is_archive
-        ]);
-
-        $document_id = $this->db->lastInsertId();
-
-        // Notify head / QA
-        if ($notify_user) {
-            $stmtNotifi = $this->db->prepare("
-                INSERT INTO notifications (user_id, title, message)
-                VALUES (:user_id, 'Document Uploaded',
-                'A faculty uploaded an accreditation document. You may now assign a reviewer.')
+            // Update assignment status
+            $update = $this->db->prepare("
+                UPDATE assignments 
+                SET status = 'submitted' 
+                WHERE assignment_id = ?
             ");
-            $stmtNotifi->execute([
-                'user_id' => $notify_user
+            $update->execute([$assignment_id]);
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Document uploaded successfully',
+                'document_id' => $document_id,
+                'is_archive' => $is_archive
+            ]);
+
+        } catch (Exception $e) {
+            if (isset($filepath) && file_exists($filepath)) {
+                unlink($filepath);
+            }
+            return json_encode([
+                'status' => 0,
+                'message' => 'Upload failed: ' . $e->getMessage()
             ]);
         }
-
-        // Update assignment status
-        $update = $this->db->prepare("
-            UPDATE assignments 
-            SET status = 'submitted' 
-            WHERE assignment_id = ?
-        ");
-        $update->execute([$assignment_id]);
-
-        return json_encode([
-            'status' => 1,
-            'message' => 'Document uploaded successfully',
-            'document_id' => $document_id,
-            'is_archive' => $is_archive
-        ]);
-
-    } catch (Exception $e) {
-        if (isset($filepath) && file_exists($filepath)) {
-            unlink($filepath);
-        }
-        return json_encode([
-            'status' => 0,
-            'message' => 'Upload failed: ' . $e->getMessage()
-        ]);
     }
-}
 
     function edit_document_form(){
         $document_id = $_POST['document_id'] ?? null;

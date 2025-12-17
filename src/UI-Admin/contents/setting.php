@@ -6,12 +6,14 @@
     $stmtCycles->execute();
     $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
 
-    $stmtAccre = $pdo->prepare("SELECT u.*, ac.*, a.*
+    $stmtAccre = $pdo->prepare("SELECT u.first_name, u.last_name, u.user_id as user_id, u.is_active, 
+                ac.cyclaccreditor_cycles_id, ac.cycle_id as assigned_cycle_id,
+                a.cycle_name, a.academic_year, a.status as cycle_status
                 FROM users u
                 LEFT JOIN accreditor_cycles ac ON u.user_id = ac.user_id
                 LEFT JOIN accreditation_cycles a ON ac.cycle_id = a.cycle_id
-                WHERE user_role = 'accreditor'
-                ORDER BY first_name DESC");
+                WHERE u.user_role = 'accreditor'
+                ORDER BY u.first_name DESC");
     $stmtAccre->execute();
     $Accreditors = $stmtAccre->fetchAll(PDO::FETCH_ASSOC);
 
@@ -162,7 +164,7 @@
                 </tbody>
             </table>
         </div>
-        <div class="column p-2 m-0 rounded-2 col-12 col-md-8 height tab-pane fade show active" role="tabpanel"
+        <div class="column p-2 m-0 rounded-2 col-12 col-md-8 height tab-pane fade" role="tabpanel"
             id="accreditor">
             <table class="table table-sm table-hover text-center" style="font-size: 0.875rem;">
                 <thead class="table-light">
@@ -175,6 +177,7 @@
                     </tr>
                 </thead>
                 <tbody class="text-center" id="cyclesTable" style="color: #666;">
+                    
                     <?php 
                                     $cycleCount = 1;
                                     foreach($Accreditors as $accre) : 
@@ -196,9 +199,12 @@
                         </td>
                         <td><span class="<?= $statusClass ?>"><?= ucfirst($accre["is_active"]) ?></span></td>
                         <td class="d-flex justify-content-center gap-2">
-                            <button class="btn btn-danger btn-sm py-0 m-0"> <i class="fas fa-edit"></i> Add Cycles</button>
+                            <button class="btn btn-danger btn-sm py-0 m-0"
+                            data-bs-toggle="modal" data-bs-target="#addCycles"
+                            onclick="getAccreditor_id(<?= $accre['user_id'] ?>)"
+                            > <i class="fas fa-edit"></i> Add Cycles</button>
                             <form class="form_select d-flex align-items-center">
-                                <input type="hidden" name="user_id" value="<?= htmlspecialchars($accre['user_id']) ?>">
+                                <input type="hidden" name="user_id" value="<?= $accre['user_id'] ?? 'No id wtf' ?>">
                                 <select class="form-select m-0 p-2 select_status" name="is_active">
                                     <option value="" disabled>Select Status</option>
                                     <option value="Active" <?= ($accre['is_active'] === 'Active') ? 'selected' : '' ?>>
@@ -264,6 +270,35 @@
         </div>
     </div>
 
+    <div class="modal fade" id="addCycles" tabindex="-1" aria-labelledby="passwordModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <form id="assign-cycle-for-accreditor" class="modal-content" autocomplete="off">
+
+                <div class="modal-header bg-gradient-primary">
+                    <h5 class="modal-title text-white" id="passwordModalLabel">
+                        Assign a cycle to accreditor
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <input type="hidden" name="user_id" id="accreditor_id">
+                <div class="mx-2">
+                    <label class="form-label">Choose Cycles</label>
+                    <select name="cycle_id" class="form-select">
+                        <option value="" disabled>Select cycles</option>
+                        <?php foreach ($cycles as $cy) : ?>
+                            <option value="<?= $cy["cycle_id"] ?>"><?= htmlspecialchars($cy["cycle_name"] . '(' . $cy["academic_year"] . ')') ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Confirm</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- CHANGE PASSWORD MODAL -->
     <div class="modal fade" id="changePassword" tabindex="-1" aria-labelledby="passwordModalLabel" aria-hidden="true">
         <div class="modal-dialog">
@@ -301,3 +336,8 @@
     </div>
 
 </section>
+<script>
+    function getAccreditor_id(user_id){
+        document.getElementById('accreditor_id').value = user_id;
+    }
+</script>

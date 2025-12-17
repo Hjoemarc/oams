@@ -1,6 +1,20 @@
 <?php
-// Fetch Documents with related data
-$stmtDocuments = $pdo->prepare("
+// First, get the current user's assigned cycles if they are an accreditor
+$userAssignedCycles = [];
+if ($_SESSION["accreditorData"]['user_role'] === 'accreditor') {
+    $stmtUserCycles = $pdo->prepare("
+        SELECT ac.cycle_id, acc.cycle_name, acc.academic_year
+        FROM accreditor_cycles ac
+        INNER JOIN accreditation_cycles acc ON ac.cycle_id = acc.cycle_id
+        WHERE ac.user_id = ?
+        ORDER BY acc.academic_year DESC
+    ");
+    $stmtUserCycles->execute([$user_id]);
+    $userAssignedCycles = $stmtUserCycles->fetchAll(PDO::FETCH_ASSOC);
+}
+
+// Fetch Documents with related data - Modified to filter by user's cycles
+$queryDocuments = "
     SELECT 
         d.*,
         u.first_name,
@@ -20,26 +34,91 @@ $stmtDocuments = $pdo->prepare("
     LEFT JOIN programs p ON d.program_id = p.program_id
     LEFT JOIN accreditation_cycles ac ON d.cycle_id = ac.cycle_id
     LEFT JOIN departments dept ON p.department_id = dept.department_id
-    ORDER BY d.created_at DESC
-");
-$stmtDocuments->execute();
+";
+
+// Add cycle filter if user is an accreditor and has assigned cycles
+if (!empty($userAssignedCycles)) {
+    // Extract just the cycle IDs for the IN clause
+    $cycleIds = array_column($userAssignedCycles, 'cycle_id');
+    $placeholders = str_repeat('?,', count($cycleIds) - 1) . '?';
+    
+    $queryDocuments .= " WHERE d.cycle_id IN ($placeholders)";
+    $queryDocuments .= " ORDER BY d.created_at DESC";
+    
+    $stmtDocuments = $pdo->prepare($queryDocuments);
+    $stmtDocuments->execute($cycleIds);
+} else {
+    // For accreditors with no cycles, show no documents
+    $queryDocuments .= " WHERE 1=0 ORDER BY d.created_at DESC";
+    $stmtDocuments = $pdo->prepare($queryDocuments);
+    $stmtDocuments->execute();
+}
+
 $documents = $stmtDocuments->fetchAll(PDO::FETCH_ASSOC);
 
-// Fetch data for dropdowns
-$stmtIndicators = $pdo->query("SELECT indicator_id, indicator_code, indicator_description FROM accreditation_indicators ORDER BY indicator_code");
-$indicators = $stmtIndicators->fetchAll(PDO::FETCH_ASSOC);
-
-$stmtPrograms = $pdo->query("SELECT program_id, program_code, program_name FROM programs ORDER BY program_name");
-$programs = $stmtPrograms->fetchAll(PDO::FETCH_ASSOC);
-
-$stmtCycles = $pdo->query("SELECT cycle_id, cycle_name, academic_year FROM accreditation_cycles ORDER BY academic_year DESC");
-$cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
+// Fetch data for dropdowns - Only if user has assigned cycles
+if (!empty($userAssignedCycles)) {
+    $cycleIds = array_column($userAssignedCycles, 'cycle_id');
+    $placeholders = str_repeat('?,', count($cycleIds) - 1) . '?';
+    
+    $stmtIndicators = $pdo->prepare("
+        SELECT DISTINCT ai.indicator_id, ai.indicator_code, ai.indicator_description 
+        FROM accreditation_indicators ai
+        INNER JOIN documents d ON ai.indicator_id = d.indicator_id
+        WHERE d.cycle_id IN ($placeholders)
+        ORDER BY ai.indicator_code
+    ");
+    $stmtIndicators->execute($cycleIds);
+    $indicators = $stmtIndicators->fetchAll(PDO::FETCH_ASSOC);
+    
+    $stmtPrograms = $pdo->prepare("
+        SELECT DISTINCT p.program_id, p.program_code, p.program_name 
+        FROM programs p
+        INNER JOIN documents d ON p.program_id = d.program_id
+        WHERE d.cycle_id IN ($placeholders)
+        ORDER BY p.program_name
+    ");
+    $stmtPrograms->execute($cycleIds);
+    $programs = $stmtPrograms->fetchAll(PDO::FETCH_ASSOC);
+    
+    // For cycles dropdown, show only assigned cycles
+    $cycles = $userAssignedCycles;
+} else {
+    // For accreditors with no cycles, empty arrays
+    $indicators = [];
+    $programs = [];
+    $cycles = [];
+}
 ?>
+
 <section>
     <div class="d-flex justify-content-between align-items-center mb-2">
         <div class="mx-2">
             <h4 class=""><span class=""><i class="fa-solid fa-file-alt me-2"></i></span>Document Management</h4>
             <small class="text-muted">Manage accreditation documents</small>
+            
+            <?php if (!empty($userAssignedCycles)): ?>
+                <div class="mt-1">
+                    <small class="text-info">
+                        <i class="fas fa-filter me-1"></i>
+                        Showing documents from your assigned cycles: 
+                        <?php 
+                            $cycleNames = [];
+                            foreach($userAssignedCycles as $cycle) {
+                                $cycleNames[] = $cycle['cycle_name'] . ' (' . $cycle['academic_year'] . ')';
+                            }
+                            echo implode(', ', $cycleNames);
+                        ?>
+                    </small>
+                </div>
+            <?php elseif ($_SESSION['role'] === 'accreditor'): ?>
+                <div class="mt-1">
+                    <small class="text-warning">
+                        <i class="fas fa-exclamation-triangle me-1"></i>
+                        You are not assigned to any accreditation cycles. No documents to display.
+                    </small>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -50,6 +129,7 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
                 class="form-control">
         </div>
     </div>
+    
     <!-- View Document Modal -->
     <div class="modal fade" id="viewDocumentModal" tabindex="-1" aria-labelledby="viewDocumentModalLabel"
         aria-hidden="true">
@@ -65,19 +145,19 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
                             <h6>Document Information</h6>
                             <table class="table table-sm">
                                 <style>
-                                        .truncate-text {
-                                            display: inline-block;
-                                            max-width: 20rem;     /* your desired width */
-                                            white-space: nowrap; 
-                                            overflow: hidden;
-                                            text-overflow: ellipsis;
-                                        }
-                                    </style>
+                                    .truncate-text {
+                                        display: inline-block;
+                                        max-width: 20rem;
+                                        white-space: nowrap; 
+                                        overflow: hidden;
+                                        text-overflow: ellipsis;
+                                    }
+                                </style>
                                 <tr>
                                     <th>Filename:</th>
                                     <td class="truncate-text" id="viewFilename"></td>
                                 </tr>
-                                 <tr>
+                                <tr>
                                     <th>File Type:</th>
                                     <td class="truncate-text" id="fileType"></td>
                                 </tr>
@@ -130,11 +210,9 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
                         </div>
                     </div>
                     <div class="mt-3 text-center">
-                        <!-- Fixed Download Link -->
                         <a href="#" id="downloadDocumentLink" class="btn bg-gradient-primary d-none" download>
                             <i class="fas fa-download"></i> Download Document
                         </a>
-                        <!-- Fixed Preview Link -->
                         <a href="#" id="previewDocumentLink" class="btn btn-secondary" target="_blank">
                             <i class="fas fa-eye"></i> Preview
                         </a>
@@ -143,6 +221,8 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
             </div>
         </div>
     </div>
+    
+    <!-- Feedback Document Modal -->
     <div class="modal fade" id="feedbackDocumentModal" tabindex="-1" aria-labelledby="feedbackDocumentModalLabel"
         aria-hidden="true">
         <div class="modal-dialog modal-md">
@@ -172,139 +252,150 @@ $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
 
     <!-- DOCUMENTS TABLE -->
     <div class="table-responsive table-body">
-        <table class="table table-bordered table-sm table-hover">
-            <thead class="table-light">
-                <tr>
-                    <th width="5%">#</th>
-                    <th width="25%">Document</th>
-                    <th width="15%">Details</th>
-                    <th width="10%">Cycle</th>
-                    <th width="10%">Status</th>
-                    <th width="15%">Upload Info</th>
-                    <th width="20%">Actions</th>
-                </tr>
-            </thead>
-            <tbody id="documentsTable">
-                <?php 
-            $documentCount = 1;
-            foreach($documents as $document) : 
-                $statusClass = '';
-                $statusIcon = '';
-                switch($document['status']) {
-                    case 'approved': 
-                        $statusClass = 'bg-success';
-                        $statusIcon = 'APPROVED';
-                        break;
-                    case 'submitted': 
-                        $statusClass = 'bg-primary'; 
-                        $statusIcon = 'SUBMITTED';
-                        break;
-                    case 'under_review': 
-                        $statusClass = 'bg-info'; 
-                        $statusIcon = 'UNDER_REVIEW';
-                        break;
-                    case 'needs_revision': 
-                        $statusClass = 'bg-info'; 
-                        $statusIcon = 'NEEDS_REVISION';
-                        break;
-                    case 'draft': 
-                        $statusClass = 'bg-secondary'; 
-                        $statusIcon = 'DRAFT';
-                        break;
-                }
-                
-                // File icon based on extension
-                $file_ext = strtolower(pathinfo($document['filename'], PATHINFO_EXTENSION));
-                $file_icon = 'fa-file';
-                if (in_array($file_ext, ['pdf'])) $file_icon = 'fa-file-pdf text-danger';
-                elseif (in_array($file_ext, ['doc', 'docx'])) $file_icon = 'fa-file-word text-primary';
-                elseif (in_array($file_ext, ['xls', 'xlsx'])) $file_icon = 'fa-file-excel text-success';
-                elseif (in_array($file_ext, ['ppt', 'pptx'])) $file_icon = 'fa-file-powerpoint text-warning';
-                
-                // Short uploaded by name
-                $uploadedByName = substr($document['first_name'], 0, 1) . '. ' . $document['last_name'];
-            ?>
-                <tr>
-                    <td class="text-center"><?= $documentCount++ ?></td>
-                    <td>
-                        <div class="d-flex align-items-center">
-                            <i class="fas <?= $file_icon ?> fa-lg me-2"></i>
-                            <div class="text-truncate" style="max-width: 200px;"
-                                title="<?= htmlspecialchars($document['filename']) ?>">
-                                <div class="fw-bold"><?= htmlspecialchars($document['filename']) ?></div>
-                                <small class="text-muted">
-                                     • <?= formatFileSize($document['file_size']) ?>
-                                </small>
+        <?php if (empty($userAssignedCycles)): ?>
+            <div class="alert alert-info text-center">
+                <i class="fas fa-info-circle me-2"></i>
+                You are not assigned to any accreditation cycles. Please contact an administrator to be assigned to cycles.
+            </div>
+        <?php elseif (empty($documents)): ?>
+            <div class="alert alert-info text-center">
+                <i class="fas fa-folder-open me-2"></i>
+                No documents found for your assigned cycles.
+            </div>
+        <?php else: ?>
+            <table class="table table-bordered table-sm table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th width="5%">#</th>
+                        <th width="25%">Document</th>
+                        <th width="15%">Details</th>
+                        <th width="10%">Cycle</th>
+                        <th width="10%">Status</th>
+                        <th width="15%">Upload Info</th>
+                        <th width="20%">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="documentsTable">
+                    <?php 
+                    $documentCount = 1;
+                    foreach($documents as $document) : 
+                        $statusClass = '';
+                        $statusIcon = '';
+                        switch($document['status']) {
+                            case 'approved': 
+                                $statusClass = 'bg-success';
+                                $statusIcon = 'APPROVED';
+                                break;
+                            case 'submitted': 
+                                $statusClass = 'bg-primary'; 
+                                $statusIcon = 'SUBMITTED';
+                                break;
+                            case 'under_review': 
+                                $statusClass = 'bg-info'; 
+                                $statusIcon = 'UNDER_REVIEW';
+                                break;
+                            case 'needs_revision': 
+                                $statusClass = 'bg-info'; 
+                                $statusIcon = 'NEEDS_REVISION';
+                                break;
+                            case 'draft': 
+                                $statusClass = 'bg-secondary'; 
+                                $statusIcon = 'DRAFT';
+                                break;
+                        }
+                        
+                        // File icon based on extension
+                        $file_ext = strtolower(pathinfo($document['filename'], PATHINFO_EXTENSION));
+                        $file_icon = 'fa-file';
+                        if (in_array($file_ext, ['pdf'])) $file_icon = 'fa-file-pdf text-danger';
+                        elseif (in_array($file_ext, ['doc', 'docx'])) $file_icon = 'fa-file-word text-primary';
+                        elseif (in_array($file_ext, ['xls', 'xlsx'])) $file_icon = 'fa-file-excel text-success';
+                        elseif (in_array($file_ext, ['ppt', 'pptx'])) $file_icon = 'fa-file-powerpoint text-warning';
+                        
+                        // Short uploaded by name
+                        $uploadedByName = substr($document['first_name'], 0, 1) . '. ' . $document['last_name'];
+                    ?>
+                    <tr>
+                        <td class="text-center"><?= $documentCount++ ?></td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <i class="fas <?= $file_icon ?> fa-lg me-2"></i>
+                                <div class="text-truncate" style="max-width: 200px;"
+                                    title="<?= htmlspecialchars($document['filename']) ?>">
+                                    <div class="fw-bold"><?= htmlspecialchars($document['filename']) ?></div>
+                                    <small class="text-muted">
+                                         • <?= formatFileSize($document['file_size']) ?>
+                                    </small>
+                                </div>
                             </div>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="small">
-                            <div><strong>Indicator:</strong> <?= htmlspecialchars($document['indicator_code']) ?></div>
-                            <div><strong>Program:</strong> <?= htmlspecialchars($document['program_code']) ?></div>
-                        </div>
-                    </td>
-                    <td class="text-center">
-                        <span class="badge bg-light text-dark">
-                            <?= htmlspecialchars($document['academic_year']) ?>
-                        </span>
-                    </td>
-                    <td class="text-center">
-                        <span class="badge <?= $statusClass ?>" data-bs-toggle="tooltip"
-                            data-bs-title="<?= str_replace('_', ' ', ucfirst($document['status'])) ?>">
-                            <?= $statusIcon ?>
-                        </span>
-                    </td>
-                    <td>
-                        <div class="small">
-                            <div class="text-truncate" style="max-width: 120px;">
-                                <i class="fas fa-user me-1"></i>
-                                <?= htmlspecialchars($uploadedByName) ?>
+                        </td>
+                        <td>
+                            <div class="small">
+                                <div><strong>Indicator:</strong> <?= htmlspecialchars($document['indicator_code']) ?></div>
+                                <div><strong>Program:</strong> <?= htmlspecialchars($document['program_code']) ?></div>
                             </div>
-                            <div class="text-muted">
-                                <i class="fas fa-calendar me-1"></i>
-                                <?= date('M d, Y', strtotime($document['created_at'])) ?>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-light text-dark">
+                                <?= htmlspecialchars($document['academic_year']) ?>
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge <?= $statusClass ?>" data-bs-toggle="tooltip"
+                                data-bs-title="<?= str_replace('_', ' ', ucfirst($document['status'])) ?>">
+                                <?= $statusIcon ?>
+                            </span>
+                        </td>
+                        <td>
+                            <div class="small">
+                                <div class="text-truncate" style="max-width: 120px;">
+                                    <i class="fas fa-user me-1"></i>
+                                    <?= htmlspecialchars($uploadedByName) ?>
+                                </div>
+                                <div class="text-muted">
+                                    <i class="fas fa-calendar me-1"></i>
+                                    <?= date('M d, Y', strtotime($document['created_at'])) ?>
+                                </div>
                             </div>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="d-flex gap-1 justify-content-center">
-                            <div class="btn-group btn-group-sm">
-                                <button type="button" class="btn btn-sm btn-light view-document-btn m-0"
-                                    data-bs-toggle="tooltip" data-bs-title="View Details"
-                                    data-document-id="<?= $document['document_id'] ?>"
-                                    data-filename="<?= htmlspecialchars($document['filename']) ?>"
-                                    data-file-path="<?= htmlspecialchars($document['file_path']) ?>"
-                                    data-file-size="<?= $document['file_size'] ?>"
-                                    data-uploaded-by="<?= htmlspecialchars($uploadedByName) ?>"
-                                    data-created-at="<?= htmlspecialchars($document['created_at']) ?>"
-                                    data-updated-at="<?= htmlspecialchars($document['updated_at']) ?>"
-                                    data-indicator="<?= htmlspecialchars($document['indicator_code'] . ' - ' . $document['indicator_description']) ?>"
-                                    data-program="<?= htmlspecialchars($document['program_code'] . ' - ' . $document['program_name']) ?>"
-                                    data-department="<?= htmlspecialchars($document['department_name']) ?>"
-                                    data-cycle="<?= htmlspecialchars($document['cycle_name'] . ' (' . $document['academic_year'] . ')') ?>"
-
-                                    data-status="<?= htmlspecialchars($document['status']) ?>">
-                                    <i class="fas fa-eye"></i>
-                                </button>
-                                <button type="button" 
-                                        class="btn btn-sm m-0 btn-success getDocumentId"
-                                        data-id="<?= $document["document_id"] ?>"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#feedbackDocumentModal">
-                                    Feedback
-                                </button>
-
-
+                        </td>
+                        <td>
+                            <div class="d-flex gap-1 justify-content-center">
+                                <div class="btn-group btn-group-sm">
+                                    <button type="button" class="btn btn-sm btn-light view-document-btn m-0"
+                                        data-bs-toggle="tooltip" data-bs-title="View Details"
+                                        data-document-id="<?= $document['document_id'] ?>"
+                                        data-filename="<?= htmlspecialchars($document['filename']) ?>"
+                                        data-file-path="<?= htmlspecialchars($document['file_path']) ?>"
+                                        data-file-size="<?= $document['file_size'] ?>"
+                                        data-uploaded-by="<?= htmlspecialchars($uploadedByName) ?>"
+                                        data-created-at="<?= htmlspecialchars($document['created_at']) ?>"
+                                        data-updated-at="<?= htmlspecialchars($document['updated_at']) ?>"
+                                        data-indicator="<?= htmlspecialchars($document['indicator_code'] . ' - ' . $document['indicator_description']) ?>"
+                                        data-program="<?= htmlspecialchars($document['program_code'] . ' - ' . $document['program_name']) ?>"
+                                        data-department="<?= htmlspecialchars($document['department_name']) ?>"
+                                        data-cycle="<?= htmlspecialchars($document['cycle_name'] . ' (' . $document['academic_year'] . ')') ?>"
+                                        data-status="<?= htmlspecialchars($document['status']) ?>">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button type="button" 
+                                            class="btn btn-sm m-0 btn-success getDocumentId"
+                                            data-id="<?= $document["document_id"] ?>"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#feedbackDocumentModal">
+                                        Feedback
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                    </td>
-                </tr>
-                <?php endforeach ?>
-            </tbody>
-        </table>
+                        </td>
+                    </tr>
+                    <?php endforeach ?>
+                </tbody>
+            </table>
+        <?php endif; ?>
     </div>
 </section>
+
+
 
 <script>
 
