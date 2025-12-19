@@ -277,8 +277,20 @@ if ($action === 'get_parameters_by_area') {
         echo $validation;
     }
 }
+if ($action === 'get_parameters_by_area_II') {
+    $validation = $crud->get_parameters_by_area_II();
+    if ($validation) {
+        echo $validation;
+    }
+}
 if ($action === 'get_indicators_by_parameter') {
     $validation = $crud->get_indicators_by_parameter();
+    if ($validation) {
+        echo $validation;
+    }
+}
+if ($action === 'get_indicators_by_parameter_II') {
+    $validation = $crud->get_indicators_by_parameter_II();
     if ($validation) {
         echo $validation;
     }

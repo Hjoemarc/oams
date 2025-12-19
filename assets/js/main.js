@@ -2393,65 +2393,148 @@ $(document).ready(function () {
       });
     });
     $(document).on("submit", "#assignment-form", function (e) { 
-      e.preventDefault();
-      const $form = $(this);
-      if ($form.data("isSubmitted")) return;
-      $form.data("isSubmitted", true);
-      
-      const formData = new FormData(this);
-      const $btn = $form.find("button[type='submit']");
-      $btn.prop("disabled", true);
-      $btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Processing...');
-      
-      $.ajax({
-          url: base_url + "authentication/action.php?action=assignment_form",
-          type: "POST",
-          data: formData,
-          processData: false,
-          contentType: false,
-          dataType: "json",
-          success: function (response) {
-              if (response.status === 1) {
-                  Swal.fire({
-                      title: "Success!",
-                      text: response.message,
-                      icon: "success",
-                      toast: true,
-                      position: "top-end",
-                      timer: 3000,
-                      showConfirmButton: false,
-                  }).then(() => {
-                      $form[0].reset(); // Reset form on success
-                  });
-              } else {
-                  Swal.fire({
-                      title: "Error",
-                      text: response.message,
-                      icon: "error",
-                      toast: true,
-                      position: "top-end",
-                      timer: 3000,
-                      showConfirmButton: false,
-                  });
-              }
-          },
-          error: function (jqXHR, textStatus, err) {
-              console.error("AJAX error:", textStatus, err);
-              Swal.fire({
-                  title: "Connection Error",
-                  text: "Please check your connection and try again.",
-                  icon: "error",
-                  toast: true,
-                  position: "top-end",
-                  timer: 3000,
-                  showConfirmButton: false,
-              });
-          },
-          complete: function () {
-              $form.data("isSubmitted", false);
-              $btn.prop("disabled", false).html('Assign faculty');
-          }
-      });
+        e.preventDefault();
+        const $form = $(this);
+        
+        // Prevent double submission
+        if ($form.data("isSubmitted")) return;
+        $form.data("isSubmitted", true);
+        
+        const $btn = $form.find("button[type='submit']");
+        $btn.prop("disabled", true);
+        $btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Processing...');
+        
+        // Get accreditation level from PHP variable
+        const accreditationLevel = '<?= $accreditation_level ?>';
+        
+        // Build FormData properly with indicator IDs
+        const formData = new FormData(this);
+        
+        // Handle indicator IDs based on accreditation level
+        let indicatorIds = [];
+        
+        if (accreditationLevel === 'I') {
+            // Level I: Get from hidden input
+            const indicatorIdsStr = $('#indicator_ids').val();
+            if (!indicatorIdsStr) {
+                $('#indicator_error').show();
+                $form.data("isSubmitted", false);
+                $btn.prop("disabled", false).html('<i class="bi bi-person-plus-fill me-1"></i> Create Assignment');
+                Swal.fire({
+                    title: "Error",
+                    text: "Please select at least one indicator",
+                    icon: "error",
+                    toast: true,
+                    position: "top-end",
+                    timer: 3000,
+                    showConfirmButton: false,
+                });
+                return;
+            }
+            indicatorIds = indicatorIdsStr.split(',').filter(id => id.trim() !== '');
+        } else if (accreditationLevel === 'II') {
+            // Level II: Get from hidden input
+            const indicatorIdsStr = $('#indicator_ids_II').val();
+            if (!indicatorIdsStr) {
+                $('#indicator_error_II').show();
+                $form.data("isSubmitted", false);
+                $btn.prop("disabled", false).html('<i class="bi bi-person-plus-fill me-1"></i> Create Assignment');
+                Swal.fire({
+                    title: "Error",
+                    text: "Please select at least one indicator",
+                    icon: "error",
+                    toast: true,
+                    position: "top-end",
+                    timer: 3000,
+                    showConfirmButton: false,
+                });
+                return;
+            }
+            indicatorIds = indicatorIdsStr.split(',').filter(id => id.trim() !== '');
+        } else {
+            // Level III+: Get from checkboxes directly
+            $('input[name="indicator_ids[]"]:checked').each(function() {
+                indicatorIds.push($(this).val());
+            });
+            
+            if (indicatorIds.length === 0) {
+                $form.data("isSubmitted", false);
+                $btn.prop("disabled", false).html('<i class="bi bi-person-plus-fill me-1"></i> Create Assignment');
+                Swal.fire({
+                    title: "Error",
+                    text: "Please select at least one indicator",
+                    icon: "error",
+                    toast: true,
+                    position: "top-end",
+                    timer: 3000,
+                    showConfirmButton: false,
+                });
+                return;
+            }
+        }
+        
+        // Clear any existing indicator_ids entries
+        formData.delete('indicator_ids');
+        formData.delete('indicator_ids[]');
+        
+        // Add indicator IDs as array
+        indicatorIds.forEach(id => {
+            formData.append('indicator_ids[]', id);
+        });
+        
+        // Debug: Log what's being sent
+        console.log('Submitting indicator IDs:', indicatorIds);
+        
+        // Submit the form via AJAX
+        $.ajax({
+            url: base_url + "/authentication/action.php?action=assignment_form",
+            type: "POST",
+            data: formData,
+            processData: false,
+            contentType: false,
+            dataType: "json",
+            success: function (response) {
+                if (response.status === 1) {
+                    Swal.fire({
+                        title: "Success!",
+                        text: response.message,
+                        icon: "success",
+                        toast: true,
+                        position: "top-end",
+                        timer: 3000,
+                        showConfirmButton: false,
+                    }).then(() => {
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        title: "Error",
+                        text: response.message,
+                        icon: "error",
+                        toast: true,
+                        position: "top-end",
+                        timer: 3000,
+                        showConfirmButton: false,
+                    });
+                }
+            },
+            error: function (jqXHR, textStatus, err) {
+                console.error("AJAX error:", textStatus, err);
+                Swal.fire({
+                    title: "Connection Error",
+                    text: "Please check your connection and try again.",
+                    icon: "error",
+                    toast: true,
+                    position: "top-end",
+                    timer: 3000,
+                    showConfirmButton: false,
+                });
+            },
+            complete: function () {
+                $form.data("isSubmitted", false);
+                $btn.prop("disabled", false).html('<i class="bi bi-person-plus-fill me-1"></i> Create Assignment');
+            }
+        });
     });
     $(document).on("submit", "#edit-assignment-form", function (e) { 
       e.preventDefault();

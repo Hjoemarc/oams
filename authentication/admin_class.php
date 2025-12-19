@@ -2704,7 +2704,7 @@ class Action
             ]);
         }
     }
-
+    
     function get_parameters_by_area() {
         try {
             
@@ -2739,7 +2739,41 @@ class Action
             ]);
         }
     }
-
+    function get_parameters_by_area_II() {
+        try {
+            
+            if (!isset($_POST['area_id']) || empty($_POST['area_id'])) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Area ID is required'
+                ]);
+            }
+            
+            $area_id = $_POST['area_id'];
+            
+            $stmt = $this->db->prepare("
+                SELECT parameter_id, parameter_code, parameter_name 
+                FROM accreditation_parameters 
+                WHERE area_id = ? 
+                ORDER BY parameter_code
+            ");
+            $stmt->execute([$area_id]);
+            $parameters = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            return json_encode([
+                'status' => 1,
+                'message' => 'Parameters retrieved successfully',
+                'data' => $parameters
+            ]);
+            
+        } catch(PDOException $e) {
+            return json_encode([
+                'status' => 0, 
+                'message' => 'An error occurred: ' . $e->getMessage()
+            ]);
+        }
+    }
+    
     function get_indicators_by_parameter() {
         try {
             
@@ -2774,7 +2808,41 @@ class Action
             ]);
         }
     }
-   function assignment_form() {
+    function get_indicators_by_parameter_II() {
+        try {
+            
+            if (!isset($_POST['parameter_id']) || empty($_POST['parameter_id'])) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Parameter ID is required'
+                ]);
+            }
+            
+            $parameter_id = $_POST['parameter_id'];
+            
+            $stmt = $this->db->prepare("
+                SELECT indicator_id, indicator_code, indicator_description 
+                FROM accreditation_indicators 
+                WHERE parameter_id = ? AND indicator_level = 'II'
+                ORDER BY indicator_code
+            ");
+            $stmt->execute([$parameter_id]);
+            $indicators = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            return json_encode([
+                'status' => 1,
+                'message' => 'Indicators retrieved successfully',
+                'data' => $indicators
+            ]);
+            
+        } catch(PDOException $e) {
+            return json_encode([
+                'status' => 0, 
+                'message' => 'An error occurred: ' . $e->getMessage()
+            ]);
+        }
+    }
+    function assignment_form() {
         try {
             $cycle_id = $_POST['cycle_id'] ?? '';
             $user_id = $_POST['user_id'] ?? '';
@@ -2818,12 +2886,12 @@ class Action
                 ]);
             }
             
-            if (empty($indicator_ids)) {
-                return json_encode([
-                    'status' => 0,
-                    'message' => 'Please select at least one indicator'
-                ]);
-            }
+            // if (empty($indicator_ids)) {
+            //     return json_encode([
+            //         'status' => 0,
+            //         'message' => 'Please select at least one indicator'
+            //     ]);
+            // }
             
             // FIXED: Check if the specified cycle exists and is active (lowercase 'active')
             $stmt = $this->db->prepare("
@@ -2851,17 +2919,17 @@ class Action
                 ]);
                 $actualCycle = $checkStmt->fetch(PDO::FETCH_ASSOC);
                 
-                // if($actualCycle){
-                //     return json_encode([
-                //         'status' => 0,
-                //         'message' => 'Cycle is currently ' . $actualCycle['status'] . '. Please select an active cycle!'
-                //     ]);
-                // } else {
-                //     return json_encode([
-                //         'status' => 0,
-                //         'message' => 'Cycle not found for this program.'
-                //     ]);
-                // }
+                if($actualCycle){
+                    return json_encode([
+                        'status' => 0,
+                        'message' => 'Cycle is currently ' . $actualCycle['status'] . '. Please select an active cycle!'
+                    ]);
+                } else {
+                    return json_encode([
+                        'status' => 0,
+                        'message' => 'Cycle not found for this program.'
+                    ]);
+                }
             }
 
             $assigned_count = 0;
@@ -3214,7 +3282,8 @@ class Action
         }
     }
 
-// user_profile =======================================================
+
+    // user_profile =======================================================
     function profile_update() {
         try {
             $user_id = $_POST["user_id"];

@@ -155,14 +155,7 @@ $documentCount = 1;
                         class="fa-solid fa-file-alt me-2"></i> Document Reviews</a>
             </li>
         </ul>
-        <?php 
-            $stmt = $pdo->prepare("SELECT accreditation_level FROM program_levels WHERE program_id = :program_id");
-            $stmt->execute([
-                'program_id' => $program_id
-            ]);
-            $accreditation_level_data = $stmt->fetch(PDO::FETCH_ASSOC);
-            $accreditation_level = $accreditation_level_data["accreditation_level"] ?? 'none';
-        ?>
+        
         <div class="col-md-6 d-flex justify-content-end">
             <button class="btn bg-gradient-primary" data-bs-toggle="modal" data-bs-target="#createAccounts">+ create
                 assignment</button>
@@ -593,7 +586,14 @@ $documentCount = 1;
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"
                     onclick="location.reload()"></button>
             </div>
-                    <?php
+            <?php
+                    $stmt = $pdo->prepare("SELECT accreditation_level FROM program_levels WHERE program_id = :program_id");
+                    $stmt->execute([
+                        'program_id' => $program_id
+                    ]);
+                    $accreditation_level_data = $stmt->fetch(PDO::FETCH_ASSOC);
+                    $accreditation_level = $accreditation_level_data["accreditation_level"] ?? 'none';
+       
                         $stmt = $pdo->prepare("SELECT * FROM accreditation_cycles WHERE status = 'active'");
                         $stmt->execute();
                         $cycles = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -602,6 +602,17 @@ $documentCount = 1;
                         $stmt = $pdo->prepare("SELECT * FROM accreditation_areas ORDER BY area_number");
                         $stmt->execute();
                         $areas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        
+                        // fetch all aread level II
+                        $stmt = $pdo->prepare("
+                            SELECT ac.area_number, ac.description, ac.area_name, ac.area_id
+                            FROM accreditation_areas ac
+                            WHERE ac.area_number IN ('II','III','IV','V','VI','VII','VIII','IX')
+                            ORDER BY ac.area_number
+                        ");
+                        $stmt->execute();
+                        $areasII = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
                         
                         $stmt = $pdo->prepare("SELECT * FROM programs 
                         INNER JOIN departments ON programs.department_id = departments.department_id
@@ -631,7 +642,7 @@ $documentCount = 1;
                             ?>
                         </p>
                     </div>
-                     <div class=" col-12">
+                    <div class=" col-12">
                         <label class="form-label">Program</label>
                         <select name="program_id" id="program_id" class="form-select" required>
                             <option value="">Select Program</option>
@@ -652,9 +663,9 @@ $documentCount = 1;
                         </select>
                     </div>
                     <div class=" col-12">
-                    
-                    <?php 
-                        if($accreditation_level == 'I' || $accreditation_level == 'II'){
+
+                        <?php 
+                        if($accreditation_level == 'I'){
                     ?>
                     </div>
 
@@ -706,62 +717,111 @@ $documentCount = 1;
                             Please select at least one indicator
                         </div>
                     </div>
-                    <?php }else{ ?>
-                        <?php 
-                        $stmtIndicators = $pdo->prepare("SELECT * FROM accreditation_indicators WHERE indicator_level = :indicator_level");
-                        $stmtIndicators->execute(['indicator_level' => $accreditation_level]);
-                        $indicators = $stmtIndicators->fetchAll(PDO::FETCH_ASSOC);
-                        ?>
-                        
+                    <?php }else if($accreditation_level == 'II'){ ?>
                         <div class="col-12">
-                            <label class="form-label">Select Indicators</label>
-                            <div class="border rounded p-3 bg-light">
+                            <label class="form-label">Area</label>
+                            <select name="area_id" id="area_id_II" class="form-select" required>
+                                <option value="">Select Area</option>
+                                <?php foreach($areasII as $area) : ?>
+                                <option value="<?= htmlspecialchars($area["area_id"]) ?>">
+                                    <?= htmlspecialchars($area["area_number"] . ' - ' . $area["area_name"]) ?>
+                                </option>
+                                <?php endforeach ?>
+                            </select>
+                        </div>
+
+                        <!-- Parameter Selection -->
+                        <div class="col-12">
+                            <label class="form-label">Parameter</label>
+                            <select name="parameter_id" id="parameter_id_II" class="form-select" required disabled>
+                                <option value="">Select Parameter</option>
+                                <!-- Parameters will be loaded dynamically via AJAX -->
+                            </select>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label">Indicators <span class="text-danger">*</span></label>
+                            <div class="border rounded p-3 bg-light" id="indicators_container_II" style="display: none;">
                                 <div class="form-check mb-2">
-                                    <input class="form-check-input" type="checkbox" id="select_all_indicators_advanced">
-                                    <label class="form-check-label fw-bold" for="select_all_indicators_advanced">
+                                    <input class="form-check-input" type="checkbox" id="select_all_indicators_II">
+                                    <label class="form-check-label fw-bold" for="select_all_indicators_II">
+                                        <!-- FIXED: Changed ID -->
                                         Select All Indicators
                                     </label>
                                 </div>
                                 <hr class="my-2">
-                                <div id="indicators_checkboxes_advanced" class="row">
-                                    <?php if(count($indicators) > 0): ?>
-                                        <?php foreach($indicators as $indi): ?>
-                                            <div class="col-md-6 mb-2">
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="checkbox" 
-                                                        name="indicator_ids[]" 
-                                                        value="<?= htmlspecialchars($indi['indicator_id']) ?>" 
-                                                        id="indicator_<?= $indi['indicator_id'] ?>">
-                                                    <label class="form-check-label" for="indicator_<?= $indi['indicator_id'] ?>">
-                                                        <strong><?= htmlspecialchars($indi['indicator_code']) ?></strong>
-                                                        <?php if(!empty($indi['indicator_description'])): ?>
-                                                            <br><small class="text-muted"><?= htmlspecialchars($indi['indicator_description']) ?></small>
-                                                        <?php endif; ?>
-                                                    </label>
-                                                </div>
-                                            </div>
-                                        <?php endforeach; ?>
-                                    <?php else: ?>
-                                        <div class="col-12 text-center text-muted">
-                                            <i class="bi bi-info-circle"></i> No indicators found for this accreditation level
-                                        </div>
-                                    <?php endif; ?>
+                                <div id="indicators_checkboxes_II" class="row">
+                                    <div class="col-12 text-center text-muted">
+                                        <i class="bi bi-info-circle"></i> Select a parameter above to load indicators
+                                    </div>
                                 </div>
                             </div>
-                            <small class="text-muted">Select indicators for this assignment.</small>
+                            <input type="hidden" name="indicator_ids" id="indicator_ids_II" value="">
+                            <!-- FIXED: This is Level II -->
+                            <small class="text-muted">Note: You can select one or more indicators for this
+                                assignment.</small>
+                            <div id="indicator_error_II" class="text-danger mt-1" style="display: none;">
+                                <!-- FIXED: Changed ID -->
+                                Please select at least one indicator
+                            </div>
                         </div>
-                        
-                        <script>
-                        // Add "Select All" functionality for Level III+ indicators
-                        $(document).ready(function() {
-                            $('#select_all_indicators_advanced').change(function() {
-                                const isChecked = $(this).prop('checked');
-                                $('#indicators_checkboxes_advanced input[type="checkbox"]').prop('checked', isChecked);
-                            });
+                    <?php }else{ ?>
+                    <?php 
+                        $stmtIndicators = $pdo->prepare("SELECT * FROM accreditation_indicators WHERE indicator_level = :indicator_level");
+                        $stmtIndicators->execute(['indicator_level' => $accreditation_level]);
+                        $indicators = $stmtIndicators->fetchAll(PDO::FETCH_ASSOC);
+                        ?>
+
+                    <div class="col-12">
+                        <label class="form-label">Select Indicators</label>
+                        <div class="border rounded p-3 bg-light">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="select_all_indicators_advanced">
+                                <label class="form-check-label fw-bold" for="select_all_indicators_advanced">
+                                    Select All Indicators
+                                </label>
+                            </div>
+                            <hr class="my-2">
+                            <div id="indicators_checkboxes_advanced" class="row">
+                                <?php if(count($indicators) > 0): ?>
+                                <?php foreach($indicators as $indi): ?>
+                                <div class="col-md-6 mb-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="indicator_ids[]"
+                                            value="<?= htmlspecialchars($indi['indicator_id']) ?>"
+                                            id="indicator_<?= $indi['indicator_id'] ?>">
+                                        <label class="form-check-label" for="indicator_<?= $indi['indicator_id'] ?>">
+                                            <strong><?= htmlspecialchars($indi['indicator_code']) ?></strong>
+                                            <?php if(!empty($indi['indicator_description'])): ?>
+                                            <br><small
+                                                class="text-muted"><?= htmlspecialchars($indi['indicator_description']) ?></small>
+                                            <?php endif; ?>
+                                        </label>
+                                    </div>
+                                </div>
+                                <?php endforeach; ?>
+                                <?php else: ?>
+                                <div class="col-12 text-center text-muted">
+                                    <i class="bi bi-info-circle"></i> No indicators found for this accreditation level
+                                </div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <small class="text-muted">Select indicators for this assignment.</small>
+                    </div>
+
+                    <script>
+                    // Add "Select All" functionality for Level III+ indicators
+                    $(document).ready(function() {
+                        $('#select_all_indicators_advanced').change(function() {
+                            const isChecked = $(this).prop('checked');
+                            $('#indicators_checkboxes_advanced input[type="checkbox"]').prop('checked',
+                                isChecked);
                         });
-                        </script>
+                    });
+                    </script>
                     <?php } ?>
-                   
+
                     <!-- Status Selection -->
                     <div class=" col-12">
                         <label class="form-label">Status</label>
@@ -793,10 +853,20 @@ $(document).ready(function() {
         loadParameters(areaId);
     });
 
+    $('#area_id_II').on('change', function() {
+        var areaId = $(this).val();
+        loadParametersII(areaId);
+    });
+
     // When parameter selection changes, load indicators
     $('#parameter_id').on('change', function() {
         var parameterId = $(this).val();
         loadIndicators(parameterId);
+    });
+
+    $('#parameter_id_II').on('change', function() {
+        var parameterId = $(this).val();
+        loadIndicatorsII(parameterId);
     });
 
     // When program selection changes, load faculty
@@ -804,9 +874,398 @@ $(document).ready(function() {
         var programId = $(this).val();
         loadFacultyForProgram(programId);
     });
+
+    // Level II select all functionality
+    $(document).on('change', '#select_all_indicators_II', function() {
+        const isChecked = $(this).prop('checked');
+        $('#indicators_checkboxes_II input.indicator-checkbox-II').prop('checked', isChecked);
+        updateIndicatorIdsII();
+    });
+
+    // Add event handler for individual checkbox changes
+    $(document).on('change', '.indicator-checkbox-II', function() {
+        updateIndicatorIdsII();
+        updateSelectAllIndicatorStateII();
+    });
+    
+    // Debug: Check if event handler is attached
+    $('#select_all_indicators_II').on('click', function() {
+        console.log('Select All II clicked:', $(this).prop('checked'));
+    });
+    
+    $(document).on('change', '.indicator-checkbox-II', function() {
+        console.log('Individual checkbox changed:', $(this).val(), $(this).prop('checked'));
+    });
 });
 
-// Function to load parameters based on selected area
+$(document).on("submit", "#assignment-form", function (e) { 
+    e.preventDefault();
+    const $form = $(this);
+    
+    // Prevent double submission
+    if ($form.data("isSubmitted")) return;
+    $form.data("isSubmitted", true);
+    
+    const $btn = $form.find("button[type='submit']");
+    $btn.prop("disabled", true);
+    $btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Processing...');
+    
+    // Get accreditation level from PHP variable
+    const accreditationLevel = '<?= $accreditation_level ?>';
+    
+    // Build FormData properly with indicator IDs
+    const formData = new FormData(this);
+    
+    // Handle indicator IDs based on accreditation level
+    let indicatorIds = [];
+    
+    if (accreditationLevel === 'I') {
+        // Level I: Get from hidden input
+        const indicatorIdsStr = $('#indicator_ids').val();
+        if (!indicatorIdsStr) {
+            $('#indicator_error').show();
+            $form.data("isSubmitted", false);
+            $btn.prop("disabled", false).html('<i class="bi bi-person-plus-fill me-1"></i> Create Assignment');
+            Swal.fire({
+                title: "Error",
+                text: "Please select at least one indicator",
+                icon: "error",
+                toast: true,
+                position: "top-end",
+                timer: 3000,
+                showConfirmButton: false,
+            });
+            return;
+        }
+        indicatorIds = indicatorIdsStr.split(',').filter(id => id.trim() !== '');
+    } else if (accreditationLevel === 'II') {
+        // Level II: Get from hidden input
+        const indicatorIdsStr = $('#indicator_ids_II').val();
+        console.log('Level II indicator string:', indicatorIdsStr); // Debug log
+        
+        if (!indicatorIdsStr || indicatorIdsStr.trim() === '') {
+            $('#indicator_error_II').show();
+            $form.data("isSubmitted", false);
+            $btn.prop("disabled", false).html('<i class="bi bi-person-plus-fill me-1"></i> Create Assignment');
+            Swal.fire({
+                title: "Error",
+                text: "Please select at least one indicator",
+                icon: "error",
+                toast: true,
+                position: "top-end",
+                timer: 3000,
+                showConfirmButton: false,
+            });
+            return;
+        }
+        indicatorIds = indicatorIdsStr.split(',').filter(id => id.trim() !== '');
+    } else {
+        // Level III+: Get from checkboxes directly
+        $('input[name="indicator_ids[]"]:checked').each(function() {
+            indicatorIds.push($(this).val());
+        });
+        
+        if (indicatorIds.length === 0) {
+            $form.data("isSubmitted", false);
+            $btn.prop("disabled", false).html('<i class="bi bi-person-plus-fill me-1"></i> Create Assignment');
+            Swal.fire({
+                title: "Error",
+                text: "Please select at least one indicator",
+                icon: "error",
+                toast: true,
+                position: "top-end",
+                timer: 3000,
+                showConfirmButton: false,
+            });
+            return;
+        }
+    }
+    
+    console.log('Final indicator IDs to submit:', indicatorIds); // Debug log
+    
+    // Clear any existing indicator_ids entries
+    formData.delete('indicator_ids');
+    formData.delete('indicator_ids[]');
+    
+    // Add indicator IDs as array
+    indicatorIds.forEach(id => {
+        formData.append('indicator_ids[]', id);
+    });
+    
+    // Debug: Log what's being sent
+    console.log('Submitting indicator IDs:', indicatorIds);
+    
+    // Submit the form via AJAX
+    $.ajax({
+        url: base_url + "/authentication/action.php?action=assignment_form",
+        type: "POST",
+        data: formData,
+        processData: false,
+        contentType: false,
+        dataType: "json",
+        success: function (response) {
+            if (response.status === 1) {
+                Swal.fire({
+                    title: "Success!",
+                    text: response.message,
+                    icon: "success",
+                    toast: true,
+                    position: "top-end",
+                    timer: 3000,
+                    showConfirmButton: false,
+                }).then(() => {
+                    // Reset form and close modal
+                    $form[0].reset();
+                    
+                    // Hide indicators containers
+                    $('#indicators_container').hide();
+                    $('#indicators_container_II').hide();
+                    
+                    // Reset selects
+                    $('#parameter_id, #parameter_id_II').prop('disabled', true).html('<option value="">Select Parameter</option>');
+                    $('#faculty_id').prop('disabled', true).html('<option value="">Select Faculty</option>');
+                    
+                    // Clear indicator checkboxes
+                    $('#indicators_checkboxes, #indicators_checkboxes_II, #indicators_checkboxes_advanced').html(
+                        '<div class="col-12 text-center text-muted"><i class="bi bi-info-circle"></i> Select a parameter above to load indicators</div>'
+                    );
+                    
+                    // Reset hidden inputs
+                    $('#indicator_ids, #indicator_ids_II').val('');
+                    
+                    // Reset select all checkboxes
+                    $('#select_all_indicators, #select_all_indicators_II, #select_all_indicators_advanced')
+                        .prop('checked', false)
+                        .prop('disabled', true);
+                    
+                    // Hide error messages
+                    $('#indicator_error, #indicator_error_II').hide();
+                    
+                    // Close modal
+                    $('#createAccounts').modal('hide');
+                    
+                    // Optional: Reload assignments table if you have one
+                    if (typeof loadAssignments === 'function') {
+                        loadAssignments();
+                    }
+                });
+            } else {
+                Swal.fire({
+                    title: "Error",
+                    text: response.message,
+                    icon: "error",
+                    toast: true,
+                    position: "top-end",
+                    timer: 3000,
+                    showConfirmButton: false,
+                });
+            }
+        },
+        error: function (jqXHR, textStatus, err) {
+            console.error("AJAX error:", textStatus, err);
+            Swal.fire({
+                title: "Connection Error",
+                text: "Please check your connection and try again.",
+                icon: "error",
+                toast: true,
+                position: "top-end",
+                timer: 3000,
+                showConfirmButton: false,
+            });
+        },
+        complete: function () {
+            $form.data("isSubmitted", false);
+            $btn.prop("disabled", false).html('<i class="bi bi-person-plus-fill me-1"></i> Create Assignment');
+        }
+    });
+});
+
+// Level II functions
+function updateIndicatorIdsII() {
+    var selected = [];
+    $('#indicators_checkboxes_II input.indicator-checkbox-II:checked').each(function() {
+        selected.push($(this).val());
+    });
+    var selectedString = selected.join(',');
+    $('#indicator_ids_II').val(selectedString);
+    
+    console.log('updateIndicatorIdsII called. Selected:', selected, 'String:', selectedString); // Debug log
+
+    // Show/hide error message
+    if (selected.length === 0) {
+        $('#indicator_error_II').show();
+    } else {
+        $('#indicator_error_II').hide();
+    }
+}
+
+function updateSelectAllIndicatorStateII() {
+    var totalCheckboxes = $('#indicators_checkboxes_II input.indicator-checkbox-II').length;
+    var checkedCheckboxes = $('#indicators_checkboxes_II input.indicator-checkbox-II:checked').length;
+    $('#select_all_indicators_II').prop('checked', totalCheckboxes > 0 && totalCheckboxes === checkedCheckboxes);
+}
+
+function loadParametersII(areaId) {
+    var parameterSelect = $('#parameter_id_II');
+
+    if (!areaId || areaId === '') {
+        parameterSelect.html('<option value="">Select Parameter</option>').prop('disabled', true);
+        $('#indicators_container_II').hide();
+        $('#indicators_checkboxes_II').html(
+            '<div class="col-12 text-center text-muted"><i class="bi bi-info-circle"></i> Select a parameter above to load indicators</div>'
+        );
+        $('#indicator_ids_II').val('');
+        return;
+    }
+
+    // Show loading state
+    parameterSelect.html('<option value="">Loading parameters...</option>').prop('disabled', true);
+
+    $.ajax({
+        url: base_url + "/authentication/action.php?action=get_parameters_by_area_II",
+        method: 'POST',
+        dataType: 'json',
+        data: {
+            area_id: areaId
+        },
+        success: function(response) {
+            console.log('Parameters II Response:', response);
+
+            if (response.status == 1 && response.data && response.data.length > 0) {
+                var options = '<option value="">Select Parameter</option>';
+                $.each(response.data, function(index, parameter) {
+                    options +=
+                        `<option value="${parameter.parameter_id}">${parameter.parameter_code} - ${parameter.parameter_name}</option>`;
+                });
+                parameterSelect.html(options).prop('disabled', false);
+            } else {
+                parameterSelect.html('<option value="">No parameters available</option>').prop('disabled',
+                    true);
+            }
+
+            // Reset indicators section
+            $('#indicators_container_II').hide();
+            $('#indicators_checkboxes_II').html(
+                '<div class="col-12 text-center text-muted"><i class="bi bi-info-circle"></i> Select a parameter above to load indicators</div>'
+            );
+            $('#indicator_ids_II').val('');
+        },
+        error: function(xhr, status, error) {
+            console.error('AJAX Error:', error);
+            parameterSelect.html('<option value="">Error loading parameters</option>').prop('disabled',
+                true);
+        }
+    });
+}
+
+function loadIndicatorsII(parameterId, selectedIndicatorIds = []) {
+    var container = $('#indicators_container_II');
+    var checkboxesContainer = $('#indicators_checkboxes_II');
+    var hiddenInput = $('#indicator_ids_II');
+    var selectAllCheckbox = $('#select_all_indicators_II');
+
+    if (!parameterId || parameterId === '') {
+        container.hide();
+        checkboxesContainer.html(
+            '<div class="col-12 text-center text-muted"><i class="bi bi-info-circle"></i> Select a parameter above to load indicators</div>'
+        );
+        hiddenInput.val('');
+        selectAllCheckbox.prop('checked', false).prop('disabled', true);
+        return;
+    }
+
+    // Show loading state
+    container.show();
+    checkboxesContainer.html(`
+        <div class="col-12 text-center">
+            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+            <span class="ms-2">Loading indicators...</span>
+        </div>
+    `);
+    selectAllCheckbox.prop('checked', false).prop('disabled', true);
+
+    $.ajax({
+        url: base_url + "/authentication/action.php?action=get_indicators_by_parameter_II",
+        method: 'POST',
+        dataType: 'json',
+        data: {
+            parameter_id: parameterId
+        },
+        success: function(response) {
+            console.log('Indicators II Response:', response);
+
+            if (response.status == 1 && response.data && response.data.length > 0) {
+                checkboxesContainer.empty();
+
+                // Convert selectedIndicatorIds to array
+                if (typeof selectedIndicatorIds === 'string') {
+                    selectedIndicatorIds = selectedIndicatorIds.split(',').map(id => id.trim()).filter(id => id !== '');
+                } else if (!Array.isArray(selectedIndicatorIds)) {
+                    selectedIndicatorIds = [];
+                }
+
+                // Create checkboxes
+                $.each(response.data, function(index, indicator) {
+                    var isChecked = selectedIndicatorIds.includes(indicator.indicator_id.toString());
+                    var checkboxId = 'indicator_II_' + indicator.indicator_id;
+
+                    // Truncate description if too long
+                    var fullDescription = indicator.indicator_description || '';
+                    var shortDescription = fullDescription.substring(0, 60);
+                    if (fullDescription.length > 60) shortDescription += '...';
+
+                    var checkboxHtml = `
+                        <div class="col-md-6 mb-2">
+                            <div class="form-check">
+                                <input class="form-check-input indicator-checkbox-II" 
+                                       type="checkbox" 
+                                       id="${checkboxId}"
+                                       value="${indicator.indicator_id}"
+                                       ${isChecked ? 'checked' : ''}>
+                                <label class="form-check-label" for="${checkboxId}" 
+                                       title="${fullDescription}"
+                                       data-bs-toggle="tooltip">
+                                    <strong>${indicator.indicator_code}</strong>: ${shortDescription}
+                                </label>
+                            </div>
+                        </div>
+                    `;
+
+                    checkboxesContainer.append(checkboxHtml);
+                });
+
+                // Initialize tooltips
+                $('[data-bs-toggle="tooltip"]').tooltip();
+
+                // Enable select all checkbox
+                selectAllCheckbox.prop('disabled', false);
+
+                // Initialize indicator selection
+                updateIndicatorIdsII();
+                updateSelectAllIndicatorStateII();
+
+            } else {
+                checkboxesContainer.html(`
+                    <div class="col-12 text-center text-muted">
+                        <i class="bi bi-info-circle"></i> No indicators available for this parameter
+                    </div>
+                `);
+                hiddenInput.val('');
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('AJAX Error:', error);
+            checkboxesContainer.html(`
+                <div class="col-12 text-center text-danger">
+                    <i class="bi bi-exclamation-triangle"></i> Error loading indicators
+                </div>
+            `);
+            hiddenInput.val('');
+        }
+    });
+}
+
+// Level I functions (keep these as they are)
 function loadParameters(areaId) {
     var parameterSelect = $('#parameter_id');
 
@@ -815,7 +1274,8 @@ function loadParameters(areaId) {
         $('#indicators_container').hide();
         $('#indicators_checkboxes').html(
             '<div class="col-12 text-center text-muted"><i class="bi bi-info-circle"></i> Select a parameter above to load indicators</div>'
-            );
+        );
+        $('#indicator_ids').val('');
         return;
     }
 
@@ -848,7 +1308,7 @@ function loadParameters(areaId) {
             $('#indicators_container').hide();
             $('#indicators_checkboxes').html(
                 '<div class="col-12 text-center text-muted"><i class="bi bi-info-circle"></i> Select a parameter above to load indicators</div>'
-                );
+            );
             $('#indicator_ids').val('');
         },
         error: function(xhr, status, error) {
@@ -859,7 +1319,6 @@ function loadParameters(areaId) {
     });
 }
 
-// Function to load indicators as checkboxes based on selected parameter
 function loadIndicators(parameterId, selectedIndicatorIds = []) {
     var container = $('#indicators_container');
     var checkboxesContainer = $('#indicators_checkboxes');
@@ -906,51 +1365,34 @@ function loadIndicators(parameterId, selectedIndicatorIds = []) {
                     selectedIndicatorIds = [];
                 }
 
-                // Create checkboxes in columns (2 columns layout)
-                var indicatorsPerColumn = Math.ceil(response.data.length / 2);
-                var currentCount = 0;
-
-                var column1 = $('<div class="col-md-6"></div>');
-                var column2 = $('<div class="col-md-6"></div>');
-
+                // Create checkboxes
                 $.each(response.data, function(index, indicator) {
-                    var isChecked = selectedIndicatorIds.includes(indicator.indicator_id
-                .toString());
+                    var isChecked = selectedIndicatorIds.includes(indicator.indicator_id.toString());
                     var checkboxId = 'indicator_' + indicator.indicator_id;
-                    var optionText = indicator.indicator_code;
 
-                    // Truncate description if too long
                     var fullDescription = indicator.indicator_description || '';
                     var shortDescription = fullDescription.substring(0, 60);
                     if (fullDescription.length > 60) shortDescription += '...';
 
                     var checkboxHtml = `
-                        <div class="form-check mb-2">
-                            <input class="form-check-input indicator-checkbox" 
-                                   type="checkbox" 
-                                   id="${checkboxId}"
-                                   value="${indicator.indicator_id}"
-                                   ${isChecked ? 'checked' : ''}>
-                            <label class="form-check-label" for="${checkboxId}" 
-                                   title="${fullDescription}"
-                                   data-bs-toggle="tooltip">
-                                <strong>${indicator.indicator_code}</strong>: ${shortDescription}
-                            </label>
+                        <div class="col-md-6 mb-2">
+                            <div class="form-check">
+                                <input class="form-check-input indicator-checkbox" 
+                                       type="checkbox" 
+                                       id="${checkboxId}"
+                                       value="${indicator.indicator_id}"
+                                       ${isChecked ? 'checked' : ''}>
+                                <label class="form-check-label" for="${checkboxId}" 
+                                       title="${fullDescription}"
+                                       data-bs-toggle="tooltip">
+                                    <strong>${indicator.indicator_code}</strong>: ${shortDescription}
+                                </label>
+                            </div>
                         </div>
                     `;
 
-                    // Distribute checkboxes between two columns
-                    if (currentCount < indicatorsPerColumn) {
-                        column1.append(checkboxHtml);
-                    } else {
-                        column2.append(checkboxHtml);
-                    }
-                    currentCount++;
+                    checkboxesContainer.append(checkboxHtml);
                 });
-
-                // Add columns to container
-                checkboxesContainer.append(column1);
-                checkboxesContainer.append(column2);
 
                 // Initialize tooltips
                 $('[data-bs-toggle="tooltip"]').tooltip();
@@ -985,7 +1427,26 @@ function loadIndicators(parameterId, selectedIndicatorIds = []) {
     });
 }
 
-// Function to load faculty for selected program
+// Level I helper functions
+function updateIndicatorIds() {
+    var selectedValues = [];
+    $('.indicator-checkbox:checked').each(function() {
+        selectedValues.push($(this).val());
+    });
+    $('#indicator_ids').val(selectedValues.join(','));
+
+    if (selectedValues.length > 0) {
+        $('#indicator_error').hide();
+    }
+}
+
+function updateSelectAllIndicatorState() {
+    var totalCheckboxes = $('.indicator-checkbox').length;
+    var checkedCount = $('.indicator-checkbox:checked').length;
+    $('#select_all_indicators').prop('checked', totalCheckboxes > 0 && totalCheckboxes === checkedCount);
+}
+
+// Faculty loading function
 function loadFacultyForProgram(programId) {
     var facultySelect = $('#faculty_id');
 
@@ -1024,68 +1485,6 @@ function loadFacultyForProgram(programId) {
             facultySelect.html('<option value="">Error loading faculty</option>').prop('disabled', true);
         }
     });
-}
-
-// Function to update hidden input with selected indicator values
-function updateIndicatorIds() {
-    var selectedValues = [];
-    $('.indicator-checkbox:checked').each(function() {
-        selectedValues.push($(this).val());
-    });
-
-    $('#indicator_ids').val(selectedValues.join(','));
-
-    // Show count badge if any are selected
-    var countBadge = $('#selected_indicators_count_badge');
-    if (selectedValues.length > 0) {
-        if (countBadge.length === 0) {
-            $('#indicators_container label').append(
-                ` <span class="badge bg-primary" id="selected_indicators_count_badge">${selectedValues.length} selected</span>`
-            );
-        } else {
-            countBadge.text(selectedValues.length + ' selected');
-        }
-        $('#indicator_error').hide();
-    } else {
-        countBadge.remove();
-    }
-}
-
-// Function to update select all indicators checkbox state
-function updateSelectAllIndicatorState() {
-    var totalCheckboxes = $('.indicator-checkbox').length;
-    var checkedCount = $('.indicator-checkbox:checked').length;
-
-    $('#select_all_indicators').prop('checked', totalCheckboxes > 0 && totalCheckboxes === checkedCount);
-}
-
-// Select All indicators functionality
-$(document).on('change', '#select_all_indicators', function() {
-    var isChecked = $(this).is(':checked');
-    $('.indicator-checkbox').prop('checked', isChecked);
-    updateIndicatorIds();
-    updateSelectAllIndicatorState();
-});
-
-// Update hidden input when individual indicator checkboxes change
-$(document).on('change', '.indicator-checkbox', function() {
-    updateIndicatorIds();
-    updateSelectAllIndicatorState();
-});
-
-// Form validation
-function validateForm() {
-    var indicatorIds = $('#indicator_ids').val();
-    var isValid = true;
-
-    if (!indicatorIds || indicatorIds.trim() === '') {
-        $('#indicator_error').show();
-        isValid = false;
-    } else {
-        $('#indicator_error').hide();
-    }
-
-    return isValid;
 }
 </script>
 <!-- END OF ASSIGNING FACULTY JS ============================================================================================================================= -->

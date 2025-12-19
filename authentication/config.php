@@ -596,6 +596,47 @@ function insertSampleData($pdo) {
                 ]);
             }
         }
+        $indicator_stmt_lvl2 = $pdo->prepare("
+            INSERT INTO accreditation_indicators
+            (parameter_id, indicator_code, indicator_description, indicator_level, sort_order)
+            VALUES (?, ?, ?, 'II', ?)
+        ");
+
+        // Reuse your function and area names
+        foreach ($all_parameters as $param) {
+            $area_num = $param['area_number'];
+
+            // Only Areas II to IX
+            if (!in_array($area_num, ['II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'])) {
+                continue;
+            }
+
+            $param_code = $param['parameter_code'];
+            $area_name = $area_names[$area_num];
+
+            // Get parameter name
+            $param_name_stmt = $pdo->prepare("
+                SELECT parameter_name
+                FROM accreditation_parameters
+                WHERE parameter_id = ?
+            ");
+            $param_name_stmt->execute([$param['parameter_id']]);
+            $param_name = $param_name_stmt->fetchColumn();
+
+            // Insert 3 indicators (System, Implementation, Outcome)
+            for ($i = 1; $i <= 3; $i++) {
+                $indicator_code = "{$area_num}.{$param_code}.{$i}";
+                $description = generateIndicatorDescription($area_name, $param_name, $i);
+
+                $indicator_stmt_lvl2->execute([
+                    $param['parameter_id'],
+                    $indicator_code,
+                    $description,
+                    $i
+                ]);
+            }
+        }
+
 
         // 8. ADD SAMPLE ACCREDITATION CYCLES
         $current_year = date('Y');

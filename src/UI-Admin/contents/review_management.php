@@ -130,10 +130,10 @@ $documentCount = 1;
                         class="fa-solid fa-file-alt me-2"></i> Document Reviews</a>
             </li>
         </ul>
-        <div class="col-md-6 d-flex justify-content-end">
+        <!-- <div class="col-md-6 d-flex justify-content-end">
             <button class="btn bg-gradient-primary" data-bs-toggle="modal" data-bs-target="#createAccounts">+ create
                 assignment</button>
-        </div>
+        </div> -->
     </div>
     <!-- Assign faculty -->
     <div class="modal fade" id="createAccounts" tabindex="-1" aria-labelledby="createAccountsLabel" aria-hidden="true">
