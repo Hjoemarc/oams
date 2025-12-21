@@ -713,21 +713,23 @@ $documentCount = 1;
                         <div class="border rounded p-3 bg-light" id="indicators_container" style="display: none;">
                             <div class="form-check mb-2">
                                 <input class="form-check-input" type="checkbox" id="select_all_indicators">
+                                <!-- CHANGE THIS: Add "Level I" to label -->
                                 <label class="form-check-label fw-bold" for="select_all_indicators">
-                                    Select All Indicators
+                                    Select All Indicators (Level I)
                                 </label>
                             </div>
                             <hr class="my-2">
                             <div id="indicators_checkboxes" class="row">
-                                <!-- Checkboxes will be loaded dynamically via AJAX -->
                                 <div class="col-12 text-center text-muted">
                                     <i class="bi bi-info-circle"></i> Select a parameter above to load indicators
                                 </div>
                             </div>
                         </div>
+                        <!-- CHANGE THIS: Change id from indicator_ids_II to indicator_ids -->
                         <input type="hidden" name="indicator_ids" id="indicator_ids" value="">
                         <small class="text-muted">Note: You can select one or more indicators for this
                             assignment.</small>
+                        <!-- CHANGE THIS: Update id -->
                         <div id="indicator_error" class="text-danger mt-1" style="display: none;">
                             Please select at least one indicator
                         </div>
@@ -1442,19 +1444,35 @@ function loadIndicators(parameterId, selectedIndicatorIds = []) {
     });
 }
 
-// Level I helper functions
 function updateIndicatorIds() {
     var selectedValues = [];
     $('.indicator-checkbox:checked').each(function() {
         selectedValues.push($(this).val());
     });
+    // FIX: Update #indicator_ids (not #indicator_ids_II)
     $('#indicator_ids').val(selectedValues.join(','));
-
+    
+    console.log('Level I selected indicators:', selectedValues); // Debug log
+    
     if (selectedValues.length > 0) {
         $('#indicator_error').hide();
+    } else {
+        $('#indicator_error').show();
     }
 }
 
+// Add event handler for Level I checkboxes
+$(document).on('change', '.indicator-checkbox', function() {
+    updateIndicatorIds();
+    updateSelectAllIndicatorState();
+});
+
+// Level I select all functionality
+$(document).on('change', '#select_all_indicators', function() {
+    const isChecked = $(this).prop('checked');
+    $('#indicators_checkboxes input.indicator-checkbox').prop('checked', isChecked);
+    updateIndicatorIds();  // This should update #indicator_ids
+});
 function updateSelectAllIndicatorState() {
     var totalCheckboxes = $('.indicator-checkbox').length;
     var checkedCount = $('.indicator-checkbox:checked').length;

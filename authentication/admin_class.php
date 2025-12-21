@@ -368,66 +368,23 @@ class Action
             }
 
             // Determine employee id
-            $employee_id = $_SESSION["employee_id"] ?? $_POST["employee_id"] ?? null;
+            $user_id = $_SESSION["user_id"];
 
-            if ($employee_id === null) {
-                $admin_id = $_POST["admin_id"];
-                $stmt = $this->db->prepare("SELECT admin_password FROM admin WHERE admin_id = :admin_id");
-                $stmt->execute(['admin_id' => $admin_id]);
-                $admin = $stmt->fetch(PDO::FETCH_ASSOC);
-                if (!$admin) {
-                    return json_encode([
-                        'status' => 0,
-                        'message' => 'Employee does not exist.'
-                    ]);
-                }
-                // Verify old password
-                if (!password_verify($current_password, $admin["admin_password"])) {
-                    return json_encode([
-                        'status' => 0,
-                        'message' => 'Current password incorrect.'
-                    ]);
-                }
-
-                // Create new hash
-                $hash = password_hash($new_pass, PASSWORD_BCRYPT);
-
-                // FIXED: Added WHERE clause
-                $stmt = $this->db->prepare("UPDATE admin SET admin_password = :admin_password WHERE admin_id = :admin_id");
-                $stmt->execute([
-                    'admin_password' => $hash,
-                    'admin_id' => $admin_id
-                ]);
-            }else if($employee_id !== null){
-                $stmt = $this->db->prepare("SELECT password FROM employee_data WHERE employee_id = :employee_id");
-                $stmt->execute(['employee_id' => $employee_id]);
+                $stmt = $this->db->prepare("SELECT password FROM users WHERE user_id = :user_id");
+                $stmt->execute(['user_id' => $user_id]);
                 $employee = $stmt->fetch(PDO::FETCH_ASSOC);
 
-                if (!$employee) {
-                    return json_encode([
-                        'status' => 0,
-                        'message' => 'Employee does not exist.'
-                    ]);
-                }
-
-                // Verify old password
-                if (!password_verify($current_password, $employee["password"])) {
-                    return json_encode([
-                        'status' => 0,
-                        'message' => 'Current password incorrect.'
-                    ]);
-                }
 
                 // Create new hash
                 $hash = password_hash($new_pass, PASSWORD_BCRYPT);
 
                 // FIXED: Added WHERE clause
-                $stmt = $this->db->prepare("UPDATE employee_data SET password = :password WHERE employee_id = :employee_id");
+                $stmt = $this->db->prepare("UPDATE users SET password = :password WHERE user_id = :user_id");
                 $stmt->execute([
                     'password' => $hash,
-                    'employee_id' => $employee_id
+                    'user_id' => $user_id
                 ]);
-            }
+
             return json_encode([
                 'status' => 1,
                 'message' => 'Password changed successfully!'
@@ -533,7 +490,7 @@ class Action
             $username = $_POST['username'] ?? '';
             
             // Use proper prepared statements
-            $stmt = $this->db->prepare("SELECT username, email, firstname, lastname, employee_id FROM employee_data WHERE username = :username OR email = :username");
+            $stmt = $this->db->prepare("SELECT username, email, first_name, last_name, user_id FROM users WHERE username = :username OR email = :username");
             $stmt->execute([':username' => $username]);
             $userExists = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -543,12 +500,12 @@ class Action
 
                 // Use correct array keys (lowercase as in SQL query)
                 $email = $userExists["email"];
-                $firstName = $userExists["firstname"]; // lowercase
-                $lastName = $userExists["lastname"];   // lowercase
-                $employee_id = $userExists["employee_id"];
+                $firstName = $userExists["first_name"]; // lowercase
+                $lastName = $userExists["last_name"];   // lowercase
+                $user_id = $userExists["user_id"];
 
                 $_SESSION["email"] = $email;
-                $_SESSION["employee_id"] = $employee_id;
+                $_SESSION["user_id"] = $user_id;
                 $_SESSION["email_verification"] = $verification;
 
                 $mail = new PHPMailer(true);
@@ -1478,53 +1435,53 @@ class Action
         }
     }
     function assign_cycle_for_accreditor(){
-    try {
-        $user_id = $_POST["user_id"]; 
-        $cycle_id = $_POST["cycle_id"];
-        
-        // Check if the user has ANY cycle assignment
-        $checkStmt = $this->db->prepare("SELECT cyclaccreditor_cycles_id FROM accreditor_cycles WHERE user_id = :user_id");
-        $checkStmt->execute(['user_id' => $user_id]);
-        
-        $existingAssignment = $checkStmt->fetch(PDO::FETCH_ASSOC);
-        
-        if ($existingAssignment) {
-            // Get the ID from the fetched result
-            $cyclaccreditor_cycles_id = $existingAssignment["cyclaccreditor_cycles_id"];
+        try {
+            $user_id = $_POST["user_id"]; 
+            $cycle_id = $_POST["cycle_id"];
             
-            $stmt = $this->db->prepare("UPDATE accreditor_cycles SET cycle_id = :cycle_id WHERE cyclaccreditor_cycles_id = :cyclaccreditor_cycles_id");
-            $stmt->execute([
-                'cycle_id' => $cycle_id,
-                'cyclaccreditor_cycles_id' => $cyclaccreditor_cycles_id
-            ]);
+            // Check if the user has ANY cycle assignment
+            $checkStmt = $this->db->prepare("SELECT cyclaccreditor_cycles_id FROM accreditor_cycles WHERE user_id = :user_id");
+            $checkStmt->execute(['user_id' => $user_id]);
+            
+            $existingAssignment = $checkStmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($existingAssignment) {
+                // Get the ID from the fetched result
+                $cyclaccreditor_cycles_id = $existingAssignment["cyclaccreditor_cycles_id"];
+                
+                $stmt = $this->db->prepare("UPDATE accreditor_cycles SET cycle_id = :cycle_id WHERE cyclaccreditor_cycles_id = :cyclaccreditor_cycles_id");
+                $stmt->execute([
+                    'cycle_id' => $cycle_id,
+                    'cyclaccreditor_cycles_id' => $cyclaccreditor_cycles_id
+                ]);
 
-            return json_encode([
-                'status' => 1,
-                'message' => 'Assignment has been updated to the new cycle.',
-                'action' => 'updated'
-            ]);
-        } else {
-            // Insert new assignment
-            $stmt = $this->db->prepare("INSERT INTO accreditor_cycles (user_id, cycle_id) VALUES (:user_id, :cycle_id)");
-            $stmt->execute([
-                'user_id' => $user_id,
-                'cycle_id' => $cycle_id
-            ]);
+                return json_encode([
+                    'status' => 1,
+                    'message' => 'Assignment has been updated to the new cycle.',
+                    'action' => 'updated'
+                ]);
+            } else {
+                // Insert new assignment
+                $stmt = $this->db->prepare("INSERT INTO accreditor_cycles (user_id, cycle_id) VALUES (:user_id, :cycle_id)");
+                $stmt->execute([
+                    'user_id' => $user_id,
+                    'cycle_id' => $cycle_id
+                ]);
+                
+                return json_encode([
+                    'status' => 1,
+                    'message' => 'Cycle has been assigned successfully!',
+                    'action' => 'created'
+                ]);
+            }
             
+        } catch (PDOException $e) {
             return json_encode([
-                'status' => 1,
-                'message' => 'Cycle has been assigned successfully!',
-                'action' => 'created'
+                'status' => 0,
+                'message' => 'An error occurred: ' . $e->getMessage()
             ]);
         }
-        
-    } catch (PDOException $e) {
-        return json_encode([
-            'status' => 0,
-            'message' => 'An error occurred: ' . $e->getMessage()
-        ]);
     }
-}
 
 // Document Management ==================================================
     function document_form() {
