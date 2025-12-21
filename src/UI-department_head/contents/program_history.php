@@ -4,6 +4,8 @@
     // Initialize variables to avoid undefined warnings
     $allLevels = [];
     $currentLevelDetails = null;
+    $level3Indicators = [];
+    $level4Indicators = [];
     
     try {
         // Get program details with latest accreditation level from history
@@ -37,7 +39,7 @@
         // Get all accreditation levels for display
         $stmt = $pdo->prepare("SELECT * FROM accreditation_levels ORDER BY sort_order");
         $stmt->execute();
-        $allLevels = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $allLevels = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: []; // Ensure it's always an array
 
         // Get accreditation history for this program
         $stmt = $pdo->prepare("SELECT 
@@ -55,7 +57,7 @@
         $stmt->execute(['program_id' => $program_id]);
         $accreditationHistory = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Get all accreditation areas for Level I and II
+        // Get all accreditation areas
         $stmt = $pdo->prepare("SELECT * FROM accreditation_areas ORDER BY area_number");
         $stmt->execute();
         $areas = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -70,8 +72,8 @@
             }
         }
         
-        // Get indicators for Level III and IV
-        $level34Stmt = $pdo->prepare("
+        // Get Level IV indicators (IV and IV Phase 2)
+        $level4Stmt = $pdo->prepare("
             SELECT 
                 ai.*,
                 COUNT(DISTINCT d.document_id) as document_count,
@@ -83,43 +85,73 @@
             LEFT JOIN assignments a ON ai.indicator_id = a.indicator_id 
                 AND a.program_id = :program_id2
                 AND (:cycle_id2 IS NULL OR a.cycle_id = :cycle_id2)
-            WHERE ai.indicator_level IN ('III', 'IV', 'III(Phase 2)', 'IV(Phase 2)')
+            WHERE ai.indicator_level IN ('IV', 'IV(Phase 2)')
             GROUP BY ai.indicator_id
             ORDER BY 
                 CASE ai.indicator_level 
                     WHEN 'IV' THEN 1
                     WHEN 'IV(Phase 2)' THEN 2
-                    WHEN 'III' THEN 3
-                    WHEN 'III(Phase 2)' THEN 4
-                    ELSE 5
+                    ELSE 3
                 END,
                 ai.indicator_code
         ");
         
-        $level34Stmt->execute([
+        $level4Stmt->execute([
             'program_id' => $program_id,
             'program_id2' => $program_id,
             'cycle_id' => $cycle ? $cycle['cycle_id'] : null,
             'cycle_id2' => $cycle ? $cycle['cycle_id'] : null
         ]);
-        $level34Indicators = $level34Stmt->fetchAll(PDO::FETCH_ASSOC);
+        $level4Indicators = $level4Stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Get Level III indicators (III and III Phase 2)
+        $level3Stmt = $pdo->prepare("
+            SELECT 
+                ai.*,
+                COUNT(DISTINCT d.document_id) as document_count,
+                COUNT(DISTINCT a.assignment_id) as assignment_count
+            FROM accreditation_indicators ai
+            LEFT JOIN documents d ON ai.indicator_id = d.indicator_id 
+                AND d.program_id = :program_id 
+                AND (:cycle_id IS NULL OR d.cycle_id = :cycle_id)
+            LEFT JOIN assignments a ON ai.indicator_id = a.indicator_id 
+                AND a.program_id = :program_id2
+                AND (:cycle_id2 IS NULL OR a.cycle_id = :cycle_id2)
+            WHERE ai.indicator_level IN ('III', 'III(Phase 2)')
+            GROUP BY ai.indicator_id
+            ORDER BY 
+                CASE ai.indicator_level 
+                    WHEN 'III' THEN 1
+                    WHEN 'III(Phase 2)' THEN 2
+                    ELSE 3
+                END,
+                ai.indicator_code
+        ");
+        
+        $level3Stmt->execute([
+            'program_id' => $program_id,
+            'program_id2' => $program_id,
+            'cycle_id' => $cycle ? $cycle['cycle_id'] : null,
+            'cycle_id2' => $cycle ? $cycle['cycle_id'] : null
+        ]);
+        $level3Indicators = $level3Stmt->fetchAll(PDO::FETCH_ASSOC);
         
     } catch(PDOException $e) {
         die("<div class='alert alert-danger'>Database error: " . htmlspecialchars($e->getMessage()) . "</div>");
     }
 ?>
 
-<section style="height: 85vh; overflow-y: scroll; overflow-x: hidden;">
+<section>
     <!-- Program Header with Level Information -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div class="mx-2">
-            <h4><span><i class="fa-solid fa-graduation-cap me-2"></i></span> 
+            <h4><span><i class="fa-solid fa-graduation-cap me-2"></i></span>
                 <?= htmlspecialchars($programData["department_name"]) . ' (' . htmlspecialchars($programData["department_code"]) . ')' ?>
             </h4>
             <small class="text-muted">
                 <?= htmlspecialchars($programData["program_name"]) . ' (' . htmlspecialchars($programData["program_code"]) . ')' ?>
             </small>
-            
+
             <!-- Current Accreditation Level Badge -->
             <?php if($programData['current_level']): ?>
             <div class="mt-2">
@@ -135,12 +167,13 @@
                 ?>
                 <span class="badge bg-success text-dark fs-6 px-3 py-2">
                     <i class="fas fa-certificate me-2"></i>
-                    Current Level: <?= $currentLevelDetails ? $currentLevelDetails['level_name'] : $programData['current_level'] ?>
+                    Current Level:
+                    <?= $currentLevelDetails ? $currentLevelDetails['level_name'] : $programData['current_level'] ?>
                 </span>
                 <?php if($programData['last_survey_date']): ?>
-                <strong class="text-dark mt-1 mb-0">
+                <p class="text-dark mt-1 mb-0 small">
                     Last Survey: <?= date('M d, Y', strtotime($programData['last_survey_date'])) ?>
-                </strong>
+                </p>
                 <?php endif; ?>
             </div>
             <?php else: ?>
@@ -152,7 +185,7 @@
             </div>
             <?php endif; ?>
         </div>
-        
+
         <?php if($cycle): ?>
         <div class="text-end">
             <!-- Survey Visit Level -->
@@ -163,7 +196,8 @@
                 <p class="text-muted mb-0 mt-1"><?= $cycle['academic_year'] ?></p>
                 <?php if($cycle['visit_start'] && $cycle['visit_end']): ?>
                 <small class="text-muted">
-                    Visit: <?= date('M d', strtotime($cycle['visit_start'])) ?> - <?= date('d, Y', strtotime($cycle['visit_end'])) ?>
+                    Visit: <?= date('M d', strtotime($cycle['visit_start'])) ?> -
+                    <?= date('d, Y', strtotime($cycle['visit_end'])) ?>
                 </small>
                 <?php endif; ?>
             </div>
@@ -229,9 +263,9 @@
                     <h5 class="card-title">Deadline</h5>
                     <p class="card-text text-dark">
                         <?php if($cycle && $cycle['deadline']): ?>
-                            <?= date('M d, Y', strtotime($cycle['deadline'])) ?>
+                        <?= date('M d, Y', strtotime($cycle['deadline'])) ?>
                         <?php else: ?>
-                            No deadline set
+                        No deadline set
                         <?php endif; ?>
                     </p>
                     <?php if($cycle && $cycle['deadline']): 
@@ -247,35 +281,18 @@
         </div>
     </div>
 
-    <?php 
-    // Separate Level IV and III indicators
-    $level4Indicators = array_filter($level34Indicators, function($indicator) {
-        return in_array($indicator['indicator_level'], ['IV', 'IV(Phase 2)']);
-    });
-
-    $level3Indicators = array_filter($level34Indicators, function($indicator) {
-        return in_array($indicator['indicator_level'], ['III', 'III(Phase 2)']);
-    });
-    ?>
-
-
-    <!-- LEVEL I & II INDICATORS (With Areas/Parameters) -->
     <div class="accordion mb-4" id="accreditationAccordion">
         <?php foreach($areas as $area): ?>
         <div class="accordion-item">
             <h2 class="accordion-header" id="heading<?= $area['area_id'] ?>">
-                <button class="accordion-button collapsed" type="button" 
-                        data-bs-toggle="collapse" 
-                        data-bs-target="#collapse<?= $area['area_id'] ?>" 
-                        aria-expanded="false" 
-                        aria-controls="collapse<?= $area['area_id'] ?>">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                    data-bs-target="#collapse<?= $area['area_id'] ?>" aria-expanded="false"
+                    aria-controls="collapse<?= $area['area_id'] ?>">
                     <strong>AREA <?= $area['area_number'] ?> – <?= strtoupper($area['area_name']) ?></strong>
                 </button>
             </h2>
-            <div id="collapse<?= $area['area_id'] ?>" 
-                 class="accordion-collapse collapse" 
-                 aria-labelledby="heading<?= $area['area_id'] ?>" 
-                 data-bs-parent="#accreditationAccordion">
+            <div id="collapse<?= $area['area_id'] ?>" class="accordion-collapse collapse"
+                aria-labelledby="heading<?= $area['area_id'] ?>" data-bs-parent="#accreditationAccordion">
                 <div class="accordion-body">
                     <!-- Area Statistics -->
                     <div class="row mb-4">
@@ -323,7 +340,7 @@
                                 <div class="card-body text-center p-3">
                                     <h6 class="card-title">Indicators</h6>
                                     <h2 class="text-dark mb-0"><?= $indCount['ind_count'] ?? 0 ?></h2>
-                                    <small class="text-muted">Level I & II Indicators</small>
+                                    <small class="text-muted">Level I & II</small>
                                 </div>
                             </div>
                         </div>
@@ -337,7 +354,7 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <?php 
                     // Get parameters for this area
                     $paramStmt = $pdo->prepare("SELECT * FROM accreditation_parameters 
@@ -350,7 +367,8 @@
                     ?>
                     <div class="card mb-4">
                         <div class="card-header bg-light">
-                            <h6 class="mb-0">PARAMETER <?= $param['parameter_code'] ?>: <?= $param['parameter_name'] ?></h6>
+                            <h6 class="mb-0">PARAMETER <?= $param['parameter_code'] ?>: <?= $param['parameter_name'] ?>
+                            </h6>
                         </div>
                         <div class="card-body">
                             <!-- SYSTEM – INPUTS AND PROCESSES -->
@@ -394,16 +412,16 @@
                                     <div class="d-flex justify-content-between align-items-start">
                                         <div class="flex-grow-1">
                                             <div class="form-check">
-                                                <input class="form-check-input" type="checkbox" 
-                                                       id="indicator_<?= $indicator['indicator_id'] ?>"
-                                                       <?= $hasDocuments ? 'checked' : '' ?>
-                                                       disabled>
-                                                <label class="form-check-label fw-medium" for="indicator_<?= $indicator['indicator_id'] ?>">
-                                                    <strong><?= $indicator['indicator_code'] ?>:</strong> 
+                                                <input class="form-check-input" type="checkbox"
+                                                    id="indicator_<?= $indicator['indicator_id'] ?>"
+                                                    <?= $hasDocuments ? 'checked' : '' ?> disabled>
+                                                <label class="form-check-label fw-medium"
+                                                    for="indicator_<?= $indicator['indicator_id'] ?>">
+                                                    <strong><?= $indicator['indicator_code'] ?>:</strong>
                                                     <?= htmlspecialchars($indicator['indicator_description']) ?>
                                                 </label>
                                             </div>
-                                            
+
                                             <!-- Indicator Status -->
                                             <div class="mt-2">
                                                 <?php if($hasDocuments): ?>
@@ -411,15 +429,15 @@
                                                     <i class="fas fa-check-circle me-1"></i> Documents Uploaded
                                                 </span>
                                                 <?php endif; ?>
-                                                
+
                                                 <?php if($isAssigned): ?>
                                                 <span class="badge bg-primary me-2">
                                                     <i class="fas fa-user-check me-1"></i> Assigned
                                                 </span>
                                                 <?php endif; ?>
-                                                
+
                                                 <span class="badge bg-secondary">
-                                                    <i class="fas fa-file me-1"></i> 
+                                                    <i class="fas fa-file me-1"></i>
                                                     <?= $indicator['document_count'] ?> document(s)
                                                 </span>
                                             </div>
@@ -436,12 +454,12 @@
                                             $docInfoStmt->execute([$indicator['indicator_id'], $program_id]);
                                             $docInfo = $docInfoStmt->fetch(PDO::FETCH_ASSOC);
                                             ?>
-                                            
+
                                             <?php if(!$docInfo || empty($docInfo['file_path'])): ?>
                                             <span class="bg-danger p-2 rounded text-white">No Document</span>
                                             <?php else: ?>
-                                            <button class="btn btn-sm btn-danger" 
-                                                    onclick="window.open('<?= base_url() . 'authentication/' . htmlspecialchars($docInfo['file_path']) ?>', '_blank')">
+                                            <button class="btn btn-sm btn-danger"
+                                                onclick="window.open('<?= base_url() . 'authentication/' . htmlspecialchars($docInfo['file_path']) ?>', '_blank')">
                                                 <i class="fas fa-eye"></i>
                                             </button>
                                             <?php endif; ?>
@@ -465,7 +483,7 @@
                         No parameters found for this area.
                     </div>
                     <?php endif; ?>
-                    
+
                     <!-- Exhibit Documents Section -->
                     <div class="card border-info">
                         <div class="card-header bg-info text-white">
@@ -517,7 +535,7 @@
                                         <div class="small text-muted">
                                             <span class="badge bg-secondary me-2"><?= $doc['indicator_code'] ?></span>
                                             <span class="badge bg-info me-2">Level <?= $doc['indicator_level'] ?></span>
-                                            <?= $doc['first_name'] ?> <?= $doc['last_name'] ?> • 
+                                            <?= $doc['first_name'] ?> <?= $doc['last_name'] ?> •
                                             <?= date('M d, Y', strtotime($doc['created_at'])) ?>
                                         </div>
                                     </div>
@@ -526,8 +544,8 @@
                                     <?php if(empty($doc['file_path'])): ?>
                                     <span class="bg-danger p-2 rounded text-white">No Document</span>
                                     <?php else: ?>
-                                    <button class="btn btn-sm btn-danger" 
-                                            onclick="window.open('<?= base_url() . 'authentication/' . htmlspecialchars($doc['file_path']) ?>', '_blank')">
+                                    <button class="btn btn-sm btn-danger"
+                                        onclick="window.open('<?= base_url() . 'authentication/' . htmlspecialchars($doc['file_path']) ?>', '_blank')">
                                         <i class="fas fa-eye"></i>
                                     </button>
                                     <?php endif; ?>
@@ -547,208 +565,462 @@
         </div>
         <?php endforeach; ?>
     </div>
-    <?php if(count($level3Indicators) > 0): ?>
-    <div class="card mb-4 border-warning">
-        <div class="card-header bg-warning text-dark">
-            <h5 class="mb-0 text-dark">
-                <i class="fas fa-star me-2 text-dark"></i>
-                <strong class="text-dark">SURVERY VISIT LEVEL III</strong>
-            </h5>
-        </div>
-        <div class="card-body">
-            <?php 
-            // Group Level III indicators by sub-level
-            $groupedLevel3Indicators = [];
-            foreach($level3Indicators as $indicator) {
-                $level = $indicator['indicator_level'];
-                if(!isset($groupedLevel3Indicators[$level])) {
-                    $groupedLevel3Indicators[$level] = [];
-                }
-                $groupedLevel3Indicators[$level][] = $indicator;
-            }
-            
-            // Display in order: III, III(Phase 2)
-            $displayOrder = ['III', 'III(Phase 2)'];
-            
-            foreach($displayOrder as $level):
-                if(isset($groupedLevel3Indicators[$level]) && count($groupedLevel3Indicators[$level]) > 0):
-                    $levelIndicators = $groupedLevel3Indicators[$level];
-            ?>
-            <div class="mb-4">
-                <h6 class="border-bottom pb-2 text-dark">
-                    <i class="fas fa-chevron-right me-2"></i>
-                    LEVEL <?= $level ?> 
-                </h6>
-                
-                <?php foreach($levelIndicators as $indicator): 
-                    $hasDocuments = $indicator['document_count'] > 0;
-                    $isAssigned = $indicator['assignment_count'] > 0;
-                ?>
-                <div class="indicator-item mb-3 p-3 border rounded">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div class="flex-grow-1">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" 
-                                    id="indicator_<?= $indicator['indicator_id'] ?>"
-                                    <?= $hasDocuments ? 'checked' : '' ?>
-                                    disabled>
-                                <label class="form-check-label fw-medium" for="indicator_<?= $indicator['indicator_id'] ?>">
-                                    <strong><?= $indicator['indicator_code'] ?>:</strong> 
-                                    <?= htmlspecialchars($indicator['indicator_description']) ?>
-                                </label>
-                            </div>
-                            
-                            <!-- Indicator Status -->
-                            <div class="mt-2">
-                                <?php if($hasDocuments): ?>
-                                <span class="badge bg-success me-2">
-                                    <i class="fas fa-check-circle me-1"></i> Documents Uploaded
-                                </span>
-                                <?php endif; ?>
-                                
-                                <?php if($isAssigned): ?>
-                                <span class="badge bg-primary me-2">
-                                    <i class="fas fa-user-check me-1"></i> Assigned
-                                </span>
-                                <?php endif; ?>
-                                
-                                <span class="badge bg-secondary">
-                                    <i class="fas fa-file me-1"></i> 
-                                    <?= $indicator['document_count'] ?> document(s)
-                                </span>
+    <?php if($programData['current_level'] == 'II' || $programData['current_level'] == 'III'
+        || $programData['current_level'] == 'IV' || $programData['current_level'] == 'III(Phase 2)'
+        || $programData['current_level'] == 'IV(Phase 2)'){ ?>
+    <strong class="text-start fs-4 ms-3">Accreditation Level II</strong>
+    <!-- LEVEL II INDICATORS (Areas II-IX only) -->
+    <div class="accordion mb-4" id="levelIIAccordion">
+        <?php 
+        // Fetch only Areas II through IX for Level II
+        $areaStmt = $pdo->prepare("
+            SELECT ac.area_id, ac.area_number, ac.area_name, ac.description
+            FROM accreditation_areas ac
+            WHERE ac.area_number IN ('II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX')
+            ORDER BY 
+                CASE ac.area_number
+                    WHEN 'II' THEN 1
+                    WHEN 'III' THEN 2
+                    WHEN 'IV' THEN 3
+                    WHEN 'V' THEN 4
+                    WHEN 'VI' THEN 5
+                    WHEN 'VII' THEN 6
+                    WHEN 'VIII' THEN 7
+                    WHEN 'IX' THEN 8
+                END
+        ");
+        $areaStmt->execute();
+        $areas = $areaStmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        if(count($areas) > 0):
+            foreach($areas as $area): 
+        ?>
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="levelIIHeading<?= $area['area_id'] ?>">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                    data-bs-target="#levelIICollapse<?= $area['area_id'] ?>" aria-expanded="false"
+                    aria-controls="levelIICollapse<?= $area['area_id'] ?>">
+                    <strong>AREA <?= $area['area_number'] ?> – <?= strtoupper($area['area_name']) ?> (LEVEL II)</strong>
+                </button>
+            </h2>
+            <div id="levelIICollapse<?= $area['area_id'] ?>" class="accordion-collapse collapse"
+                aria-labelledby="levelIIHeading<?= $area['area_id'] ?>" data-bs-parent="#levelIIAccordion">
+                <div class="accordion-body">
+                    <!-- Area Statistics for Level II -->
+                    <div class="row mb-4">
+                        <?php 
+                    // Count parameters for this area
+                    $paramCountStmt = $pdo->prepare("SELECT COUNT(*) as param_count FROM accreditation_parameters WHERE area_id = ?");
+                    $paramCountStmt->execute([$area['area_id']]);
+                    $paramCount = $paramCountStmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    // Count Level II indicators for this area
+                    $level2IndCountStmt = $pdo->prepare("
+                        SELECT COUNT(DISTINCT ai.indicator_id) as ind_count 
+                        FROM accreditation_indicators ai
+                        JOIN accreditation_parameters ap ON ai.parameter_id = ap.parameter_id
+                        WHERE ap.area_id = ? 
+                        AND ai.indicator_level = 'II'
+                    ");
+                    $level2IndCountStmt->execute([$area['area_id']]);
+                    $level2IndCount = $level2IndCountStmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    // Count Level II documents for this area and program
+                    $areaDocStmt = $pdo->prepare("
+                        SELECT COUNT(DISTINCT d.document_id) as doc_count 
+                        FROM documents d
+                        JOIN accreditation_indicators ai ON d.indicator_id = ai.indicator_id
+                        JOIN accreditation_parameters ap ON ai.parameter_id = ap.parameter_id
+                        WHERE ap.area_id = ? 
+                        AND d.program_id = ?
+                        AND ai.indicator_level = 'II'
+                    ");
+                    $areaDocStmt->execute([$area['area_id'], $program_id]);
+                    $areaDocCount = $areaDocStmt->fetch(PDO::FETCH_ASSOC);
+                    ?>
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body text-center p-3">
+                                    <h6 class="card-title">Parameters</h6>
+                                    <h2 class="text-dark mb-0"><?= $paramCount['param_count'] ?? 0 ?></h2>
+                                </div>
                             </div>
                         </div>
-                        <div class="ms-3">
-                            <?php 
-                            // Get document info for this indicator
-                            $docInfoStmt = $pdo->prepare("
-                                SELECT d.* FROM documents d 
-                                WHERE d.indicator_id = ? 
-                                AND d.program_id = ?
-                                LIMIT 1
-                            ");
-                            $docInfoStmt->execute([$indicator['indicator_id'], $program_id]);
-                            $docInfo = $docInfoStmt->fetch(PDO::FETCH_ASSOC);
-                            ?>
-                            
-                            <?php if(!$docInfo || empty($docInfo['file_path'])): ?>
-                            <span class="bg-danger p-2 rounded text-white">No Document</span>
-                            <?php else: ?>
-                            <button class="btn btn-sm btn-danger" 
-                                    onclick="window.open('<?= base_url() . 'authentication/' . htmlspecialchars($docInfo['file_path']) ?>', '_blank')">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                            <?php endif; ?>
+                        <div class="col-md-4">
+                            <div class="card bg-light border-success">
+                                <div class="card-body text-center p-3">
+                                    <h6 class="card-title">Level II Indicators</h6>
+                                    <h2 class="text-success mb-0"><?= $level2IndCount['ind_count'] ?? 0 ?></h2>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body text-center p-3">
+                                    <h6 class="card-title">Documents</h6>
+                                    <h2 class="text-dark mb-0"><?= $areaDocCount['doc_count'] ?? 0 ?></h2>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <?php endforeach; ?>
-            </div>
-            <?php endif; endforeach; ?>
-        </div>
-    </div>
-    <?php endif; ?>
-    <?php if(count($level4Indicators) > 0): ?>
-    <div class="card mb-4 border-warning">
-        <div class="card-header bg-warning text-white">
-            <h5 class="mb-0">
-                <i class="fas fa-trophy me-2"></i>
-                LEVEL IV VISIT
-            </h5>
-        </div>
-        <div class="card-body">
-            <?php 
-            // Group Level IV indicators by sub-level
-            $groupedLevel4Indicators = [];
-            foreach($level4Indicators as $indicator) {
-                $level = $indicator['indicator_level'];
-                if(!isset($groupedLevel4Indicators[$level])) {
-                    $groupedLevel4Indicators[$level] = [];
-                }
-                $groupedLevel4Indicators[$level][] = $indicator;
-            }
-            
-            // Display in order: IV, IV(Phase 2)
-            $displayOrder = ['IV', 'IV(Phase 2)'];
-            
-            foreach($displayOrder as $level):
-                if(isset($groupedLevel4Indicators[$level]) && count($groupedLevel4Indicators[$level]) > 0):
-                    $levelIndicators = $groupedLevel4Indicators[$level];
-            ?>
-            <div class="mb-4">
-                <h6 class="border-bottom pb-2 text-dark">
-                    <i class="fas fa-chevron-right me-2"></i>
-                    LEVEL <?= $level ?>
-                </h6>
+
+                    <?php 
+                // Get parameters for this area
+                $paramStmt = $pdo->prepare("SELECT * FROM accreditation_parameters 
+                                           WHERE area_id = :area_id ORDER BY parameter_code");
+                $paramStmt->execute(['area_id' => $area['area_id']]);
+                $parameters = $paramStmt->fetchAll(PDO::FETCH_ASSOC);
                 
-                <?php foreach($levelIndicators as $indicator): 
-                    $hasDocuments = $indicator['document_count'] > 0;
-                    $isAssigned = $indicator['assignment_count'] > 0;
+                if(count($parameters) > 0):
+                    foreach($parameters as $param): 
                 ?>
-                <div class="indicator-item mb-3 p-3 border rounded">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div class="flex-grow-1">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" 
-                                    id="indicator_<?= $indicator['indicator_id'] ?>"
-                                    <?= $hasDocuments ? 'checked' : '' ?>
-                                    disabled>
-                                <label class="form-check-label fw-medium" for="indicator_<?= $indicator['indicator_id'] ?>">
-                                    <strong><?= $indicator['indicator_code'] ?>:</strong> 
-                                    <?= htmlspecialchars($indicator['indicator_description']) ?>
-                                </label>
-                            </div>
-                            
-                            <!-- Indicator Status -->
-                            <div class="mt-2">
-                                <?php if($hasDocuments): ?>
-                                <span class="badge bg-success me-2">
-                                    <i class="fas fa-check-circle me-1"></i> Documents Uploaded
-                                </span>
-                                <?php endif; ?>
-                                
-                                <?php if($isAssigned): ?>
-                                <span class="badge bg-primary me-2">
-                                    <i class="fas fa-user-check me-1"></i> Assigned
-                                </span>
-                                <?php endif; ?>
-                                
-                                <span class="badge bg-secondary">
-                                    <i class="fas fa-file me-1"></i> 
-                                    <?= $indicator['document_count'] ?> document(s)
-                                </span>
-                            </div>
+                    <div class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">PARAMETER <?= $param['parameter_code'] ?>: <?= $param['parameter_name'] ?>
+                            </h6>
                         </div>
-                        <div class="ms-3">
-                            <?php 
-                            // Get document info for this indicator
-                            $docInfoStmt = $pdo->prepare("
-                                SELECT d.* FROM documents d 
-                                WHERE d.indicator_id = ? 
-                                AND d.program_id = ?
-                                LIMIT 1
+                        <div class="card-body">
+                            <!-- LEVEL II: IMPLEMENTATION -->
+                            <div class="mb-4">
+                                <h6 class="border-bottom pb-2 text-success">
+                                    <i class="fas fa-play-circle me-2"></i>
+                                    LEVEL II: IMPLEMENTATION
+                                </h6>
+                                <?php 
+                            // Get ONLY Level II indicators for this parameter
+                            $level2Stmt = $pdo->prepare("
+                                SELECT 
+                                    ai.*,
+                                    COUNT(DISTINCT d.document_id) as document_count,
+                                    COUNT(DISTINCT a.assignment_id) as assignment_count
+                                FROM accreditation_indicators ai
+                                LEFT JOIN documents d ON ai.indicator_id = d.indicator_id 
+                                    AND d.program_id = :program_id 
+                                    AND (:cycle_id IS NULL OR d.cycle_id = :cycle_id)
+                                LEFT JOIN assignments a ON ai.indicator_id = a.indicator_id 
+                                    AND a.program_id = :program_id2 
+                                    AND (:cycle_id2 IS NULL OR a.cycle_id = :cycle_id2)
+                                WHERE ai.parameter_id = :param_id 
+                                    AND ai.indicator_level = 'II'
+                                GROUP BY ai.indicator_id
+                                ORDER BY ai.indicator_code
                             ");
-                            $docInfoStmt->execute([$indicator['indicator_id'], $program_id]);
-                            $docInfo = $docInfoStmt->fetch(PDO::FETCH_ASSOC);
-                            ?>
                             
-                            <?php if(!$docInfo || empty($docInfo['file_path'])): ?>
-                            <span class="bg-danger p-2 rounded text-white">No Document</span>
-                            <?php else: ?>
-                            <button class="btn btn-sm btn-danger" 
-                                    onclick="window.open('<?= base_url() . 'authentication/' . htmlspecialchars($docInfo['file_path']) ?>', '_blank')">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                            <?php endif; ?>
+                            $level2Stmt->execute([
+                                'param_id' => $param['parameter_id'],
+                                'program_id' => $program_id,
+                                'program_id2' => $program_id,
+                                'cycle_id' => $cycle ? $cycle['cycle_id'] : null,
+                                'cycle_id2' => $cycle ? $cycle['cycle_id'] : null
+                            ]);
+                            $level2Indicators = $level2Stmt->fetchAll(PDO::FETCH_ASSOC);
+                            
+                            if(count($level2Indicators) > 0):
+                                foreach($level2Indicators as $indicator):
+                                    $hasDocuments = $indicator['document_count'] > 0;
+                                    $isAssigned = $indicator['assignment_count'] > 0;
+                            ?>
+                                <div class="indicator-item mb-3 p-3 border rounded border-success">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="flex-grow-1">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox"
+                                                    id="level2_indicator_<?= $indicator['indicator_id'] ?>"
+                                                    <?= $hasDocuments ? 'checked' : '' ?> disabled>
+                                                <label class="form-check-label fw-medium"
+                                                    for="level2_indicator_<?= $indicator['indicator_id'] ?>">
+                                                    <span class="badge bg-success me-2">II</span>
+                                                    <strong><?= $indicator['indicator_code'] ?>:</strong>
+                                                    <?= htmlspecialchars($indicator['indicator_description']) ?>
+                                                </label>
+                                            </div>
+
+                                            <!-- Indicator Status -->
+                                            <div class="mt-2">
+                                                <?php if($hasDocuments): ?>
+                                                <span class="badge bg-success me-2">
+                                                    <i class="fas fa-check-circle me-1"></i> Documents Uploaded
+                                                </span>
+                                                <?php endif; ?>
+
+                                                <?php if($isAssigned): ?>
+                                                <span class="badge bg-info me-2">
+                                                    <i class="fas fa-user-check me-1"></i> Assigned
+                                                </span>
+                                                <?php endif; ?>
+
+                                                <span class="badge bg-success">
+                                                    <i class="fas fa-file me-1"></i>
+                                                    <?= $indicator['document_count'] ?> document(s)
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div class="ms-3">
+                                            <?php 
+                                        // Get document info for this indicator
+                                        $docInfoStmt = $pdo->prepare("
+                                            SELECT d.* FROM documents d 
+                                            WHERE d.indicator_id = ? 
+                                            AND d.program_id = ?
+                                            LIMIT 1
+                                        ");
+                                        $docInfoStmt->execute([$indicator['indicator_id'], $program_id]);
+                                        $docInfo = $docInfoStmt->fetch(PDO::FETCH_ASSOC);
+                                        ?>
+
+                                            <?php if(!$docInfo || empty($docInfo['file_path'])): ?>
+                                            <span class="badge bg-danger">No Document</span>
+                                            <?php else: ?>
+                                            <button class="btn btn-sm btn-success"
+                                                onclick="window.open('<?= base_url() . 'authentication/' . htmlspecialchars($docInfo['file_path']) ?>', '_blank')">
+                                                <i class="fas fa-eye"></i> View
+                                            </button>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                </div>
+                                <?php endforeach; 
+                            else: ?>
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    No Level II indicators found for this parameter.
+                                </div>
+                                <?php endif; ?>
+                            </div>
                         </div>
                     </div>
+                    <?php endforeach; 
+                else: ?>
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        No parameters found for this area.
+                    </div>
+                    <?php endif; ?>
                 </div>
-                <?php endforeach; ?>
             </div>
-            <?php endif; endforeach; ?>
         </div>
+        <?php endforeach; 
+    else: ?>
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            No Areas II-IX found for Level II indicators.
+        </div>
+        <?php endif; ?>
     </div>
-    <?php endif; ?>
+    <?php }else{} ?>
+
+    <?php if($programData['current_level'] == 'III'
+        || $programData['current_level'] == 'IV' || $programData['current_level'] == 'III(Phase 2)'
+        || $programData['current_level'] == 'IV(Phase 2)'){ ?>
+        <!-- LEVEL III INDICATORS (No Areas/Parameters) -->
+        <?php if(count($level3Indicators) > 0): ?>
+        <div class="card mb-4 border-warning">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0 text-dark">
+                    <i class="fas fa-star me-2 text-dark"></i>
+                    <strong class="text-dark">SURVEY VISIT LEVEL III</strong>
+                </h5>
+            </div>
+            <div class="card-body">
+                <?php 
+                // Group Level III indicators by sub-level
+                $groupedLevel3Indicators = [];
+                foreach($level3Indicators as $indicator) {
+                    $level = $indicator['indicator_level'];
+                    if(!isset($groupedLevel3Indicators[$level])) {
+                        $groupedLevel3Indicators[$level] = [];
+                    }
+                    $groupedLevel3Indicators[$level][] = $indicator;
+                }
+                
+                // Display in order: III, III(Phase 2)
+                $displayOrder = ['III', 'III(Phase 2)'];
+                
+                foreach($displayOrder as $level):
+                    if(isset($groupedLevel3Indicators[$level]) && count($groupedLevel3Indicators[$level]) > 0):
+                        $levelIndicators = $groupedLevel3Indicators[$level];
+                ?>
+                <div class="mb-4">
+                    <h6 class="border-bottom pb-2 text-dark">
+                        <i class="fas fa-chevron-right me-2"></i>
+                        LEVEL <?= $level ?>
+                    </h6>
+
+                    <?php foreach($levelIndicators as $indicator): 
+                        $hasDocuments = $indicator['document_count'] > 0;
+                        $isAssigned = $indicator['assignment_count'] > 0;
+                    ?>
+                    <div class="indicator-item mb-3 p-3 border rounded">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox"
+                                        id="indicator_<?= $indicator['indicator_id'] ?>"
+                                        <?= $hasDocuments ? 'checked' : '' ?> disabled>
+                                    <label class="form-check-label fw-medium"
+                                        for="indicator_<?= $indicator['indicator_id'] ?>">
+                                        <strong><?= $indicator['indicator_code'] ?>:</strong>
+                                        <?= htmlspecialchars($indicator['indicator_description']) ?>
+                                    </label>
+                                </div>
+
+                                <!-- Indicator Status -->
+                                <div class="mt-2">
+                                    <?php if($hasDocuments): ?>
+                                    <span class="badge bg-success me-2">
+                                        <i class="fas fa-check-circle me-1"></i> Documents Uploaded
+                                    </span>
+                                    <?php endif; ?>
+
+                                    <?php if($isAssigned): ?>
+                                    <span class="badge bg-primary me-2">
+                                        <i class="fas fa-user-check me-1"></i> Assigned
+                                    </span>
+                                    <?php endif; ?>
+
+                                    <span class="badge bg-secondary">
+                                        <i class="fas fa-file me-1"></i>
+                                        <?= $indicator['document_count'] ?> document(s)
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="ms-3">
+                                <?php 
+                                // Get document info for this indicator
+                                $docInfoStmt = $pdo->prepare("
+                                    SELECT d.* FROM documents d 
+                                    WHERE d.indicator_id = ? 
+                                    AND d.program_id = ?
+                                    LIMIT 1
+                                ");
+                                $docInfoStmt->execute([$indicator['indicator_id'], $program_id]);
+                                $docInfo = $docInfoStmt->fetch(PDO::FETCH_ASSOC);
+                                ?>
+
+                                <?php if(!$docInfo || empty($docInfo['file_path'])): ?>
+                                <span class="bg-danger p-2 rounded text-white">No Document</span>
+                                <?php else: ?>
+                                <button class="btn btn-sm btn-danger"
+                                    onclick="window.open('<?= base_url() . 'authentication/' . htmlspecialchars($docInfo['file_path']) ?>', '_blank')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+                <?php endif; endforeach; ?>
+            </div>
+        </div>
+        <?php endif; ?>
+    <?php }else{} ?>
+
+    <?php if($programData['current_level'] == 'IV' || $programData['current_level'] == 'IV(Phase 2)'){ ?>
+        <!-- LEVEL IV INDICATORS (No Areas/Parameters) -->
+        <?php if(count($level4Indicators) > 0): ?>
+        <div class="card mb-4 border-warning">
+            <div class="card-header bg-warning text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-trophy me-2"></i>
+                    SURVEY VISIT LEVEL IV
+                </h5>
+            </div>
+            <div class="card-body">
+                <?php 
+                // Group Level IV indicators by sub-level
+                $groupedLevel4Indicators = [];
+                foreach($level4Indicators as $indicator) {
+                    $level = $indicator['indicator_level'];
+                    if(!isset($groupedLevel4Indicators[$level])) {
+                        $groupedLevel4Indicators[$level] = [];
+                    }
+                    $groupedLevel4Indicators[$level][] = $indicator;
+                }
+                
+                // Display in order: IV, IV(Phase 2)
+                $displayOrder = ['IV', 'IV(Phase 2)'];
+                
+                foreach($displayOrder as $level):
+                    if(isset($groupedLevel4Indicators[$level]) && count($groupedLevel4Indicators[$level]) > 0):
+                        $levelIndicators = $groupedLevel4Indicators[$level];
+                ?>
+                <div class="mb-4">
+                    <h6 class="border-bottom pb-2 text-dark">
+                        <i class="fas fa-chevron-right me-2"></i>
+                        LEVEL <?= $level ?>
+                    </h6>
+
+                    <?php foreach($levelIndicators as $indicator): 
+                        $hasDocuments = $indicator['document_count'] > 0;
+                        $isAssigned = $indicator['assignment_count'] > 0;
+                    ?>
+                    <div class="indicator-item mb-3 p-3 border rounded">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox"
+                                        id="indicator_<?= $indicator['indicator_id'] ?>"
+                                        <?= $hasDocuments ? 'checked' : '' ?> disabled>
+                                    <label class="form-check-label fw-medium"
+                                        for="indicator_<?= $indicator['indicator_id'] ?>">
+                                        <strong><?= $indicator['indicator_code'] ?>:</strong>
+                                        <?= htmlspecialchars($indicator['indicator_description']) ?>
+                                    </label>
+                                </div>
+
+                                <!-- Indicator Status -->
+                                <div class="mt-2">
+                                    <?php if($hasDocuments): ?>
+                                    <span class="badge bg-success me-2">
+                                        <i class="fas fa-check-circle me-1"></i> Documents Uploaded
+                                    </span>
+                                    <?php endif; ?>
+
+                                    <?php if($isAssigned): ?>
+                                    <span class="badge bg-primary me-2">
+                                        <i class="fas fa-user-check me-1"></i> Assigned
+                                    </span>
+                                    <?php endif; ?>
+
+                                    <span class="badge bg-secondary">
+                                        <i class="fas fa-file me-1"></i>
+                                        <?= $indicator['document_count'] ?> document(s)
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="ms-3">
+                                <?php 
+                                // Get document info for this indicator
+                                $docInfoStmt = $pdo->prepare("
+                                    SELECT d.* FROM documents d 
+                                    WHERE d.indicator_id = ? 
+                                    AND d.program_id = ?
+                                    LIMIT 1
+                                ");
+                                $docInfoStmt->execute([$indicator['indicator_id'], $program_id]);
+                                $docInfo = $docInfoStmt->fetch(PDO::FETCH_ASSOC);
+                                ?>
+
+                                <?php if(!$docInfo || empty($docInfo['file_path'])): ?>
+                                <span class="bg-dark p-2 rounded text-white">No Document</span>
+                                <?php else: ?>
+                                <button class="btn btn-sm btn-dark"
+                                    onclick="window.open('<?= base_url() . 'authentication/' . htmlspecialchars($docInfo['file_path']) ?>', '_blank')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+                <?php endif; endforeach; ?>
+            </div>
+        </div>
+        <?php endif; ?>
+    <?php }else{} ?>
+
 </section>
 
 <!-- PPP Modal -->
@@ -775,7 +1047,8 @@
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Accreditation History - <?= htmlspecialchars($programData["program_name"]) ?></h5>
+                <h5 class="modal-title">Accreditation History - <?= htmlspecialchars($programData["program_name"]) ?>
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -808,7 +1081,8 @@
                                     <small class="text-muted"><?= $history['academic_year'] ?: '' ?></small>
                                 </td>
                                 <td><?= $history['accrediting_body'] ?></td>
-                                <td><?= $history['remarks'] ? htmlspecialchars(substr($history['remarks'], 0, 50)) . '...' : '-' ?></td>
+                                <td><?= $history['remarks'] ? htmlspecialchars(substr($history['remarks'], 0, 50)) . '...' : '-' ?>
+                                </td>
                             </tr>
                             <?php endforeach; ?>
                             <?php else: ?>
@@ -883,10 +1157,10 @@
 $(document).ready(function() {
     // Initialize tooltips
     $('[data-bs-toggle="tooltip"]').tooltip();
-    
+
     // Auto-open first area if available
     setTimeout(function() {
-        if($('.accordion-button').length > 0) {
+        if ($('.accordion-button').length > 0) {
             $('.accordion-button').first().click();
         }
     }, 500);
