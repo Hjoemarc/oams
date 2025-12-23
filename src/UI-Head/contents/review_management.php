@@ -1,4 +1,35 @@
 <?php
+// Fetch user's department info
+$userDeptStmt = $pdo->prepare("
+    SELECT 
+        u.user_id,
+        u.first_name,
+        u.last_name,
+        u.user_role,
+        d.department_id,
+        d.department_name,
+        d.department_code,
+        p.program_id
+    FROM users u
+    INNER JOIN departments d ON u.department_id = d.department_id
+    INNER JOIN programs p ON u.program_id = p.program_id
+    WHERE u.user_id = ?
+    AND u.user_role IN ('head', 'admin', 'department_head')
+");
+$userDeptStmt->execute([$user_id]);
+$userInfo = $userDeptStmt->fetch(PDO::FETCH_ASSOC);
+
+if (!$userInfo || empty($userInfo['department_id'])) {
+    echo "<div class='alert alert-danger'>Error: User not found or not authorized as department head.</div>";
+    return;
+}
+
+$department_id = $userInfo['department_id'];
+$program_id = $userInfo['program_id'];
+$department_name = $userInfo['department_name'];
+$department_code = $userInfo['department_code'];
+
+// Fetch user's specific program
 $departmentSTMT = $pdo->prepare("SELECT programs.program_id FROM programs 
 INNER JOIN users ON programs.program_id = users.program_id
 WHERE users.user_id = :user_id");
@@ -6,8 +37,14 @@ $departmentSTMT->execute([
     'user_id' => $user_id
 ]);
 $departmentData = $departmentSTMT->fetch(PDO::FETCH_ASSOC);
-
 $program_id = $departmentData["program_id"];
+
+// Fetch all programs in the department (for edit modal)
+$departmentProgramsStmt = $pdo->prepare("SELECT * FROM programs 
+    WHERE department_id = :department_id 
+    ORDER BY program_name");
+$departmentProgramsStmt->execute(['department_id' => $department_id]);
+$departmentPrograms = $departmentProgramsStmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Fetch all assignments that need review
 $stmtAssignments = $pdo->prepare("SELECT 
@@ -19,8 +56,10 @@ $stmtAssignments = $pdo->prepare("SELECT
     CONCAT(u.first_name, ' ', u.last_name) as faculty_name,
     ac.deadline,
     u.user_id as faculty_id,
+    i.indicator_id,
     i.indicator_code,
     i.indicator_description,
+    p.program_id,
     p.program_code,
     p.program_name,
     p.department_id,
@@ -34,7 +73,7 @@ INNER JOIN programs p ON a.program_id = p.program_id
 INNER JOIN departments d ON p.department_id = d.department_id
 INNER JOIN accreditation_cycles ac ON a.cycle_id = ac.cycle_id
 WHERE p.program_id = :program_id
-GROUP BY a.assignment_id  -- Add GROUP BY to prevent duplicates
+GROUP BY a.assignment_id
 ORDER BY ac.deadline ASC, a.assigned_at DESC");
 $stmtAssignments->execute([
     'program_id' => $program_id
@@ -82,6 +121,13 @@ $stmtDocuments->execute([
     'program_id' => $program_id
 ]);
 $documents = $stmtDocuments->fetchAll(PDO::FETCH_ASSOC);
+
+// Fetch programs for filter dropdown
+$stmtProgramsFilter = $pdo->prepare("SELECT program_id, program_code FROM programs
+    WHERE department_id = :department_id
+    ORDER BY program_code");
+$stmtProgramsFilter->execute(['department_id' => $department_id]);
+$programsForFilter = $stmtProgramsFilter->fetchAll(PDO::FETCH_ASSOC);
 
 $assignmentCount = 1;
 $documentCount = 1;
@@ -162,20 +208,17 @@ $documentCount = 1;
         </div>
     </div>
 
-
-
     <!-- Edit Assignment Modal -->
     <div class="modal fade" id="editAssignmentModal" tabindex="-1" aria-labelledby="editAssignmentModalLabel"
         aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="editAssignmentModalLabel">Edit Assignment</h5>
+                <div class="modal-header bg-gradient-primary">
+                    <h5 class="modal-title text-white" id="editAssignmentModalLabel">Edit Assignment</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <form id="edit-assignment-form">
-                        <!-- Hidden assignment ID -->
                         <input type="hidden" id="editAssignmentId" name="assignment_id">
 
                         <div class="row g-3">
@@ -186,44 +229,22 @@ $documentCount = 1;
                                 $stmt = $pdo->prepare("SELECT * FROM accreditation_cycles WHERE status = 'active'");
                                 $stmt->execute();
                                 $activeCycle = $stmt->fetch(PDO::FETCH_ASSOC);
-                            ?>
+                                ?>
                                 <input type="hidden" name="cycle_id"
-                                    value="<?= htmlspecialchars($activeCycle['cycle_id']) ?>">
+                                    value="<?= htmlspecialchars($activeCycle['cycle_id'] ?? '') ?>">
                                 <input type="text" class="form-control"
-                                    value="<?= htmlspecialchars($activeCycle['cycle_name'] . ' (' . $activeCycle['academic_year'] . ')') ?>"
+                                    value="<?= htmlspecialchars(($activeCycle['cycle_name'] ?? '') . ' (' . ($activeCycle['academic_year'] ?? '') . ')') ?>"
                                     readonly>
                             </div>
+                            
+                            <input type="hidden" name="indicator_id" id="indicator_id">
 
-                            <!-- Indicator -->
-                            <div class="col-md-6">
-                                <label class="form-label">Indicator *</label>
-                                <select name="indicator_id" id="editIndicatorId" class="form-select" required>
-                                    <option value="">Select Indicator</option>
-                                    <?php
-                                    $stmt = $pdo->prepare("SELECT * FROM accreditation_indicators");
-                                    $stmt->execute();
-                                    $indicators = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                                    foreach($indicators as $indi) : 
-                                ?>
-                                    <option value="<?= htmlspecialchars($indi["indicator_id"]) ?>">
-                                        <?= htmlspecialchars($indi["indicator_code"] . ' - ' . $indi["indicator_description"]) ?>
-                                    </option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-
-                            <!-- Program -->
+                            <!-- Program Selection -->
                             <div class="col-md-6">
                                 <label class="form-label">Program *</label>
-                                <select name="program_id" id="editProgramId" class="form-select" required
-                                    onchange="loadFacultyForProgram(this.value)">
+                                <select name="program_id" id="editProgramId" class="form-select" required>
                                     <option value="">Select Program</option>
-                                    <?php
-                                    $stmt = $pdo->prepare("SELECT * FROM programs");
-                                    $stmt->execute();
-                                    $programs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                                    foreach($programs as $prog) : 
-                                ?>
+                                    <?php foreach($departmentPrograms as $prog) : ?>
                                     <option value="<?= htmlspecialchars($prog["program_id"]) ?>">
                                         <?= htmlspecialchars($prog["program_name"] . ' (' . $prog["program_code"] . ')') ?>
                                     </option>
@@ -231,13 +252,13 @@ $documentCount = 1;
                                 </select>
                             </div>
 
-                            <!-- Faculty -->
-                            <!-- <div class="col-md-6">
+                            <!-- Faculty Selection -->
+                            <div class="col-md-6">
                                 <label class="form-label">Faculty *</label>
                                 <select name="faculty_id" id="editFacultyId" class="form-select" required>
                                     <option value="">Select Faculty</option>
                                 </select>
-                            </div> -->
+                            </div>
 
                             <!-- Status -->
                             <div class="col-md-6">
@@ -254,10 +275,10 @@ $documentCount = 1;
                             <div class="col-md-6">
                                 <label class="form-label">Assigned By</label>
                                 <input type="text" class="form-control"
-                                    value="<?= htmlspecialchars($_SESSION['adminData']['first_name'] ?? $_SESSION['QAData']['first_name'] ?? 'System') ?>"
+                                    value="<?= htmlspecialchars($userInfo['first_name'] . ' ' . $userInfo['last_name']) ?>"
                                     readonly>
                                 <input type="hidden" name="assigned_by"
-                                    value="<?= htmlspecialchars($_SESSION['adminData']['user_id'] ?? $_SESSION['QAData']['user_id'] ?? 0) ?>">
+                                    value="<?= htmlspecialchars($userInfo['user_id']) ?>">
                             </div>
                         </div>
 
@@ -272,7 +293,8 @@ $documentCount = 1;
             </div>
         </div>
     </div>
-    <!-- Delete assignemnt Modal -->
+
+    <!-- Delete assignment Modal -->
     <div class="modal fade" id="deleteAssignmentModal" tabindex="-1" aria-labelledby="deleteAssignmentModalLabel"
         aria-hidden="true">
         <div class="modal-dialog">
@@ -283,7 +305,7 @@ $documentCount = 1;
                 </div>
 
                 <div class="modal-body">
-                    Are you sure you want to delete this assignemnt?
+                    Are you sure you want to delete this assignment?
                     <input type="hidden" name="assignment_id" id="deleteAssignment_id">
                 </div>
 
@@ -294,6 +316,7 @@ $documentCount = 1;
             </form>
         </div>
     </div>
+
     <!-- TAB CONTENT -->
     <div class="tab-content" id="reviewTabContent">
 
@@ -316,17 +339,9 @@ $documentCount = 1;
                 <div class="col-md-3">
                     <select id="filterProgram" class="form-select">
                         <option value="">All Programs</option>
-                        <?php
-                        $stmtPrograms = $pdo->prepare("SELECT program_id, program_code FROM programs
-                        INNER JOIN departments ON programs.department_id = departments.department_id
-                        WHERE departments.department_id = :department_id
-                        ORDER BY program_code");
-                        $stmtPrograms->execute(['department_id' => $department_id]);
-                        $programs = $stmtPrograms->fetchAll(PDO::FETCH_ASSOC);
-                        foreach($programs as $program) {
+                        <?php foreach($programsForFilter as $program) {
                             echo '<option value="' . $program['program_code'] . '">' . htmlspecialchars($program['program_code']) . '</option>';
-                        }
-                        ?>
+                        } ?>
                     </select>
                 </div>
             </div>
@@ -355,23 +370,20 @@ $documentCount = 1;
                                 default: $statusBadge = 'badge bg-warning';
                             }
                             
-                            // Check if overdue
                             $isOverdue = $assignment['deadline'] && strtotime($assignment['deadline']) < time() && $assignment['assignment_status'] != 'completed';
                         ?>
                         <tr <?= $isOverdue ? 'class="table-warning"' : '' ?>>
                             <td><?= $assignmentCount++ ?></td>
                             <td>
                                 <strong><?= htmlspecialchars($assignment['faculty_name']) ?></strong><br>
-                                <small
-                                    class="text-muted"><?= htmlspecialchars($assignment['department_name']) ?></small>
+                                <small class="text-muted"><?= htmlspecialchars($assignment['department_name']) ?></small>
                             </td>
                             <td>
                                 <strong><?= htmlspecialchars($assignment['program_code']) ?></strong><br>
                                 <small><?= htmlspecialchars($assignment['program_name']) ?></small>
                             </td>
                             <td style="width: 3rem !important;">
-                                <span
-                                    class="badge bg-info"><?= htmlspecialchars($assignment['indicator_code']) ?></span><br>
+                                <span class="badge bg-info"><?= htmlspecialchars($assignment['indicator_code']) ?></span><br>
                                 <small><?= htmlspecialchars(substr($assignment['indicator_description'], 0, 20)) ?>...</small>
                             </td>
                             <td>
@@ -388,10 +400,10 @@ $documentCount = 1;
                             <td>
                                 <div class="btn-group btn-group-sm" role="group">
                                     <button type="button" class="btn btn-sm btn-primary" onclick="editAssignment('<?= $assignment['assignment_id'] ?>',
-                                        '<?= $assignment['indicator_id'] ?>',
                                         '<?= $assignment['program_id'] ?>',
-                                        '<?= $assignment['user_id'] ?>',
-                                        '<?= htmlspecialchars($assignment['status']) ?>')">
+                                        '<?= $assignment['faculty_id'] ?>',
+                                        '<?= $assignment['indicator_id'] ?>',
+                                        '<?= htmlspecialchars($assignment['assignment_status']) ?>')">
                                         <i class="fas fa-edit"></i> Edit
                                     </button>
 
@@ -429,11 +441,11 @@ $documentCount = 1;
                     <select id="filterProgramDocuments" class="form-select">
                         <option value="">All Programs</option>
                         <?php
-                        $stmtPrograms = $pdo->prepare("SELECT cycle_name FROM accreditation_cycles ORDER BY cycle_name");
-                        $stmtPrograms->execute();
-                        $programs = $stmtPrograms->fetchAll(PDO::FETCH_ASSOC);
-                        foreach($programs as $program) {
-                            echo '<option value="' . $program['cycle_name'] . '">' . htmlspecialchars($program['cycle_name']) . '</option>';
+                        $stmtCycles = $pdo->prepare("SELECT cycle_name FROM accreditation_cycles ORDER BY cycle_name");
+                        $stmtCycles->execute();
+                        $cycles = $stmtCycles->fetchAll(PDO::FETCH_ASSOC);
+                        foreach($cycles as $cycle) {
+                            echo '<option value="' . $cycle['cycle_name'] . '">' . htmlspecialchars($cycle['cycle_name']) . '</option>';
                         }
                         ?>
                     </select>
@@ -467,11 +479,9 @@ $documentCount = 1;
                         ?>
                         <tr>
                             <td><?= $documentCount++ ?></td>
-
                             <td><?= htmlspecialchars($document['uploader_name']) ?></td>
                             <td>
-                                <span
-                                    class="badge bg-info"><?= htmlspecialchars($document['indicator_code']) ?></span><br>
+                                <span class="badge bg-info"><?= htmlspecialchars($document['indicator_code']) ?></span><br>
                                 <small><?= htmlspecialchars(substr($document['indicator_description'], 0, 40)) ?>...</small>
                             </td>
                             <td>
@@ -507,7 +517,6 @@ $documentCount = 1;
                 </table>
             </div>
         </div>
-
     </div>
 
     <!-- MODALS -->
@@ -575,9 +584,9 @@ $documentCount = 1;
             </div>
         </div>
     </div>
-
 </section>
-<!-- assign faculty -->
+
+<!-- Create Assignment Modal -->
 <div class="modal fade" id="createAccounts" tabindex="-1" aria-labelledby="createAccountsLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -587,49 +596,48 @@ $documentCount = 1;
                     onclick="location.reload()"></button>
             </div>
             <?php
-                    $stmt = $pdo->prepare("SELECT accreditation_level FROM program_levels WHERE program_id = :program_id");
-                    $stmt->execute([
-                        'program_id' => $program_id
-                    ]);
-                    $accreditation_level_data = $stmt->fetch(PDO::FETCH_ASSOC);
-                    $accreditation_level = $accreditation_level_data["accreditation_level"] ?? 'none';
-       
-                        $stmt = $pdo->prepare("SELECT * FROM accreditation_cycles WHERE status = 'active'");
-                        $stmt->execute();
-                        $cycles = $stmt->fetch(PDO::FETCH_ASSOC);
-                        
-                        // Fetch all areas
-                        $stmt = $pdo->prepare("SELECT * FROM accreditation_areas ORDER BY area_number");
-                        $stmt->execute();
-                        $areas = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                        
-                        // fetch all aread level II
-                        $stmt = $pdo->prepare("
-                            SELECT ac.area_number, ac.description, ac.area_name, ac.area_id
-                            FROM accreditation_areas ac
-                            WHERE ac.area_number IN ('II','III','IV','V','VI','VII','VIII','IX')
-                            ORDER BY ac.area_number
-                        ");
-                        $stmt->execute();
-                        $areasII = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            // Get accreditation level
+            $stmt = $pdo->prepare("SELECT accreditation_level FROM program_levels WHERE program_id = :program_id");
+            $stmt->execute(['program_id' => $program_id]);
+            $accreditation_level_data = $stmt->fetch(PDO::FETCH_ASSOC);
+            $accreditation_level = $accreditation_level_data["accreditation_level"] ?? 'none';
 
-                        
-                        $stmt = $pdo->prepare("SELECT * FROM programs 
-                        INNER JOIN departments ON programs.department_id = departments.department_id
-                        WHERE programs.program_id = :program_id");
-                        $stmt->execute([
-                            'program_id' => $program_id
-                        ]);
-                        $programs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                        $cycle_name = $cycles["cycle_name"] ?? '';
-                        $academic_year = $cycles["academic_year"] ?? '';
-                        $cycle_id = $cycles["cycle_id"] ?? '';
-                    ?>
+            // Get active cycle
+            $stmt = $pdo->prepare("SELECT * FROM accreditation_cycles WHERE status = 'active'");
+            $stmt->execute();
+            $cycles = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            // Fetch all areas
+            $stmt = $pdo->prepare("SELECT * FROM accreditation_areas ORDER BY area_number");
+            $stmt->execute();
+            $areas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Fetch all areas level II
+            $stmt = $pdo->prepare("
+                SELECT ac.area_number, ac.description, ac.area_name, ac.area_id
+                FROM accreditation_areas ac
+                WHERE ac.area_number IN ('II','III','IV','V','VI','VII','VIII','IX')
+                ORDER BY ac.area_number
+            ");
+            $stmt->execute();
+            $areasII = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Fetch programs for current department
+            $stmt = $pdo->prepare("SELECT * FROM programs 
+                INNER JOIN departments ON programs.department_id = departments.department_id
+                WHERE programs.department_id = :department_id");
+            $stmt->execute(['department_id' => $department_id]);
+            $createModalPrograms = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            $cycle_name = $cycles["cycle_name"] ?? '';
+            $academic_year = $cycles["academic_year"] ?? '';
+            $cycle_id = $cycles["cycle_id"] ?? '';
+            ?>
             <div class="modal-body">
                 <form class="row g-1 align-items-start justify-content-start" id="assignment-form">
                     <input type="hidden" name="user_id" value="<?= htmlspecialchars($user_id) ?>">
                     <label class="form-label">Cycle</label>
-                    <div class=" col-12">
+                    <div class="col-12">
                         <input type="hidden" class="form-control" name="cycle_id"
                             value="<?= htmlspecialchars($cycle_id) ?>">
                         <p class="form-control text-dark border" readonly>
@@ -642,11 +650,11 @@ $documentCount = 1;
                             ?>
                         </p>
                     </div>
-                    <div class=" col-12">
+                    <div class="col-12">
                         <label class="form-label">Program</label>
                         <select name="program_id" id="program_id" class="form-select" required>
                             <option value="">Select Program</option>
-                            <?php foreach($programs as $prog) : ?>
+                            <?php foreach($createModalPrograms as $prog) : ?>
                             <option value="<?= htmlspecialchars($prog["program_id"]) ?>">
                                 <?= htmlspecialchars($prog["program_name"] . ' (' . $prog["program_code"] . ')') ?>
                             </option>
@@ -655,23 +663,16 @@ $documentCount = 1;
                     </div>
 
                     <!-- Faculty Selection (will be loaded dynamically) -->
-                    <div class=" col-12">
+                    <div class="col-12">
                         <label class="form-label">Faculty</label>
                         <select name="faculty_id" id="faculty_id" class="form-select" required disabled>
                             <option value="">Select Faculty</option>
-                            <!-- Faculty options will be loaded dynamically via AJAX -->
                         </select>
                     </div>
-                    <div class=" col-12">
 
-                        <?php 
-                        if($accreditation_level == 'I'){
-                    ?>
-                    </div>
-
-
+                    <?php if($accreditation_level == 'I'): ?>
                     <!-- Area Selection -->
-                    <div class=" col-12">
+                    <div class="col-12">
                         <label class="form-label">Area</label>
                         <select name="area_id" id="area_id" class="form-select" required>
                             <option value="">Select Area</option>
@@ -683,22 +684,20 @@ $documentCount = 1;
                         </select>
                     </div>
 
-                    <!-- Parameter Selection (will be loaded dynamically) -->
-                    <div class=" col-12">
+                    <!-- Parameter Selection -->
+                    <div class="col-12">
                         <label class="form-label">Parameter</label>
                         <select name="parameter_id" id="parameter_id" class="form-select" required disabled>
                             <option value="">Select Parameter</option>
-                            <!-- Parameters will be loaded dynamically via AJAX -->
                         </select>
                     </div>
 
                     <!-- Indicators Checkbox Section -->
-                    <div class=" col-12">
+                    <div class="col-12">
                         <label class="form-label">Indicators <span class="text-danger">*</span></label>
                         <div class="border rounded p-3 bg-light" id="indicators_container" style="display: none;">
                             <div class="form-check mb-2">
                                 <input class="form-check-input" type="checkbox" id="select_all_indicators">
-                                <!-- CHANGE THIS: Add "Level I" to label -->
                                 <label class="form-check-label fw-bold" for="select_all_indicators">
                                     Select All Indicators (Level I)
                                 </label>
@@ -710,16 +709,14 @@ $documentCount = 1;
                                 </div>
                             </div>
                         </div>
-                        <!-- CHANGE THIS: Change id from indicator_ids_II to indicator_ids -->
                         <input type="hidden" name="indicator_ids" id="indicator_ids" value="">
-                        <small class="text-muted">Note: You can select one or more indicators for this
-                            assignment.</small>
-                        <!-- CHANGE THIS: Update id -->
+                        <small class="text-muted">Note: You can select one or more indicators for this assignment.</small>
                         <div id="indicator_error" class="text-danger mt-1" style="display: none;">
                             Please select at least one indicator
                         </div>
                     </div>
-                    <?php }else if($accreditation_level == 'II'){ ?>
+                    
+                    <?php elseif($accreditation_level == 'II'): ?>
                     <div class="col-12">
                         <label class="form-label">Area</label>
                         <select name="area_id" id="area_id_II" class="form-select" required>
@@ -737,7 +734,6 @@ $documentCount = 1;
                         <label class="form-label">Parameter</label>
                         <select name="parameter_id" id="parameter_id_II" class="form-select" required disabled>
                             <option value="">Select Parameter</option>
-                            <!-- Parameters will be loaded dynamically via AJAX -->
                         </select>
                     </div>
 
@@ -747,7 +743,6 @@ $documentCount = 1;
                             <div class="form-check mb-2">
                                 <input class="form-check-input" type="checkbox" id="select_all_indicators_II">
                                 <label class="form-check-label fw-bold" for="select_all_indicators_II">
-                                    <!-- FIXED: Changed ID -->
                                     Select All Indicators
                                 </label>
                             </div>
@@ -759,21 +754,18 @@ $documentCount = 1;
                             </div>
                         </div>
                         <input type="hidden" name="indicator_ids" id="indicator_ids_II" value="">
-                        <!-- FIXED: This is Level II -->
-                        <small class="text-muted">Note: You can select one or more indicators for this
-                            assignment.</small>
+                        <small class="text-muted">Note: You can select one or more indicators for this assignment.</small>
                         <div id="indicator_error_II" class="text-danger mt-1" style="display: none;">
-                            <!-- FIXED: Changed ID -->
                             Please select at least one indicator
                         </div>
                     </div>
-                    <?php }else{ ?>
+                    
+                    <?php else: ?>
                     <?php 
-                        $stmtIndicators = $pdo->prepare("SELECT * FROM accreditation_indicators WHERE indicator_level = :indicator_level");
-                        $stmtIndicators->execute(['indicator_level' => $accreditation_level]);
-                        $indicators = $stmtIndicators->fetchAll(PDO::FETCH_ASSOC);
-                        ?>
-
+                    $stmtIndicators = $pdo->prepare("SELECT * FROM accreditation_indicators WHERE indicator_level = :indicator_level");
+                    $stmtIndicators->execute(['indicator_level' => $accreditation_level]);
+                    $indicators = $stmtIndicators->fetchAll(PDO::FETCH_ASSOC);
+                    ?>
                     <div class="col-12">
                         <label class="form-label">Select Indicators</label>
                         <div class="border rounded p-3 bg-light">
@@ -795,8 +787,7 @@ $documentCount = 1;
                                         <label class="form-check-label" for="indicator_<?= $indi['indicator_id'] ?>">
                                             <strong><?= htmlspecialchars($indi['indicator_code']) ?></strong>
                                             <?php if(!empty($indi['indicator_description'])): ?>
-                                            <br><small
-                                                class="text-muted"><?= htmlspecialchars($indi['indicator_description']) ?></small>
+                                            <br><small class="text-muted"><?= htmlspecialchars($indi['indicator_description']) ?></small>
                                             <?php endif; ?>
                                         </label>
                                     </div>
@@ -811,21 +802,10 @@ $documentCount = 1;
                         </div>
                         <small class="text-muted">Select indicators for this assignment.</small>
                     </div>
-
-                    <script>
-                    // Add "Select All" functionality for Level III+ indicators
-                    $(document).ready(function() {
-                        $('#select_all_indicators_advanced').change(function() {
-                            const isChecked = $(this).prop('checked');
-                            $('#indicators_checkboxes_advanced input[type="checkbox"]').prop('checked',
-                                isChecked);
-                        });
-                    });
-                    </script>
-                    <?php } ?>
+                    <?php endif; ?>
 
                     <!-- Status Selection -->
-                    <div class=" col-12">
+                    <div class="col-12">
                         <label class="form-label">Status</label>
                         <select name="status" id="status" class="form-select" required>
                             <option value="">Select status</option>
@@ -846,7 +826,8 @@ $documentCount = 1;
         </div>
     </div>
 </div>
-<!-- ASSIGN FACULTY JS ========================================================================== -->
+
+<!-- JavaScript Section -->
 <script>
 $(document).ready(function() {
     // When area selection changes, load parameters
@@ -874,7 +855,7 @@ $(document).ready(function() {
     // When program selection changes, load faculty
     $('#program_id').on('change', function() {
         var programId = $(this).val();
-        loadFacultyForProgram(programId);
+        loadFacultyForProgram(programId, '#faculty_id');
     });
 
     // Level II select all functionality
@@ -890,37 +871,408 @@ $(document).ready(function() {
         updateSelectAllIndicatorStateII();
     });
 
-    // Debug: Check if event handler is attached
-    $('#select_all_indicators_II').on('click', function() {
-        console.log('Select All II clicked:', $(this).prop('checked'));
+    // Handle program change in edit modal
+    $('#editProgramId').on('change', function() {
+        var programId = $(this).val();
+        if (programId) {
+            loadFacultyForProgram(programId, '#editFacultyId');
+            loadIndicatorsForProgram(programId, '#editIndicatorId');
+        } else {
+            $('#editFacultyId').html('<option value="">Select Faculty</option>').prop('disabled', true);
+            $('#editIndicatorId').html('<option value="">Select Indicator</option>').prop('disabled', true);
+        }
     });
 
-    $(document).on('change', '.indicator-checkbox-II', function() {
-        console.log('Individual checkbox changed:', $(this).val(), $(this).prop('checked'));
+    // Handle edit form submission
+    $('#edit-assignment-form').on('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = $(this).serialize();
+        const submitBtn = $('#editAssignmentSubmitBtn');
+        
+        submitBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i> Updating...');
+        
+        $.ajax({
+            url: base_url + "/authentication/action.php?action=update_assignment",
+            method: 'POST',
+            data: formData,
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 1) {
+                    Swal.fire({
+                        title: "Success!",
+                        text: response.message,
+                        icon: "success",
+                        toast: true,
+                        position: "top-end",
+                        timer: 3000,
+                        showConfirmButton: false,
+                    }).then(() => {
+                        $('#editAssignmentModal').modal('hide');
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        title: "Error",
+                        text: response.message,
+                        icon: "error",
+                        toast: true,
+                        position: "top-end",
+                        timer: 3000,
+                        showConfirmButton: false,
+                    });
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('AJAX Error:', error);
+                Swal.fire({
+                    title: "Connection Error",
+                    text: "Please check your connection and try again.",
+                    icon: "error",
+                    toast: true,
+                    position: "top-end",
+                    timer: 3000,
+                    showConfirmButton: false,
+                });
+            },
+            complete: function() {
+                submitBtn.prop('disabled', false).html('<i class="fas fa-save me-1"></i> Update Assignment');
+            }
+        });
+    });
+
+    // Handle delete form submission
+    $('#delete-assignment-form').on('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = $(this).serialize();
+        
+        $.ajax({
+            url: base_url + "/authentication/action.php?action=delete_assignment",
+            method: 'POST',
+            data: formData,
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 1) {
+                    Swal.fire({
+                        title: "Deleted!",
+                        text: response.message,
+                        icon: "success",
+                        toast: true,
+                        position: "top-end",
+                        timer: 3000,
+                        showConfirmButton: false,
+                    }).then(() => {
+                        $('#deleteAssignmentModal').modal('hide');
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        title: "Error",
+                        text: response.message,
+                        icon: "error",
+                        toast: true,
+                        position: "top-end",
+                        timer: 3000,
+                        showConfirmButton: false,
+                    });
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('AJAX Error:', error);
+                Swal.fire({
+                    title: "Connection Error",
+                    text: "Please check your connection and try again.",
+                    icon: "error",
+                    toast: true,
+                    position: "top-end",
+                    timer: 3000,
+                    showConfirmButton: false,
+                });
+            }
+        });
     });
 });
 
-$(document).on("submit", "#assignment-form", function(e) {
+// Faculty loading function
+function loadFacultyForProgram(programId, targetElement = '#faculty_id') {
+    var facultySelect = $(targetElement);
+
+    if (!programId || programId === '') {
+        facultySelect.html('<option value="">Select Faculty</option>').prop('disabled', true);
+        return;
+    }
+
+    facultySelect.html('<option value="">Loading faculty...</option>').prop('disabled', true);
+
+    $.ajax({
+        url: base_url + "/authentication/action.php?action=get_faculty",
+        method: 'POST',
+        dataType: 'json',
+        data: {
+            program_id: programId
+        },
+        success: function(response) {
+            if (response.status == 1 && response.data && response.data.length > 0) {
+                var options = '<option value="">Select Faculty</option>';
+                $.each(response.data, function(index, faculty) {
+                    options +=
+                        `<option value="${faculty.user_id}">${faculty.first_name} ${faculty.last_name} (${faculty.user_role})</option>`;
+                });
+                facultySelect.html(options).prop('disabled', false);
+            } else {
+                facultySelect.html('<option value="">No faculty available for this program</option>').prop(
+                    'disabled', true);
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('AJAX Error:', error);
+            facultySelect.html('<option value="">Error loading faculty</option>').prop('disabled', true);
+        }
+    });
+}
+
+// Indicators loading function for program
+function loadIndicatorsForProgram(programId, targetElement = '#editIndicatorId') {
+    var indicatorSelect = $(targetElement);
+
+    if (!programId || programId === '') {
+        indicatorSelect.html('<option value="">Select Indicator</option>').prop('disabled', true);
+        return;
+    }
+
+    indicatorSelect.html('<option value="">Loading indicators...</option>').prop('disabled', true);
+
+    $.ajax({
+        url: base_url + "/authentication/action.php?action=get_indicators_by_program",
+        method: 'POST',
+        dataType: 'json',
+        data: {
+            program_id: programId
+        },
+        success: function(response) {
+            if (response.status == 1 && response.data && response.data.length > 0) {
+                var options = '<option value="">Select Indicator</option>';
+                $.each(response.data, function(index, indicator) {
+                    options +=
+                        `<option value="${indicator.indicator_id}">
+                            ${indicator.indicator_code} - ${indicator.indicator_description.substring(0, 50)}...
+                        </option>`;
+                });
+                indicatorSelect.html(options).prop('disabled', false);
+            } else {
+                indicatorSelect.html('<option value="">No indicators available for this program</option>').prop('disabled', true);
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('AJAX Error:', error);
+            indicatorSelect.html('<option value="">Error loading indicators</option>').prop('disabled', true);
+        }
+    });
+}
+
+// Edit assignment function
+function editAssignment(assignmentId, programId, facultyId, indicatorId, status) {
+    document.getElementById('editAssignmentId').value = assignmentId;
+    document.getElementById('editProgramId').value = programId;
+    document.getElementById('indicator_id').value = indicatorId;
+    document.getElementById('editStatus').value = status;
+
+    loadFacultyForProgram(programId, '#editFacultyId');
+    loadIndicatorsForProgram(programId, '#editIndicatorId');
+
+    setTimeout(function() {
+        $('#editFacultyId').val(facultyId);
+        $('#editIndicatorId').val(indicatorId);
+    }, 1000);
+
+    var editModal = new bootstrap.Modal(document.getElementById('editAssignmentModal'));
+    editModal.show();
+}
+
+function setDeleteAssignment_id(assignment_id) {
+    document.getElementById('deleteAssignment_id').value = assignment_id;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    initAccreditationFrameworkTabs();
+});
+
+function initAccreditationFrameworkTabs() {
+    const tabButtons = document.querySelectorAll('#AccreditationFrameworkTab .nav-link');
+    const tabContents = document.querySelectorAll('.tab-pane');
+
+    // Initialize tabs - hide all except active
+    tabContents.forEach(content => {
+        if (!content.classList.contains('active')) {
+            content.style.display = 'none';
+        }
+    });
+
+    tabButtons.forEach((button) => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+
+            // Update active button
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
+
+            // Hide all tab contents
+            tabContents.forEach(content => {
+                content.style.display = 'none';
+                content.classList.remove('show', 'active');
+            });
+
+            // Show the selected tab
+            const targetId = this.getAttribute('data-bs-target');
+            const targetContent = document.querySelector(targetId);
+            if (targetContent) {
+                targetContent.style.display = 'block';
+                targetContent.classList.add('show', 'active');
+
+                if (targetId === '#assignments') {
+                    console.log("Assignments tab active");
+                } else if (targetId === '#documents') {
+                    console.log("Documents tab active");
+                } else if (targetId === '#assign-reviewer') {
+                    console.log("Assign Reviewer tab active");
+                }
+            }
+        });
+    });
+}
+
+// Load document reviews via AJAX
+function loadDocumentReviews(documentId) {
+    fetch('get_document_reviews.php?document_id=' + documentId)
+        .then(response => response.text())
+        .then(html => {
+            document.getElementById('reviewsList').innerHTML = html;
+            const modal = new bootstrap.Modal(document.getElementById('viewReviewsModal'));
+            modal.show();
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('reviewsList').innerHTML =
+                '<div class="alert alert-danger">Failed to load reviews</div>';
+        });
+}
+
+// View assignment details
+function viewAssignmentDetails(assignmentId) {
+    fetch('get_assignment_details.php?assignment_id=' + assignmentId)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 1) {
+                // Create modal content
+                const content = `
+                <div class="card">
+                    <div class="card-header">
+                        <h6>Assignment Details</h6>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Faculty:</strong> ${data.data.faculty_name}</p>
+                        <p><strong>Program:</strong> ${data.data.program_name}</p>
+                        <p><strong>Indicator:</strong> ${data.data.indicator_code}</p>
+                        <p><strong>Status:</strong> <span class="badge bg-${data.data.status_color}">${data.data.status}</span></p>
+                        <p><strong>Deadline:</strong> ${data.data.deadline}</p>
+                        <p><strong>Description:</strong> ${data.data.indicator_description}</p>
+                    </div>
+                </div>
+            `;
+
+                Swal.fire({
+                    title: 'Assignment Details',
+                    html: content,
+                    width: '600px',
+                    showCloseButton: true
+                });
+            }
+        });
+}
+</script>
+<script>
+$(document).ready(function() {
+    // When program selection changes
+    $('#program_id').on('change', function() {
+        var programId = $(this).val();
+        var userSelect = $('#user_id');
+
+        if (programId) {
+            // Enable faculty dropdown
+            userSelect.prop('disabled', false);
+
+            // Clear existing options except the first one
+            userSelect.find('option:not(:first)').remove();
+
+            // Show loading
+            userSelect.html('<option value="">Loading faculty...</option>');
+
+            // Fetch faculty for selected program via AJAX
+            $.ajax({
+                url: base_url + "/authentication/action.php?action=get_faculty",
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    program_id: programId
+                },
+                success: function(response) {
+                    if (response.status == 1 && response.data.length > 0) {
+                        // Clear loading message
+                        userSelect.html('<option value="">Select Faculty</option>');
+
+                        // Add faculty options
+                        $.each(response.data, function(index, faculty) {
+                            userSelect.append(
+                                $('<option>', {
+                                    value: faculty.user_id,
+                                    text: faculty.first_name + ' ' + faculty
+                                        .last_name +
+                                        (faculty.email ? ' (' + faculty
+                                            .email + ')' : '')
+                                })
+                            );
+                        });
+                    } else {
+                        userSelect.html(
+                            '<option value="">No faculty found for this program</option>'
+                        );
+                    }
+                },
+                error: function() {
+                    userSelect.html('<option value="">Error loading faculty</option>');
+                }
+            });
+        } else {
+            // Disable and reset faculty dropdown if no program selected
+            userSelect.prop('disabled', true);
+            userSelect.html('<option value="">Select Faculty</option>');
+        }
+    });
+
+});
+
+$(document).on("submit", "#assignment-form", function (e) { 
     e.preventDefault();
     const $form = $(this);
-
+    
     // Prevent double submission
     if ($form.data("isSubmitted")) return;
     $form.data("isSubmitted", true);
-
+    
     const $btn = $form.find("button[type='submit']");
     $btn.prop("disabled", true);
     $btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Processing...');
-
+    
     // Get accreditation level from PHP variable
     const accreditationLevel = '<?= $accreditation_level ?>';
-
+    
     // Build FormData properly with indicator IDs
     const formData = new FormData(this);
-
+    
     // Handle indicator IDs based on accreditation level
     let indicatorIds = [];
-
+    
     if (accreditationLevel === 'I') {
         // Level I: Get from hidden input
         const indicatorIdsStr = $('#indicator_ids').val();
@@ -944,7 +1296,7 @@ $(document).on("submit", "#assignment-form", function(e) {
         // Level II: Get from hidden input
         const indicatorIdsStr = $('#indicator_ids_II').val();
         console.log('Level II indicator string:', indicatorIdsStr); // Debug log
-
+        
         if (!indicatorIdsStr || indicatorIdsStr.trim() === '') {
             $('#indicator_error_II').show();
             $form.data("isSubmitted", false);
@@ -966,7 +1318,7 @@ $(document).on("submit", "#assignment-form", function(e) {
         $('input[name="indicator_ids[]"]:checked').each(function() {
             indicatorIds.push($(this).val());
         });
-
+        
         if (indicatorIds.length === 0) {
             $form.data("isSubmitted", false);
             $btn.prop("disabled", false).html('<i class="bi bi-person-plus-fill me-1"></i> Create Assignment');
@@ -982,21 +1334,21 @@ $(document).on("submit", "#assignment-form", function(e) {
             return;
         }
     }
-
+    
     console.log('Final indicator IDs to submit:', indicatorIds); // Debug log
-
+    
     // Clear any existing indicator_ids entries
     formData.delete('indicator_ids');
     formData.delete('indicator_ids[]');
-
+    
     // Add indicator IDs as array
     indicatorIds.forEach(id => {
         formData.append('indicator_ids[]', id);
     });
-
+    
     // Debug: Log what's being sent
     console.log('Submitting indicator IDs:', indicatorIds);
-
+    
     // Submit the form via AJAX
     $.ajax({
         url: base_url + "/authentication/action.php?action=assignment_form",
@@ -1005,7 +1357,7 @@ $(document).on("submit", "#assignment-form", function(e) {
         processData: false,
         contentType: false,
         dataType: "json",
-        success: function(response) {
+        success: function (response) {
             if (response.status === 1) {
                 Swal.fire({
                     title: "Success!",
@@ -1018,37 +1370,34 @@ $(document).on("submit", "#assignment-form", function(e) {
                 }).then(() => {
                     // Reset form and close modal
                     $form[0].reset();
-
+                    
                     // Hide indicators containers
                     $('#indicators_container').hide();
                     $('#indicators_container_II').hide();
-
+                    
                     // Reset selects
-                    $('#parameter_id, #parameter_id_II').prop('disabled', true).html(
-                        '<option value="">Select Parameter</option>');
-                    $('#faculty_id').prop('disabled', true).html(
-                        '<option value="">Select Faculty</option>');
-
+                    $('#parameter_id, #parameter_id_II').prop('disabled', true).html('<option value="">Select Parameter</option>');
+                    $('#faculty_id').prop('disabled', true).html('<option value="">Select Faculty</option>');
+                    
                     // Clear indicator checkboxes
-                    $('#indicators_checkboxes, #indicators_checkboxes_II, #indicators_checkboxes_advanced')
-                        .html(
-                            '<div class="col-12 text-center text-muted"><i class="bi bi-info-circle"></i> Select a parameter above to load indicators</div>'
-                        );
-
+                    $('#indicators_checkboxes, #indicators_checkboxes_II, #indicators_checkboxes_advanced').html(
+                        '<div class="col-12 text-center text-muted"><i class="bi bi-info-circle"></i> Select a parameter above to load indicators</div>'
+                    );
+                    
                     // Reset hidden inputs
                     $('#indicator_ids, #indicator_ids_II').val('');
-
+                    
                     // Reset select all checkboxes
                     $('#select_all_indicators, #select_all_indicators_II, #select_all_indicators_advanced')
                         .prop('checked', false)
                         .prop('disabled', true);
-
+                    
                     // Hide error messages
                     $('#indicator_error, #indicator_error_II').hide();
-
+                    
                     // Close modal
                     $('#createAccounts').modal('hide');
-
+                    
                     // Optional: Reload assignments table if you have one
                     if (typeof loadAssignments === 'function') {
                         loadAssignments();
@@ -1066,7 +1415,7 @@ $(document).on("submit", "#assignment-form", function(e) {
                 });
             }
         },
-        error: function(jqXHR, textStatus, err) {
+        error: function (jqXHR, textStatus, err) {
             console.error("AJAX error:", textStatus, err);
             Swal.fire({
                 title: "Connection Error",
@@ -1078,10 +1427,9 @@ $(document).on("submit", "#assignment-form", function(e) {
                 showConfirmButton: false,
             });
         },
-        complete: function() {
+        complete: function () {
             $form.data("isSubmitted", false);
-            $btn.prop("disabled", false).html(
-                '<i class="bi bi-person-plus-fill me-1"></i> Create Assignment');
+            $btn.prop("disabled", false).html('<i class="bi bi-person-plus-fill me-1"></i> Create Assignment');
         }
     });
 });
@@ -1094,7 +1442,7 @@ function updateIndicatorIdsII() {
     });
     var selectedString = selected.join(',');
     $('#indicator_ids_II').val(selectedString);
-
+    
     console.log('updateIndicatorIdsII called. Selected:', selected, 'String:', selectedString); // Debug log
 
     // Show/hide error message
@@ -1205,16 +1553,14 @@ function loadIndicatorsII(parameterId, selectedIndicatorIds = []) {
 
                 // Convert selectedIndicatorIds to array
                 if (typeof selectedIndicatorIds === 'string') {
-                    selectedIndicatorIds = selectedIndicatorIds.split(',').map(id => id.trim()).filter(id =>
-                        id !== '');
+                    selectedIndicatorIds = selectedIndicatorIds.split(',').map(id => id.trim()).filter(id => id !== '');
                 } else if (!Array.isArray(selectedIndicatorIds)) {
                     selectedIndicatorIds = [];
                 }
 
                 // Create checkboxes
                 $.each(response.data, function(index, indicator) {
-                    var isChecked = selectedIndicatorIds.includes(indicator.indicator_id
-                .toString());
+                    var isChecked = selectedIndicatorIds.includes(indicator.indicator_id.toString());
                     var checkboxId = 'indicator_II_' + indicator.indicator_id;
 
                     // Truncate description if too long
@@ -1375,8 +1721,7 @@ function loadIndicators(parameterId, selectedIndicatorIds = []) {
 
                 // Create checkboxes
                 $.each(response.data, function(index, indicator) {
-                    var isChecked = selectedIndicatorIds.includes(indicator.indicator_id
-                .toString());
+                    var isChecked = selectedIndicatorIds.includes(indicator.indicator_id.toString());
                     var checkboxId = 'indicator_' + indicator.indicator_id;
 
                     var fullDescription = indicator.indicator_description || '';
@@ -1436,8 +1781,6 @@ function loadIndicators(parameterId, selectedIndicatorIds = []) {
     });
 }
 
-// Level I helper functions
-// Level I helper functions - Make sure they're updating #indicator_ids
 function updateIndicatorIds() {
     var selectedValues = [];
     $('.indicator-checkbox:checked').each(function() {
@@ -1474,8 +1817,8 @@ function updateSelectAllIndicatorState() {
 }
 
 // Faculty loading function
-function loadFacultyForProgram(programId) {
-    var facultySelect = $('#faculty_id');
+function loadFacultyForProgram(programId, targetElement = '#faculty_id') {
+    var facultySelect = $(targetElement);
 
     if (!programId || programId === '') {
         facultySelect.html('<option value="">Select Faculty</option>').prop('disabled', true);
@@ -1520,64 +1863,38 @@ function loadFacultyForProgram(programId) {
 let selectedAssignmentId = null;
 let selectedDocumentId = null;
 
-function editAssignment(assignmentId, indicatorId, programId, facultyId, status) {
+function editAssignment(assignmentId, programId, facultyId, indicatorId, status) {
     // Set hidden assignment ID
     document.getElementById('editAssignmentId').value = assignmentId;
 
     // Set form values
-    document.getElementById('editIndicatorId').value = indicatorId;
     document.getElementById('editProgramId').value = programId;
+    document.getElementById('indicator_id').value = indicatorId;
     document.getElementById('editStatus').value = status;
 
-    // Clear faculty dropdown first
-    $('#editFacultyId').html('<option value="">Loading faculty...</option>').prop('disabled', true);
+    // Load faculty for this program - PASS THE TARGET ELEMENT
+    loadFacultyForProgram(programId, '#editFacultyId');
 
+    // Set selected faculty after a short delay to ensure dropdown is loaded
+    setTimeout(function() {
+        $('#editFacultyId').val(facultyId);
+    }, 1000); // Increased delay to ensure AJAX completes
 
     // Show modal
     var editModal = new bootstrap.Modal(document.getElementById('editAssignmentModal'));
     editModal.show();
 }
-// Function to load faculty for program (for CREATE modal - keep this separate)
-function loadFacultyForCreateProgram(programId) {
-    var userSelect = $('#user_id'); // This is for create modal
-
-    if (!programId || programId === '') {
-        userSelect.html('<option value="">Select Program First</option>').prop('disabled', true);
-        return;
+// Handle program change in edit modal
+$(document).on('change', '#editProgramId', function() {
+    var programId = $(this).val();
+    if (programId) {
+        loadFacultyForProgram(programId, '#editFacultyId');
+    } else {
+        $('#editFacultyId').html('<option value="">Select Faculty</option>').prop('disabled', true);
     }
-
-    userSelect.html('<option value="">Loading faculty...</option>').prop('disabled', true);
-
-    $.ajax({
-        url: base_url + "/authentication/action.php?action=get_faculty",
-        method: 'POST',
-        dataType: 'json',
-        data: {
-            program_id: programId
-        },
-        success: function(response) {
-            if (response.status == 1 && response.data.length > 0) {
-                userSelect.html('<option value="">Select Faculty</option>');
-                $.each(response.data, function(index, faculty) {
-                    userSelect.append(
-                        `<option value="${faculty.user_id}">
-                            ${faculty.first_name} ${faculty.last_name}
-                        </option>`
-                    );
-                });
-                userSelect.prop('disabled', false);
-            } else {
-                userSelect.html('<option value="">No faculty found</option>').prop('disabled', true);
-            }
-        },
-        error: function() {
-            userSelect.html('<option value="">Error loading faculty</option>').prop('disabled', true);
-        }
-    });
-}
-
+});
 function setDeleteAssignment_id(assignment_id) {
-    document.getElementById('deleteAssignment_id').value = assignment_id
+    document.getElementById('deleteAssignment_id').value = assignment_id;
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -1588,7 +1905,6 @@ function initAccreditationFrameworkTabs() {
     const tabButtons = document.querySelectorAll('#AccreditationFrameworkTab .nav-link');
     const tabContents = document.querySelectorAll('.tab-pane');
 
-    // Initialize tabs - hide all except active
     tabContents.forEach(content => {
         if (!content.classList.contains('active')) {
             content.style.display = 'none';
@@ -1599,144 +1915,23 @@ function initAccreditationFrameworkTabs() {
         button.addEventListener('click', function(e) {
             e.preventDefault();
 
-            // Update active button
             tabButtons.forEach(btn => btn.classList.remove('active'));
             this.classList.add('active');
 
-            // Hide all tab contents
             tabContents.forEach(content => {
                 content.style.display = 'none';
                 content.classList.remove('show', 'active');
             });
 
-            // Show the selected tab
             const targetId = this.getAttribute('data-bs-target');
             const targetContent = document.querySelector(targetId);
             if (targetContent) {
                 targetContent.style.display = 'block';
                 targetContent.classList.add('show', 'active');
-
-                if (targetId === '#assignments') {
-                    console.log("Assignments tab active");
-                } else if (targetId === '#documents') {
-                    console.log("Documents tab active");
-                } else if (targetId === '#assign-reviewer') {
-                    console.log("Assign Reviewer tab active");
-                }
             }
         });
     });
 }
-
-// Load document reviews via AJAX
-function loadDocumentReviews(documentId) {
-    fetch('get_document_reviews.php?document_id=' + documentId)
-        .then(response => response.text())
-        .then(html => {
-            document.getElementById('reviewsList').innerHTML = html;
-            const modal = new bootstrap.Modal(document.getElementById('viewReviewsModal'));
-            modal.show();
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            document.getElementById('reviewsList').innerHTML =
-                '<div class="alert alert-danger">Failed to load reviews</div>';
-        });
-}
-
-// View assignment details
-function viewAssignmentDetails(assignmentId) {
-    fetch('get_assignment_details.php?assignment_id=' + assignmentId)
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 1) {
-                // Create modal content
-                const content = `
-                <div class="card">
-                    <div class="card-header">
-                        <h6>Assignment Details</h6>
-                    </div>
-                    <div class="card-body">
-                        <p><strong>Faculty:</strong> ${data.data.faculty_name}</p>
-                        <p><strong>Program:</strong> ${data.data.program_name}</p>
-                        <p><strong>Indicator:</strong> ${data.data.indicator_code}</p>
-                        <p><strong>Status:</strong> <span class="badge bg-${data.data.status_color}">${data.data.status}</span></p>
-                        <p><strong>Deadline:</strong> ${data.data.deadline}</p>
-                        <p><strong>Description:</strong> ${data.data.indicator_description}</p>
-                    </div>
-                </div>
-            `;
-
-                Swal.fire({
-                    title: 'Assignment Details',
-                    html: content,
-                    width: '600px',
-                    showCloseButton: true
-                });
-            }
-        });
-}
-</script>
-<script>
-$(document).ready(function() {
-    // When program selection changes
-    $('#program_id').on('change', function() {
-        var programId = $(this).val();
-        var userSelect = $('#user_id');
-
-        if (programId) {
-            // Enable faculty dropdown
-            userSelect.prop('disabled', false);
-
-            // Clear existing options except the first one
-            userSelect.find('option:not(:first)').remove();
-
-            // Show loading
-            userSelect.html('<option value="">Loading faculty...</option>');
-
-            // Fetch faculty for selected program via AJAX
-            $.ajax({
-                url: base_url + "/authentication/action.php?action=get_faculty",
-                method: 'POST',
-                dataType: 'json',
-                data: {
-                    program_id: programId
-                },
-                success: function(response) {
-                    if (response.status == 1 && response.data.length > 0) {
-                        // Clear loading message
-                        userSelect.html('<option value="">Select Faculty</option>');
-
-                        // Add faculty options
-                        $.each(response.data, function(index, faculty) {
-                            userSelect.append(
-                                $('<option>', {
-                                    value: faculty.user_id,
-                                    text: faculty.first_name + ' ' + faculty
-                                        .last_name +
-                                        (faculty.email ? ' (' + faculty
-                                            .email + ')' : '')
-                                })
-                            );
-                        });
-                    } else {
-                        userSelect.html(
-                            '<option value="">No faculty found for this program</option>'
-                        );
-                    }
-                },
-                error: function() {
-                    userSelect.html('<option value="">Error loading faculty</option>');
-                }
-            });
-        } else {
-            // Disable and reset faculty dropdown if no program selected
-            userSelect.prop('disabled', true);
-            userSelect.html('<option value="">Select Faculty</option>');
-        }
-    });
-
-});
 </script>
 <!-- filtering js assignments -->
 <script>

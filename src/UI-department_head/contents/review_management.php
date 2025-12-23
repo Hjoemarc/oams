@@ -57,6 +57,7 @@ if (!empty($program_ids)) {
         CONCAT(u.first_name, ' ', u.last_name) as faculty_name,
         ac.deadline,
         u.user_id as faculty_id,
+        i.indicator_id,
         i.indicator_code,
         i.indicator_description,
         p.program_code,
@@ -243,8 +244,8 @@ $documentCount = 1;
         aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="editAssignmentModalLabel">Edit Assignment</h5>
+                <div class="modal-header bg-gradient-primary">
+                    <h5 class="modal-title text-white" id="editAssignmentModalLabel">Edit Assignment</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -266,7 +267,7 @@ $documentCount = 1;
                                     value="<?= htmlspecialchars(($activeCycle['cycle_name'] ?? '') . ' (' . ($activeCycle['academic_year'] ?? '') . ')') ?>"
                                     readonly>
                             </div>
-
+                            <input type="hidden" name="indicator_id" id="indicator_id">
                             <!-- Program Selection (only from department) -->
                             <div class="col-md-6">
                                 <label class="form-label">Program *</label>
@@ -431,6 +432,7 @@ $documentCount = 1;
                                     <button type="button" class="btn btn-sm btn-primary" onclick="editAssignment('<?= $assignment['assignment_id'] ?>',
                                         '<?= $assignment['program_id'] ?>',
                                         '<?= $assignment['faculty_id'] ?>',
+                                        '<?= $assignment['indicator_id'] ?>',
                                         '<?= htmlspecialchars($assignment['assignment_status']) ?>')">
                                         <i class="fas fa-edit"></i> Edit
                                     </button>
@@ -1480,8 +1482,8 @@ function updateSelectAllIndicatorState() {
 }
 
 // Faculty loading function
-function loadFacultyForProgram(programId) {
-    var facultySelect = $('#faculty_id');
+function loadFacultyForProgram(programId, targetElement = '#faculty_id') {
+    var facultySelect = $(targetElement);
 
     if (!programId || programId === '') {
         facultySelect.html('<option value="">Select Faculty</option>').prop('disabled', true);
@@ -1526,27 +1528,36 @@ function loadFacultyForProgram(programId) {
 let selectedAssignmentId = null;
 let selectedDocumentId = null;
 
-function editAssignment(assignmentId, programId, facultyId, status) {
+function editAssignment(assignmentId, programId, facultyId, indicatorId, status) {
     // Set hidden assignment ID
     document.getElementById('editAssignmentId').value = assignmentId;
 
     // Set form values
     document.getElementById('editProgramId').value = programId;
+    document.getElementById('indicator_id').value = indicatorId;
     document.getElementById('editStatus').value = status;
 
-    // Load faculty for this program
-    loadFacultyForProgram(programId);
+    // Load faculty for this program - PASS THE TARGET ELEMENT
+    loadFacultyForProgram(programId, '#editFacultyId');
 
     // Set selected faculty after a short delay to ensure dropdown is loaded
     setTimeout(function() {
         $('#editFacultyId').val(facultyId);
-    }, 500);
+    }, 1000); // Increased delay to ensure AJAX completes
 
     // Show modal
     var editModal = new bootstrap.Modal(document.getElementById('editAssignmentModal'));
     editModal.show();
 }
-
+// Handle program change in edit modal
+$(document).on('change', '#editProgramId', function() {
+    var programId = $(this).val();
+    if (programId) {
+        loadFacultyForProgram(programId, '#editFacultyId');
+    } else {
+        $('#editFacultyId').html('<option value="">Select Faculty</option>').prop('disabled', true);
+    }
+});
 function setDeleteAssignment_id(assignment_id) {
     document.getElementById('deleteAssignment_id').value = assignment_id;
 }
