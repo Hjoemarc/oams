@@ -107,11 +107,12 @@ function db_connect()
         ) ENGINE=InnoDB");
 
         // Create accreditation parameters (depends on accreditation_areas)
+       // Create accreditation parameters (depends on accreditation_areas)
         $pdo->exec("CREATE TABLE IF NOT EXISTS accreditation_parameters (
             parameter_id INT AUTO_INCREMENT PRIMARY KEY,
             area_id INT NOT NULL,
             parameter_code VARCHAR(20),
-            parameter_name VARCHAR(50),
+            parameter_name VARCHAR(255),
             FOREIGN KEY (area_id) REFERENCES accreditation_areas(area_id)
                 ON DELETE CASCADE
         ) ENGINE=InnoDB");
